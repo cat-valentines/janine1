@@ -8,10 +8,10 @@ export default function App() {
   return (
     <main className="container">
       <section className="hello">
-        <h1>Привет! 🚀</h1>
-        <p>Это твой проект. Пока тут пусто — самое интересное впереди.</p>
+        <h1>Hello! 🚀</h1>
+        <p>This is my practice!</p>
         <p className="hello__hint">
-          Открой Codex и опиши свою идею — этот экран станет твоим приложением.
+          Open codex.
         </p>
       </section>
     </main>
