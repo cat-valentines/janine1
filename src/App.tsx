@@ -8,7 +8,7 @@ export default function App() {
   return (
     <main className="container">
       <section className="hello">
-        <h1>Hello! 🚀</h1>
+        <h1>Hi there! 😺</h1>
         <p>This is my practice!</p>
         <p className="hello__hint">
           Open codex.
