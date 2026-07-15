@@ -74,6 +74,51 @@ export async function changeUsername(userId: string, name: string) {
 export const isTakenError = (error: unknown) =>
   typeof error === 'object' && error !== null && (error as { code?: string }).code === '23505';
 
+export interface AccountState {
+  onboarded: boolean; display_name: string; birthday: string | null; selected_character: string;
+}
+
+/**
+ * Whether this player has finished the setup screen.
+ *
+ * Returns null when we cannot tell (offline, or the tables are not up yet) —
+ * the caller must let them play rather than trap them on a setup form.
+ */
+export async function loadAccountState(userId: string) {
+  const { data, error } = await supabase.from('player_profiles')
+    .select('onboarded, display_name, birthday, selected_character')
+    .eq('user_id', userId).maybeSingle();
+  if (error) return null;
+  return data as AccountState | null;
+}
+
+export interface SetupFields {
+  username: string; birthday: string; character: string;
+}
+
+/** Saves the setup screen and marks the account finished, so others can find them. */
+export async function finishAccountSetup(userId: string, fields: SetupFields) {
+  const { error } = await supabase.from('player_profiles').update({
+    display_name: fields.username.trim(),
+    birthday: fields.birthday || null,
+    selected_character: fields.character,
+    onboarded: true,
+  }).eq('user_id', userId);
+  if (error) throw error;
+  const { error: authError } = await supabase.auth.updateUser({ data: { display_name: fields.username.trim() } });
+  if (authError) throw authError;
+}
+
+/**
+ * Sets a password for THIS GAME on an account that signed in with Google.
+ * It is never the player's Google password — Google's own screen handles that
+ * and we never see it.
+ */
+export async function setGamePassword(password: string) {
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
+}
+
 export interface MyStats {
   display_name: string; total_score: number; current_level: number; current_island: number;
 }

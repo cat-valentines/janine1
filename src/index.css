@@ -860,3 +860,22 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 @keyframes secret-bob { 0%, 100% { translate: -50% 0; } 50% { translate: -50% -5px; } }
 /* Invisible: you can still just about see yourself, so you can play. */
 .player.invisible { opacity: .38; filter: drop-shadow(0 0 6px #9fe6ff); }
+
+/* First-time account setup */
+.setup-page { min-height: 100vh; padding: 24px 16px 60px; background: linear-gradient(#1d2b2299, #1d2b2299), url('/assets/pixel-magical-forest.png') center / cover fixed; }
+.setup-header { max-width: 640px; margin: 0 auto 16px; padding: 18px; text-align: center; background: var(--paper); border: 4px solid #2f6b45; box-shadow: 6px 7px 0 #1f4a2f; }
+.setup-header h1 { font-family: "Courier New", monospace; font-size: 1.7rem; color: #235034; }
+.setup-header p { color: #5b4a35; font-size: .84rem; }
+.setup-card { display: grid; gap: 16px; max-width: 640px; margin: 0 auto; padding: 20px; background: var(--paper); border: 4px solid #b9a68d; box-shadow: 6px 7px 0 #8d7c66; }
+.setup-field { display: grid; gap: 5px; }
+.setup-field > span { font-family: "Courier New", monospace; font-size: .95rem; font-weight: 800; color: #3d3226; }
+.setup-field > small { color: #6d5c47; font-size: .74rem; line-height: 1.45; }
+.setup-field input { padding: 9px; border: 2px solid #a99b8d; background: #fffdf8; font-size: .9rem; }
+.setup-optional { padding: 1px 6px; background: #e7ded0; border-radius: 3px; color: #7b6a55; font-size: .6rem; font-style: normal; font-weight: 700; }
+.setup-username { display: flex; align-items: center; gap: 4px; }
+.setup-username i { color: #7b6a55; font-size: 1.1rem; font-style: normal; font-weight: 800; }
+.setup-username input { flex: 1; }
+.setup-characters { margin-top: 4px; }
+.setup-error { padding: 8px 10px; border: 2px solid #c0755f; background: #fdeee8; color: #9d4a30; font-size: .78rem; font-weight: 700; }
+.setup-save { padding: 13px; border: 0; border-radius: 999px; background: #27543a; box-shadow: 0 6px 0 #183825; color: white; font-size: 1rem; font-weight: 850; cursor: pointer; }
+.setup-save:disabled { opacity: .6; }
