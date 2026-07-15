@@ -1,19 +1,23 @@
-// Стартовый экран твоего проекта — пока он простой и пустой.
-// Когда понадобятся вход и база данных, готовые примеры уже лежат рядом:
-//   src/components/Auth.tsx      — вход / регистрация
-//   src/components/Entries.tsx   — чтение и запись в базу
-// Просто попроси Codex подключить их на экран.
+import { useState } from 'react';
+import { GamePage } from './pages/GamePage';
+import { SelectionPage } from './pages/SelectionPage';
+import { InvitePage } from './pages/InvitePage';
+import type { GameSelection } from './game/types';
 
 export default function App() {
-  return (
-    <main className="container">
-      <section className="hello">
-        <h1>Hi there! 😺</h1>
-        <p>This is my practice!</p>
-        <p className="hello__hint">
-          Open codex.
-        </p>
-      </section>
-    </main>
+  const [selection, setSelection] = useState<GameSelection | null>(null);
+  const [inviteCode, setInviteCode] = useState(() => new URLSearchParams(window.location.search).get('challenge'));
+
+  if (inviteCode) {
+    return <InvitePage code={inviteCode} onJoined={() => {
+      window.history.replaceState({}, '', window.location.pathname);
+      setInviteCode(null);
+    }} />;
+  }
+
+  return selection ? (
+    <GamePage selection={selection} onExit={() => setSelection(null)} />
+  ) : (
+    <SelectionPage onStart={setSelection} />
   );
 }

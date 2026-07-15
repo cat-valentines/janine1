@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "db:login": "supabase login",
+    "db:login": "supabase login --agent no",
     "db:link": "supabase link",
     "db:new": "supabase migration new",
     "db:push": "supabase db push",

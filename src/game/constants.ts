@@ -1,0 +1,10 @@
+export const FLOOR_COUNT = 10;
+export const PLAYER_STEP = 4;
+export const CAT_HIT_DISTANCE = 5;
+export const ITEM_DISTANCE = 4;
+export const HIT_INVINCIBILITY_MS = 1800;
+export const POWER_INVINCIBILITY_MS = 6000;
+export const COIN_SCORE = 100;
+export const POWER_SCORE = 250;
+export const SAFE_POSITION = { floor: 0, x: 8 };
+export const SECRET_PORTAL = { floor: 2, x: 88, destinationFloor: 3 };
