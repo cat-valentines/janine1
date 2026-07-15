@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { biomeAssets, gamesForIsland, islandCentre, islands } from '../game/islands';
+import { isIslandOpen, islandLock, streakNeededFor } from '../game/progress';
 
 interface MapPageProps {
   completedQuests: number;
+  streak: number;
   isMember: boolean;
   onBack: () => void;
   onPlay: (island: number) => void;
@@ -11,12 +13,12 @@ interface MapPageProps {
   onJoinMembership: () => void;
 }
 
-export function MapPage({ completedQuests, isMember, onBack, onPlay, onPlayGame, onInvite, onJoinMembership }: MapPageProps) {
+export function MapPage({ completedQuests, streak, isMember, onBack, onPlay, onPlayGame, onInvite, onJoinMembership }: MapPageProps) {
   const [selected, setSelected] = useState(1);
   const [mode, setMode] = useState<'solo' | 'friends'>('solo');
   const [playTime, setPlayTime] = useState('');
   const island = islands[selected - 1];
-  const isOpen = (item: typeof island) => completedQuests >= item.questsNeeded && (!item.membersOnly || isMember);
+  const isOpen = (item: typeof island) => isIslandOpen(item, { completedQuests, streak, isMember });
   const unlocked = isOpen(island);
   const route = islands.map((item) => { const { cx, cy } = islandCentre(item); return `${cx},${cy}`; }).join(' ');
 
@@ -43,7 +45,7 @@ export function MapPage({ completedQuests, isMember, onBack, onPlay, onPlayGame,
       })}
     </div>
     <section className="island-dock">
-      <div><img className="island-big-icon" src={biomeAssets[island.biome]} alt="" /><div><p className="card-kicker">Island {island.id} of 30</p><h2>{island.icon} {island.name}</h2><p>{island.membersOnly ? 'Royal Membership island' : `${island.questsNeeded} quests needed`} · {unlocked ? 'Ready to explore' : 'Locked'}</p></div></div>
+      <div><img className="island-big-icon" src={biomeAssets[island.biome]} alt="" /><div><p className="card-kicker">Island {island.id} of 30</p><h2>{island.icon} {island.name}</h2><p>{island.membersOnly ? 'Royal Membership island' : island.id <= 1 ? 'Your starting island' : `${island.questsNeeded} quests · 🔥 ${streakNeededFor(island.id)} day streak`} · {unlocked ? 'Ready to explore' : 'Locked'}</p></div></div>
       <div className="play-mode"><button className={mode === 'solo' ? 'selected' : ''} onClick={() => setMode('solo')}>🗡️ Play alone</button><button className={mode === 'friends' ? 'selected' : ''} onClick={() => setMode('friends')}>👥 With friends</button></div>
       {mode === 'friends' && <div className="schedule-row"><label>Meet-up time <input type="datetime-local" value={playTime} onChange={(event) => setPlayTime(event.target.value)} /></label><button onClick={onInvite}>Invite friends</button><span>🎙️ Live party chat opens when play begins.</span></div>}
       {island.membersOnly && !isMember && <button className="membership-button" onClick={onJoinMembership}>♛ See Royal Membership · $1.90/month</button>}
@@ -55,7 +57,7 @@ export function MapPage({ completedQuests, isMember, onBack, onPlay, onPlayGame,
           {game.prize > 0 ? <i>+{game.prize} gold</i> : <i className="coins">collect gold</i>}
         </button>)}
       </div>}
-      <button className="map-play" disabled={!unlocked} onClick={() => onPlay(island.id)}>{unlocked ? `Enter Island ${island.id}` : island.membersOnly && !isMember ? 'Royal Membership needed' : `Complete ${island.questsNeeded - completedQuests} more quests`}</button>
+      <button className="map-play" disabled={!unlocked} onClick={() => onPlay(island.id)}>{unlocked ? `Enter Island ${island.id}` : islandLock(island, { completedQuests, streak, isMember })}</button>
     </section>
   </main>;
 }

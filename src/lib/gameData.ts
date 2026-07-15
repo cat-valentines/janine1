@@ -40,6 +40,16 @@ export async function recordScore(score: number, level: number) {
   if (error) throw error;
 }
 
+export interface PlayDay { streak: number; longest_streak: number; days_played: number; last_played: string | null }
+
+/** Counts today as a day played, on the server's clock. Returns the new streak. */
+export async function recordPlayDay() {
+  const { data, error } = await supabase.rpc('record_play_day');
+  if (error) throw error;
+  const rows = (data ?? []) as PlayDay[];
+  return rows[0] ?? null;
+}
+
 export async function saveLevelProgress(userId: string, score: number, coins: number) {
   const { error } = await supabase.from('game_progress').upsert({
     user_id: userId, island: 1, level: 1, highest_floor: 10,

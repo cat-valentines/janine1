@@ -16,6 +16,9 @@ import { YourHousePage } from './YourHousePage';
 import { MapPage } from './MapPage';
 import { ProfilePage } from './ProfilePage';
 import { RoyalMemberPage } from './RoyalMemberPage';
+import { StreakPage } from './StreakPage';
+import { countTodayAsPlayed } from '../game/progress';
+import { recordPlayDay } from '../lib/gameData';
 import { HouseBuilderPage } from './HouseBuilderPage';
 // three.js is ~500KB — load it only when a player actually opens their house.
 const HouseWorldPage = lazy(() => import('./HouseWorldPage').then((m) => ({ default: m.HouseWorldPage })));
@@ -54,6 +57,11 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const [pongOpen, setPongOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [royalOpen, setRoyalOpen] = useState(false);
+  const [streakOpen, setStreakOpen] = useState(false);
+  const [streak, setStreak] = useState(savedProfile.streak);
+  const [daysPlayed, setDaysPlayed] = useState(savedProfile.daysPlayed);
+  const [lastPlayed, setLastPlayed] = useState(savedProfile.lastPlayed);
+  const [signedIn, setSignedIn] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [worldOpen, setWorldOpen] = useState(false);
   const [hungerOpen, setHungerOpen] = useState(false);
@@ -87,9 +95,9 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const selection = { character, setting, equippedItem };
   const collectible = characterCollectibles[character];
   useEffect(() => {
-    saveLocalProfile({ character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, completedQuests: savedProfile.completedQuests, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals });
+    saveLocalProfile({ character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, completedQuests: savedProfile.completedQuests, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals, streak, daysPlayed, lastPlayed });
     supabase.auth.getUser().then(({ data }) => { if (data.user) updateProfileSelection(data.user.id, selection).catch(() => undefined); });
-  }, [character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals]);
+  }, [character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals, streak, daysPlayed, lastPlayed]);
   // The house lives on the account: pull it in on login so it is never lost by
   // logging out or switching device, and fall back to this device when offline.
   useEffect(() => {
@@ -140,6 +148,28 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     supabase.auth.getUser().then(({ data }) => check(data.user ?? undefined));
     const { data } = supabase.auth.onAuthStateChange((_event, session) => check(session?.user ?? undefined));
     return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const local = countTodayAsPlayed({ lastPlayed, streak, daysPlayed });
+    if (local.lastPlayed !== lastPlayed) {
+      setStreak(local.streak);
+      setDaysPlayed(local.daysPlayed);
+      setLastPlayed(local.lastPlayed);
+    }
+    supabase.auth.getUser().then(({ data }) => {
+      setSignedIn(!!data.user);
+      if (!data.user) return;
+      // The server counts the day off its own clock, so winding the device
+      // forward cannot buy you islands.
+      recordPlayDay().then((row) => {
+        if (!row) return;
+        setStreak(row.streak);
+        setDaysPlayed(row.days_played);
+        setLastPlayed(row.last_played ?? local.lastPlayed);
+      }).catch(() => undefined);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -209,7 +239,12 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     onOpenGarden={() => { setHouseOpen(false); setBuilderOpen(true); }}
     onOpenMarket={() => { setHouseOpen(false); setHouseMarketOpen(true); }}
     onInvite={createFriendChallenge} onClose={() => setHouseOpen(false)} />;
-  if (mapOpen) return <MapPage completedQuests={savedProfile.completedQuests} isMember={isMember} onBack={() => setMapOpen(false)} onInvite={createFriendChallenge} onJoinMembership={() => { setMapOpen(false); setRoyalOpen(true); }} onPlay={() => onStart(selection)} onPlayGame={(gameId, islandName) => { setMapOpen(false); if (gameId === 'medicine') setMedicineIsland(islandName); else if (gameId === 'runner') setRunnerIsland(islandName); }} />;
+  if (mapOpen) return <MapPage streak={streak} completedQuests={savedProfile.completedQuests} isMember={isMember} onBack={() => setMapOpen(false)} onInvite={createFriendChallenge} onJoinMembership={() => { setMapOpen(false); setRoyalOpen(true); }} onPlay={() => onStart(selection)} onPlayGame={(gameId, islandName) => { setMapOpen(false); if (gameId === 'medicine') setMedicineIsland(islandName); else if (gameId === 'runner') setRunnerIsland(islandName); }} />;
+  if (streakOpen) return <StreakPage
+    streak={streak} daysPlayed={daysPlayed} completedQuests={savedProfile.completedQuests}
+    isMember={isMember} signedIn={signedIn}
+    onGetMembership={() => { setStreakOpen(false); setRoyalOpen(true); }}
+    onBack={() => setStreakOpen(false)} />;
   if (royalOpen) return <RoyalMemberPage isMember={isMember} onJoin={() => { setIsMember(true); setRoyalOpen(false); }} onLeave={() => setIsMember(false)} onBack={() => setRoyalOpen(false)} />;
   if (setup) return <AccountSetupPage
     userId={setup.userId}
@@ -225,6 +260,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <button className="friends-button" onClick={() => setFriendsOpen(true)}>Friends ☺</button>
       <button className="profile-button" onClick={() => setProfileOpen(true)} title="My profile" aria-label="My profile"><img src={characterAssets[character]} alt="" /></button>
       <button className={`crown-button ${isMember ? 'is-member' : ''}`} onClick={() => setRoyalOpen(true)} title="Royal Membership" aria-label="Royal Membership">♛</button>
+      <button className={`streak-button ${streak > 0 ? 'burning' : ''}`} onClick={() => setStreakOpen(true)} title="Your daily streak" aria-label="Your daily streak"><span>🔥</span><b>{streak}</b></button>
       {username ? <><span className="signed-in-name">☺ {username}</span><button className="auth-button login-button" onClick={() => supabase.auth.signOut()}>Log out</button></> : <><button className="auth-button login-button" onClick={() => setAuthMode('signin')}>Log in</button><button className="auth-button signup-button" onClick={() => setAuthMode('signup')}>Sign up</button></>}
       <header className="royal-header"><p className="eyebrow">A 30-island adventure</p><h1><span>♛</span> Magical Islands <span>♛</span></h1><p>Climb cozy towers, finish quests, and unlock a magical kingdom—alone or together with friends.</p></header>
       <ProfileTab character={character} setting={setting} accessory={accessory} coins={shopCoins} foodBalance={foodBalance}

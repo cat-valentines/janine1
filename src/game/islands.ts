@@ -1,5 +1,7 @@
 export type BiomeId = 'mosslight' | 'moonberry' | 'willowwish' | 'honeyfern' | 'cloudcap' | 'starling';
 
+import { QUESTS_TO_MOVE_UP } from './progress';
+
 export interface Island {
   id: number;
   name: string;
@@ -61,8 +63,8 @@ export const islands: Island[] = Array.from({ length: 30 }, (_, index) => {
     name: `${family.name} ${row + 1}`,
     icon: family.icon,
     biome: family.biome,
-    // 10 quests on an island unlocks the next one.
-    questsNeeded: index * 10,
+    // You need 20 quests behind you before any new island will open.
+    questsNeeded: index === 0 ? 0 : QUESTS_TO_MOVE_UP,
     membersOnly: [10, 20, 30].includes(index + 1),
     x: 5 + column * 14.8 + wobble(index + 1) * 2.5,
     y: 4 + row * 18.4 + wobble(index + 7) * 2.5,

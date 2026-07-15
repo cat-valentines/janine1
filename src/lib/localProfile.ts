@@ -25,6 +25,10 @@ export interface LocalProfile {
   supplies: Record<string, number>;
   /** Highest riddle level reached, so you carry on where you left off. */
   riddleLevel: number;
+  /** Daily streak, kept here for guests and as a fallback when offline. */
+  streak: number;
+  daysPlayed: number;
+  lastPlayed: string;
   /** How the house was obtained, so the page knows what to show. */
   houseSource: '' | 'built' | 'bought';
   houseName: string;
@@ -32,7 +36,7 @@ export interface LocalProfile {
   animals: Animal[];
 }
 
-const fallback: LocalProfile = { character: 'cottontail', setting: 'haunted', foodBalance: 24, shopCoins: 24, ownedItems: [], equippedItem: '', ownsHouse: false, placedFurniture: [], accessory: '', completedQuests: 0, isMember: false, realName: '', birthday: '', country: '', houseWorld: '', houseFurniture: [], houseSeason: '', houseSeed: 0, characterChosen: false, supplies: {}, riddleLevel: 1, houseSource: '', houseName: '', garden: [], animals: [] };
+const fallback: LocalProfile = { character: 'cottontail', setting: 'haunted', foodBalance: 24, shopCoins: 24, ownedItems: [], equippedItem: '', ownsHouse: false, placedFurniture: [], accessory: '', completedQuests: 0, isMember: false, realName: '', birthday: '', country: '', houseWorld: '', houseFurniture: [], houseSeason: '', houseSeed: 0, characterChosen: false, supplies: {}, riddleLevel: 1, streak: 0, daysPlayed: 0, lastPlayed: '', houseSource: '', houseName: '', garden: [], animals: [] };
 
 export function loadLocalProfile(): LocalProfile {
   try {
