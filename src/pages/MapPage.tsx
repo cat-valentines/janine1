@@ -21,7 +21,7 @@ export function MapPage({ completedQuests, isMember, onBack, onPlay, onPlayGame,
   const route = islands.map((item) => { const { cx, cy } = islandCentre(item); return `${cx},${cy}`; }).join(' ');
 
   return <main className="map-page">
-    <header className="map-top"><button onClick={onBack}>← Menu</button><div><p className="eyebrow">Tower Royal</p><h1>Magical Island Map</h1></div><span>⭐ {completedQuests} quests</span></header>
+    <header className="map-top"><button onClick={onBack}>← Menu</button><div><p className="eyebrow">Magical Islands</p><h1>Magical Island Map</h1></div><span>⭐ {completedQuests} quests</span></header>
     <div className="ocean-map" aria-label="30 magical islands in the ocean">
       <svg className="ocean-route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <polyline points={route} />

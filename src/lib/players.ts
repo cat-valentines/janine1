@@ -45,6 +45,35 @@ export async function removeFriend(myId: string, otherId: string) {
   if (error) throw error;
 }
 
+/** What a username has to look like, matching the sign-up form. */
+export const USERNAME_RULE = /^[A-Za-z0-9_]{3,24}$/;
+
+/**
+ * True when nobody else is using this username, false when it is taken, and
+ * null when we could not check — the database's unique index is the real
+ * guard, so a failed check just means "let the save decide".
+ */
+export async function isUsernameFree(name: string) {
+  const { data, error } = await supabase.rpc('username_available', { name });
+  if (error) return null;
+  return data as boolean;
+}
+
+/** Renames you everywhere: the profile other players search, and your login. */
+export async function changeUsername(userId: string, name: string) {
+  const clean = name.trim();
+  const { error } = await supabase.from('player_profiles')
+    .update({ display_name: clean }).eq('user_id', userId);
+  if (error) throw error;
+  // The header greeting reads the auth copy, so it has to move too.
+  const { error: authError } = await supabase.auth.updateUser({ data: { display_name: clean } });
+  if (authError) throw authError;
+}
+
+/** Postgres unique-violation: somebody already has that username. */
+export const isTakenError = (error: unknown) =>
+  typeof error === 'object' && error !== null && (error as { code?: string }).code === '23505';
+
 export interface MyStats {
   display_name: string; total_score: number; current_level: number; current_island: number;
 }

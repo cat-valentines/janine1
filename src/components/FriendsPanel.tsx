@@ -62,7 +62,7 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
 
   const invite = async () => {
     if (!selected) return;
-    try { const room = await createChallenge(userId); await sendFriendMessage(userId, selected.id, `🎮 Come play Tower Royal! ${challengeUrl(room.invite_code)}`); await openChat(selected.id); setNote(`Game invitation sent to @${selected.name}.`); }
+    try { const room = await createChallenge(userId); await sendFriendMessage(userId, selected.id, `🎮 Come play Magical Islands! ${challengeUrl(room.invite_code)}`); await openChat(selected.id); setNote(`Game invitation sent to @${selected.name}.`); }
     catch { setNote('Could not send the game invitation.'); }
   };
 
@@ -74,7 +74,7 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
 
   return <div className="friends-backdrop" onClick={onClose}><aside className="friends-panel" onClick={(event) => event.stopPropagation()}>
     <div className="shop-heading"><div><span className="card-kicker">Real players only</span><h2>Friends</h2></div><button onClick={onClose} aria-label="Close friends">×</button></div>
-    {!userId ? <div className="friend-login-note"><span>🔐</span><h3>Log in to find friends</h3><p>Only signed-up Tower Royal players appear here.</p></div> : <>
+    {!userId ? <div className="friend-login-note"><span>🔐</span><h3>Log in to find friends</h3><p>Only signed-up Magical Islands players appear here.</p></div> : <>
       <div className="friend-search"><span>🔍</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search real players by username…" maxLength={24} /></div>
       {search.trim().length >= 2 && <section className="player-search-results"><h3>Player search</h3>{found.map((player) => { const connected = friends.some((friend) => friend.id === player.id); return <div className="player-result" key={player.id}><span>{icons[player.character_id] ?? '🙂'}</span><strong>@{player.name}<small>Level {player.level}</small></strong><button className={`friend-star ${connected ? 'starred' : ''}`} onClick={() => toggleStar(player)} title={connected ? 'Unfriend this player' : 'Add this player as a friend'} aria-label={connected ? `Unfriend ${player.name}` : `Friend ${player.name}`}>{connected ? '★' : '☆'}</button></div>; })}{!found.length && <p className="friend-empty">No matching signed-up players.</p>}</section>}
       <div className="friend-list">{friends.map((friend) => <div className="friend-row" key={friend.id}><button className={selected?.id === friend.id ? 'selected' : ''} onClick={() => setSelected(friend)}><span>{icons[friend.character_id] ?? '🙂'}</span><strong>{friend.name}<small>{friend.status === 'accepted' ? `Level ${friend.level}` : friend.incoming ? 'Wants to be your friend' : 'Request sent'}</small></strong></button>{friend.status === 'pending' && friend.incoming && <button className="friend-accept" onClick={() => accept(friend)}>✓ Accept</button>}<button className="friend-star starred" onClick={() => unfriend(friend)} title="Unfriend this player" aria-label={`Unfriend ${friend.name}`}>★</button></div>)}{!friends.length && <p className="friend-empty">No friends yet. Search for a username above.</p>}</div>

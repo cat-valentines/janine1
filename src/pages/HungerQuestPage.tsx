@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { QuestEngine, type QuestSnapshot } from '../game/questEngine';
-import { RIVAL_COUNT, WIN_PRIZE, challengeForDay, pickupTypes, survivalKit, weapons, type Weapon } from '../game/hunger';
+import { MAX_MAGIC, RIVAL_COUNT, WIN_PRIZE, challengeForDay, pickupTypes, powers, survivalKit, weapons, type Weapon } from '../game/hunger';
 import { characterAssets } from '../game/characters';
 import type { CharacterId } from '../game/types';
 
@@ -65,6 +65,16 @@ export function HungerQuestPage({ character, onWin, onBack }: HungerQuestPagePro
             <i>⚔️ {item.damage} damage · 📏 {item.reach.toFixed(1)} reach</i>
           </button>)}
         </div>
+        <div className="power-strip">
+          <p className="card-kicker">You also have magic powers</p>
+          <div className="power-row">
+            {powers.map((power) => <div className="power-chip" key={power.id}>
+              <span>{power.icon}</span>
+              <div><strong>{power.name} <kbd>{power.key}</kbd></strong><small>{power.blurb}</small></div>
+            </div>)}
+          </div>
+          <p className="power-note">Magic refills on its own, so your powers always come back.</p>
+        </div>
         <p className="quest-hint">Find a 💧 water bottle, ⛺ tent and 🧣 blanket for your backpack, and grab ❤️ hearts, ⚔️ weapons and 🪄 magic wands hidden in the forest.</p>
       </section>
     </main>;
@@ -73,6 +83,7 @@ export function HungerQuestPage({ character, onWin, onBack }: HungerQuestPagePro
   const hearts = snapshot?.hearts ?? 3;
   const maxHearts = snapshot?.maxHearts ?? 3;
   const challenge = challengeForDay(snapshot?.day ?? 1);
+  const magic = snapshot?.magic ?? MAX_MAGIC;
 
   return <main className="quest-page">
     <div className="quest-stage">
@@ -92,13 +103,27 @@ export function HungerQuestPage({ character, onWin, onBack }: HungerQuestPagePro
           <small>🎒</small>
           {survivalKit.map((kind) => <b className={snapshot?.backpack.includes(kind) ? 'got' : ''} key={kind} title={pickupTypes[kind].name}>{pickupTypes[kind].icon}</b>)}
         </div>
+        <div className="quest-magic" aria-label={`${magic} of ${MAX_MAGIC} magic`}>
+          <small>✨ Magic</small>
+          <i><b style={{ width: `${(magic / MAX_MAGIC) * 100}%` }} /></i>
+        </div>
+        <div className="quest-powers">
+          {powers.map((power) => <b
+            className={`${power.id === 'fly' && snapshot?.flying ? 'on' : ''} ${power.id === 'invisible' && (snapshot?.invisibleFor ?? 0) > 0 ? 'on' : ''}`}
+            key={power.id}
+            title={`${power.name} — ${power.blurb} (${power.cost})`}
+          >
+            <span>{power.icon}</span>
+            <small>{power.key}</small>
+          </b>)}
+        </div>
       </div>
 
       <button className="quest-full" onClick={goFullscreen}>⛶ Fullscreen</button>
       <button className="quest-leave" onClick={onBack}>← Leave</button>
 
       {snapshot?.message && <p className="quest-message">{snapshot.message}</p>}
-      {snapshot?.status === 'playing' && <p className="quest-help">Click the forest to look around · <b>W A S D</b> move · <b>Space</b> jump · <b>click</b> to attack · <b>F</b> first person · <b>Esc</b> to let go</p>}
+      {snapshot?.status === 'playing' && <p className="quest-help"><b>↑ ↓</b> walk · <b>← →</b> turn · <b>Space</b> attack · <b>Shift</b> jump · <b>1</b> fly · <b>2</b> teleport · <b>3</b> invisible · <b>F</b> first person</p>}
 
       {snapshot?.status === 'dead' && <div className="quest-over">
         <div className="quest-over-card">

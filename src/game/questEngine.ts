@@ -1,8 +1,10 @@
 import * as THREE from 'three';
-import { ARENA, ARENA_TOP, buildForest, forestGround, isForestSolid, spawnRing } from './forest';
+import { ARENA, ARENA_TOP, WALL, buildForest, forestGround, isForestSolid, spawnRing } from './forest';
 import {
-  DAY_SECONDS, MAX_HEARTS, RIVAL_COUNT, START_HEARTS, challengeForDay, magicWand, mobTypes,
-  pickupTypes, weaponById, type MobType, type PickupKind, type Weapon,
+  DAY_SECONDS, FLY_DRAIN, FLY_HEIGHT, FLY_MIN, FLY_SPEED, INVISIBLE_COST, INVISIBLE_SECONDS,
+  MAGIC_REGEN, MAX_HEARTS, MAX_MAGIC, RIVAL_COUNT, START_HEARTS, TELEPORT_COOLDOWN, TELEPORT_COST,
+  TELEPORT_DIST, challengeForDay, magicWand, mobTypes, pickupTypes, weaponById,
+  type MobType, type PickupKind, type Weapon,
 } from './hunger';
 
 const EYE = 1.6;
@@ -11,6 +13,7 @@ const HEIGHT = 1.8;
 const GRAVITY = 22;
 const JUMP = 7.2;
 const SPEED = 4.8;
+const TURN = 2.2;          // radians per second, for the arrow keys
 const HURT_INVULN = 0.9;   // game seconds
 const GRACE = 8;           // game seconds before anyone hunts you
 
@@ -18,6 +21,7 @@ export interface QuestSnapshot {
   hearts: number; maxHearts: number;
   day: number; night: boolean; secondsLeft: number;
   alive: number; weapon: Weapon; backpack: PickupKind[];
+  magic: number; flying: boolean; invisibleFor: number;
   message: string; status: 'playing' | 'dead' | 'won';
 }
 
@@ -113,6 +117,12 @@ export class QuestEngine {
   private time = 0;
   private nextSwing = 0;
   private hurtUntil = 0;
+  private magic = MAX_MAGIC;
+  private flying = false;
+  private invisibleUntil = 0;
+  private nextTeleport = 0;
+  /** Tracks the last applied see-through state, so we only touch materials on a change. */
+  private fadedOut = false;
   private message = '';
   private messageUntil = 0;
   private status: 'playing' | 'dead' | 'won' = 'playing';
@@ -261,9 +271,14 @@ export class QuestEngine {
   // ---- input -------------------------------------------------------------
 
   private onKeyDown = (event: KeyboardEvent) => {
+    // The arrows would scroll the page and space would page-down, so hold them here.
+    if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) event.preventDefault();
     this.keys.add(event.code);
-    if (event.code === 'Space') event.preventDefault();
+    if (event.code === 'Space') this.swing();
     if (event.code === 'KeyF') this.view = this.view === 'third' ? 'first' : 'third';
+    if (event.code === 'Digit1') this.toggleFly();
+    if (event.code === 'Digit2') this.teleport();
+    if (event.code === 'Digit3') this.turnInvisible();
   };
   private onKeyUp = (event: KeyboardEvent) => this.keys.delete(event.code);
   private onPointerDown = () => {
@@ -293,6 +308,75 @@ export class QuestEngine {
     canvas.removeEventListener('pointerdown', this.onPointerDown);
     canvas.removeEventListener('pointermove', this.onPointerMove);
     document.removeEventListener('pointerlockchange', this.onLockChange);
+  }
+
+  // ---- powers ------------------------------------------------------------
+
+  private isInvisible() { return this.time < this.invisibleUntil; }
+
+  private toggleFly() {
+    if (this.status !== 'playing') return;
+    if (this.flying) { this.flying = false; this.say('🕊️ You float back down.', 1400); return; }
+    if (this.magic < FLY_MIN) { this.say('✨ Not enough magic to fly yet!', 1600); return; }
+    this.flying = true;
+    this.say('🕊️ Up you go — you are flying!', 1800);
+  }
+
+  private teleport() {
+    if (this.status !== 'playing') return;
+    if (this.time < this.nextTeleport) return;
+    if (this.magic < TELEPORT_COST) { this.say('✨ Not enough magic to teleport!', 1600); return; }
+    this.magic -= TELEPORT_COST;
+    this.nextTeleport = this.time + TELEPORT_COOLDOWN;
+    const ahead = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).negate().multiplyScalar(TELEPORT_DIST);
+    const to = this.position.clone().add(ahead);
+    to.x = THREE.MathUtils.clamp(to.x, WALL + 1, ARENA - WALL - 2);
+    to.z = THREE.MathUtils.clamp(to.z, WALL + 1, ARENA - WALL - 2);
+    // Land on solid ground rather than inside a hill.
+    to.y = this.flying ? this.position.y : this.standHeight(to.x, to.z, HEIGHT);
+    this.position.copy(to);
+    this.velocity.set(0, 0, 0);
+    this.say('✨ Teleported!', 1200);
+  }
+
+  private turnInvisible() {
+    if (this.status !== 'playing' || this.isInvisible()) return;
+    if (this.magic < INVISIBLE_COST) { this.say('✨ Not enough magic to vanish!', 1600); return; }
+    this.magic -= INVISIBLE_COST;
+    this.invisibleUntil = this.time + INVISIBLE_SECONDS;
+    this.say('👻 Invisible! Nobody can see you.', 1800);
+  }
+
+  private updateMagic(dt: number) {
+    if (this.flying) {
+      this.magic -= FLY_DRAIN * dt;
+      if (this.magic <= 0) {
+        this.magic = 0;
+        this.flying = false;
+        this.say('✨ Your magic ran out — you float down!', 2400);
+      }
+      return;
+    }
+    // Staying invisible costs magic too, otherwise you could hide forever.
+    if (this.isInvisible()) return;
+    this.magic = Math.min(MAX_MAGIC, this.magic + MAGIC_REGEN * dt);
+  }
+
+  /** Fade the avatar in and out instead of popping it, and only on a change. */
+  private applyInvisibility() {
+    const hidden = this.isInvisible();
+    if (hidden === this.fadedOut) return;
+    this.fadedOut = hidden;
+    this.avatar.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      materials.forEach((material) => {
+        material.transparent = hidden;
+        material.opacity = hidden ? 0.25 : 1;
+        material.needsUpdate = true;
+      });
+    });
   }
 
   // ---- combat ------------------------------------------------------------
@@ -400,8 +484,28 @@ export class QuestEngine {
     return grounded;
   }
 
+  /** Flying ignores gravity and hovers a fixed way above whatever is below you. */
+  private flyStep(move: THREE.Vector3, dt: number) {
+    const next = this.position.clone();
+    if (move.x && !this.blocked(next.x + move.x, next.y, next.z)) next.x += move.x;
+    if (move.z && !this.blocked(next.x, next.y, next.z + move.z)) next.z += move.z;
+    // The cliffs pen walkers in, so they have to pen fliers in too.
+    next.x = THREE.MathUtils.clamp(next.x, WALL + 1, ARENA - WALL - 2);
+    next.z = THREE.MathUtils.clamp(next.z, WALL + 1, ARENA - WALL - 2);
+    const target = forestGround(next.x, next.z, this.seed) + FLY_HEIGHT;
+    next.y = THREE.MathUtils.lerp(next.y, target, Math.min(1, dt * 3));
+    this.velocity.set(0, 0, 0);
+    this.position.copy(next);
+    this.grounded = false;
+  }
+
   private movePlayer(dt: number) {
-    const forward = (this.keys.has('KeyW') ? 1 : 0) - (this.keys.has('KeyS') ? 1 : 0);
+    // Left and right turn you, so the whole game is playable without a mouse.
+    const turn = (this.keys.has('ArrowLeft') ? 1 : 0) - (this.keys.has('ArrowRight') ? 1 : 0);
+    if (turn) this.yaw += turn * TURN * dt;
+
+    const forward = (this.keys.has('ArrowUp') || this.keys.has('KeyW') ? 1 : 0)
+      - (this.keys.has('ArrowDown') || this.keys.has('KeyS') ? 1 : 0);
     const strafe = (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0);
     const move = new THREE.Vector3(
       Math.sin(this.yaw) * -forward + Math.cos(this.yaw) * strafe,
@@ -409,9 +513,14 @@ export class QuestEngine {
       Math.cos(this.yaw) * -forward - Math.sin(this.yaw) * strafe,
     );
     const moving = move.lengthSq() > 0;
-    if (moving) move.normalize().multiplyScalar(SPEED * dt);
-    if (this.grounded && this.keys.has('Space')) this.velocity.y = JUMP;
-    this.grounded = this.step({ position: this.position, velocity: this.velocity }, move, dt, HEIGHT);
+    if (moving) move.normalize().multiplyScalar((this.flying ? FLY_SPEED : SPEED) * dt);
+
+    if (this.flying) {
+      this.flyStep(move, dt);
+    } else {
+      if (this.grounded && (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'))) this.velocity.y = JUMP;
+      this.grounded = this.step({ position: this.position, velocity: this.velocity }, move, dt, HEIGHT);
+    }
 
     // Swing arms and legs while walking, and settle them when still.
     this.walkPhase = moving ? this.walkPhase + dt * 9 : 0;
@@ -425,8 +534,9 @@ export class QuestEngine {
 
   private moveMobs(dt: number) {
     const now = this.time;
-    // Nobody hunts during the first few seconds, so the drop is survivable.
-    const hunting = this.time > GRACE;
+    // Nobody hunts during the first few seconds, so the drop is survivable,
+    // and nobody hunts you at all while you are invisible.
+    const hunting = this.time > GRACE && !this.isInvisible();
     this.mobs.forEach((mob) => {
       if (!mob.alive) return;
       const to = this.position.clone().sub(mob.position);
@@ -541,6 +651,8 @@ export class QuestEngine {
       secondsLeft: Math.ceil(night ? DAY_SECONDS * 2 - phase : DAY_SECONDS - phase),
       alive: this.rivalsLeft() + (this.status === 'dead' ? 0 : 1),
       weapon: this.weapon, backpack: [...this.backpack],
+      magic: Math.round(this.magic), flying: this.flying,
+      invisibleFor: Math.max(0, Math.ceil(this.invisibleUntil - this.time)),
       message: this.time < this.messageUntil ? this.message : '',
       status: this.status,
     };
@@ -567,9 +679,11 @@ export class QuestEngine {
     if (this.status === 'playing') {
       this.time += dt;
       this.updateSky(dt);
+      this.updateMagic(dt);
       this.movePlayer(dt);
       this.moveMobs(dt);
       this.collectPickups();
+      this.applyInvisibility();
     }
     this.updateCamera();
     this.renderer.render(this.scene, this.camera);

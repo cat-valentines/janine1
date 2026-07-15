@@ -24,7 +24,29 @@ export type Feature =
   | { kind: 'bump'; x: number; width: number; height: number }
   | { kind: 'gap'; x: number; width: number }
   | { kind: 'stairs'; x: number; width: number; height: number; steps: number }
-  | { kind: 'spikes'; x: number; width: number };
+  | { kind: 'spikes'; x: number; width: number }
+  // --- contraptions: these move, so they are not part of the static ground ---
+  /** A plank on a post. It tips under the truck's own weight. */
+  | { kind: 'seesaw'; x: number; width: number; height: number }
+  /** A platform that rides up and down. Time your run onto it. */
+  | { kind: 'platform'; x: number; width: number; height: number; rise: number; period: number }
+  /** A pendulum that swings across the track and clouts the truck. */
+  | { kind: 'hammer'; x: number; length: number; period: number; phase: number };
+
+/** Contraptions move every frame, so the static heightmap must ignore them. */
+export type MovingKind = 'seesaw' | 'platform' | 'hammer';
+export const isMoving = (feature: Feature): boolean =>
+  feature.kind === 'seesaw' || feature.kind === 'platform' || feature.kind === 'hammer';
+
+/** How far a seesaw plank can tip: far enough that each end reaches the floor. */
+export const seesawTilt = (feature: { width: number; height: number }) =>
+  Math.atan2(feature.height, feature.width / 2);
+/** How hard the truck's weight swings a plank, and how much the plank resists. */
+export const TILT_GAIN = 5.2;
+export const TILT_DAMP = 0.06;
+export const HAMMER_SWING = 1.15;
+export const HAMMER_HEAD = 26;
+export const HAMMER_KNOCK = 300;
 
 export interface DriveLevel {
   id: number; name: string; blurb: string; length: number;
@@ -34,68 +56,70 @@ export interface DriveLevel {
 
 export const driveLevels: DriveLevel[] = [
   {
-    id: 1, name: 'First Drive', blurb: 'Learn the truck. A hump and one jump.', length: 2800,
+    id: 1, name: 'First Drive', blurb: 'Flat ground, a tipping plank and one jump.', length: 2800,
     sky: '#a9dcf2', ground: '#7cb35a', groundDark: '#4f7d38',
     features: [
-      { kind: 'bump', x: 760, width: 200, height: 30 },
-      // Short, steep kicker -> gap -> matching landing ramp.
-      { kind: 'ramp', x: 1500, width: 80, height: 48 },
-      { kind: 'gap', x: 1580, width: 110 },
-      { kind: 'drop', x: 1690, width: 80, height: 48 },
-      { kind: 'bump', x: 2280, width: 160, height: 34 },
+      { kind: 'bump', x: 620, width: 180, height: 26 },
+      // Drive up the low end and your own weight tips it over.
+      { kind: 'seesaw', x: 1180, width: 300, height: 62 },
+      { kind: 'ramp', x: 1900, width: 80, height: 48 },
+      { kind: 'gap', x: 1980, width: 110 },
+      { kind: 'drop', x: 2090, width: 80, height: 48 },
+      { kind: 'platform', x: 2420, width: 150, height: 8, rise: 78, period: 3.4 },
     ],
   },
   {
-    id: 2, name: 'Up And Over', blurb: 'Stairs, a wall, and spikes to clear.', length: 3200,
+    id: 2, name: 'Tipping Point', blurb: 'Seesaws and a swinging hammer.', length: 3200,
     sky: '#f0c98a', ground: '#c2a55e', groundDark: '#8c7440',
     features: [
-      { kind: 'stairs', x: 650, width: 260, height: 84, steps: 7 },
-      { kind: 'block', x: 910, width: 130, height: 84 },
-      { kind: 'drop', x: 1040, width: 110, height: 84 },
-      { kind: 'ramp', x: 1500, width: 85, height: 54 },
-      { kind: 'gap', x: 1585, width: 130 },
-      { kind: 'drop', x: 1715, width: 85, height: 54 },
-      { kind: 'ramp', x: 2150, width: 85, height: 58 },
-      { kind: 'spikes', x: 2235, width: 130 },
-      { kind: 'bump', x: 2700, width: 180, height: 36 },
+      { kind: 'seesaw', x: 560, width: 300, height: 64 },
+      { kind: 'hammer', x: 1180, length: 150, period: 2.4, phase: 0 },
+      { kind: 'block', x: 1520, width: 120, height: 52 },
+      { kind: 'drop', x: 1640, width: 90, height: 52 },
+      { kind: 'ramp', x: 2020, width: 85, height: 54 },
+      { kind: 'gap', x: 2105, width: 130 },
+      { kind: 'drop', x: 2235, width: 85, height: 54 },
+      { kind: 'hammer', x: 2660, length: 165, period: 2, phase: 1.1 },
+      { kind: 'seesaw', x: 2880, width: 280, height: 58 },
     ],
   },
   {
-    id: 3, name: 'Big Air', blurb: 'Long jumps. Tip the truck to land flat.', length: 3600,
+    id: 3, name: 'Swing Time', blurb: 'Ride the lift. Duck the hammers.', length: 3600,
     sky: '#8fc8e0', ground: '#6fa060', groundDark: '#456b3c',
     features: [
-      { kind: 'ramp', x: 700, width: 90, height: 62 },
-      { kind: 'gap', x: 790, width: 170 },
-      { kind: 'drop', x: 960, width: 90, height: 62 },
-      { kind: 'block', x: 1500, width: 90, height: 44 },
-      { kind: 'ramp', x: 1950, width: 95, height: 70 },
-      { kind: 'gap', x: 2045, width: 200 },
-      { kind: 'drop', x: 2245, width: 95, height: 70 },
-      { kind: 'stairs', x: 2700, width: 220, height: 70, steps: 6 },
-      { kind: 'drop', x: 2920, width: 100, height: 70 },
-      { kind: 'ramp', x: 3150, width: 90, height: 60 },
-      { kind: 'gap', x: 3240, width: 160 },
-      { kind: 'drop', x: 3400, width: 90, height: 60 },
+      { kind: 'ramp', x: 640, width: 90, height: 58 },
+      { kind: 'gap', x: 730, width: 150 },
+      { kind: 'drop', x: 880, width: 90, height: 58 },
+      // A lift over a pit: get on at the bottom, ride up, drive off.
+      { kind: 'gap', x: 1340, width: 200 },
+      { kind: 'platform', x: 1370, width: 140, height: 8, rise: 96, period: 3.8 },
+      { kind: 'hammer', x: 1900, length: 160, period: 1.9, phase: 0 },
+      { kind: 'hammer', x: 2080, length: 160, period: 1.9, phase: Math.PI },
+      { kind: 'seesaw', x: 2400, width: 320, height: 70 },
+      { kind: 'spikes', x: 2900, width: 120 },
+      { kind: 'ramp', x: 3160, width: 90, height: 60 },
+      { kind: 'gap', x: 3250, width: 160 },
+      { kind: 'drop', x: 3410, width: 90, height: 60 },
     ],
   },
   {
-    id: 4, name: 'Truck Trouble', blurb: 'Everything at once. Good luck!', length: 4200,
+    id: 4, name: 'Truck Trouble', blurb: 'Every contraption at once. Good luck!', length: 4200,
     sky: '#cfd8e3', ground: '#9a9490', groundDark: '#69645f',
     features: [
-      { kind: 'bump', x: 560, width: 140, height: 36 },
-      { kind: 'ramp', x: 900, width: 85, height: 56 },
-      { kind: 'gap', x: 985, width: 150 },
-      { kind: 'drop', x: 1135, width: 85, height: 56 },
-      { kind: 'ramp', x: 1450, width: 85, height: 60 },
-      { kind: 'spikes', x: 1535, width: 130 },
-      { kind: 'stairs', x: 2000, width: 280, height: 100, steps: 8 },
-      { kind: 'drop', x: 2280, width: 120, height: 100 },
-      { kind: 'block', x: 2600, width: 90, height: 50 },
-      { kind: 'ramp', x: 3050, width: 95, height: 72 },
-      { kind: 'gap', x: 3145, width: 210 },
-      { kind: 'drop', x: 3355, width: 95, height: 72 },
-      { kind: 'ramp', x: 3700, width: 85, height: 58 },
-      { kind: 'spikes', x: 3785, width: 140 },
+      { kind: 'seesaw', x: 520, width: 290, height: 60 },
+      { kind: 'hammer', x: 1000, length: 155, period: 1.8, phase: 0.4 },
+      { kind: 'ramp', x: 1320, width: 85, height: 56 },
+      { kind: 'gap', x: 1405, width: 150 },
+      { kind: 'drop', x: 1555, width: 85, height: 56 },
+      { kind: 'stairs', x: 1900, width: 240, height: 84, steps: 7 },
+      { kind: 'drop', x: 2140, width: 110, height: 84 },
+      { kind: 'gap', x: 2440, width: 210 },
+      { kind: 'platform', x: 2470, width: 150, height: 8, rise: 104, period: 3.2 },
+      { kind: 'hammer', x: 2900, length: 165, period: 1.7, phase: 0 },
+      { kind: 'hammer', x: 3080, length: 165, period: 1.7, phase: Math.PI },
+      { kind: 'seesaw', x: 3380, width: 300, height: 66 },
+      { kind: 'ramp', x: 3820, width: 85, height: 58 },
+      { kind: 'spikes', x: 3905, width: 140 },
     ],
   },
 ];
@@ -118,14 +142,19 @@ export function onSpikes(x: number, level: DriveLevel) {
   return level.features.some((f) => f.kind === 'spikes' && within(x, f));
 }
 
-/** Height of the track at x. The same curve is used to draw and to drive on. */
+/**
+ * Height of the solid ground at x. The same curve is used to draw and to drive
+ * on. Contraptions are deliberately absent: they move, so the engine adds them
+ * on top of this every frame.
+ */
 export function trackY(x: number, level: DriveLevel) {
   if (x < FLAT_START) return GROUND_BASE;
   if (inGap(x, level)) return GAP_FLOOR;
   let y = GROUND_BASE;
   for (const f of level.features) {
-    if (!within(x, f)) continue;
-    const t = (x - f.x) / f.width;
+    if (isMoving(f)) continue;
+    if (!within(x, f as { x: number; width: number })) continue;
+    const t = (x - f.x) / (f as { width: number }).width;
     if (f.kind === 'ramp') y -= t * f.height;
     else if (f.kind === 'drop') y -= (1 - t) * f.height;
     else if (f.kind === 'block') y -= f.height;

@@ -1,9 +1,16 @@
-import { GROUND_BASE, coinsFor, inGap, onSpikes, trackY, truckById, type DriveLevel, type TruckColour } from './drive';
+import * as THREE from 'three';
+import {
+  GROUND_BASE, HAMMER_HEAD, HAMMER_KNOCK, HAMMER_SWING, TILT_DAMP, TILT_GAIN,
+  coinsFor, inGap, isMoving, onSpikes, seesawTilt, trackY, truckById,
+  type DriveLevel, type Feature, type TruckColour,
+} from './drive';
 
 const VIEW_W = 960;
 const VIEW_H = 420;
 
 // Physics tuned for a chunky, forgiving toy truck rather than a real vehicle.
+// It runs on a flat 2D plane — the same trick Drive Mad uses — and the 3D scene
+// below is only a view onto it, so none of these numbers change.
 const GRAVITY = 1250;
 const SPRING = 320;
 const DAMP = 22;
@@ -32,6 +39,24 @@ const WHEELS = [
   { x: 32, y: 17 },
 ];
 
+// ---- 3D scene -------------------------------------------------------------
+
+/** Physics is in pixels; the scene is in metres. One metre is 32 pixels. */
+const S = 1 / 32;
+/** Physics y grows downwards, three.js y grows upwards. */
+const up = (y: number) => -y * S;
+
+const ROAD_HALF = 3.2;
+/** How often the track is sampled. Reading trackY means the road you see and
+ *  the road you drive on can never drift apart. */
+const COLUMN = 4;
+const FLOOR_DEPTH = 420;
+const TRUCK_D = 1.5;
+/** The tallest step the truck can drive up onto a lift. */
+const PLATFORM_STEP = 30;
+const BANK_IN = 4.2;
+const BANK_OUT = 12;
+
 export interface DriveSnapshot {
   coins: number; totalCoins: number;
   distance: number; length: number;
@@ -49,11 +74,20 @@ interface EngineOptions {
 }
 
 export class DriveEngine {
-  private ctx: CanvasRenderingContext2D;
+  private renderer: THREE.WebGLRenderer;
+  private scene = new THREE.Scene();
+  private camera: THREE.PerspectiveCamera;
   private options: EngineOptions;
   private level: DriveLevel;
   private colour: TruckColour;
-  private coinSprite = new Image();
+
+  private truck = new THREE.Group();
+  private wheelMeshes: THREE.Object3D[] = [];
+  private seesaws: Array<{ feature: Extract<Feature, { kind: 'seesaw' }>; angle: number; spin: number; mesh: THREE.Object3D }> = [];
+  private platforms: Array<{ feature: Extract<Feature, { kind: 'platform' }>; y: number; mesh: THREE.Object3D }> = [];
+  private hammers: Array<{ feature: Extract<Feature, { kind: 'hammer' }>; angle: number; pivotY: number; nextHit: number; mesh: THREE.Object3D }> = [];
+  private coinMeshes: THREE.Mesh[] = [];
+  private disposables: Array<{ dispose: () => void }> = [];
 
   private x = 90;
   private y = GROUND_BASE - 40;
@@ -73,21 +107,358 @@ export class DriveEngine {
 
   private running = true;
   private last = 0;
+  private time = 0;
 
   constructor(canvas: HTMLCanvasElement, options: EngineOptions) {
     this.options = options;
     this.level = options.level;
     this.colour = truckById(options.truck) ?? { id: 'blue', name: 'Blue', body: '#a7cde4', dark: '#7fa9c6', trim: '#dceff9' };
-    canvas.width = VIEW_W;
-    canvas.height = VIEW_H;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas 2D is not available');
-    this.ctx = ctx;
-    this.coinSprite.src = '/assets/pixel-coin.png';
     this.coins = coinsFor(options.level);
+
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // `false` keeps three.js from overwriting the canvas's CSS size.
+    this.renderer.setSize(VIEW_W, VIEW_H, false);
+
+    const sky = new THREE.Color(this.level.sky);
+    this.scene.background = sky;
+    this.scene.fog = new THREE.Fog(sky, 34, 96);
+
+    this.camera = new THREE.PerspectiveCamera(45, VIEW_W / VIEW_H, 0.1, 200);
+    this.camera.position.set(this.x * S, up(this.y) + 2, 13);
+
+    const ambient = new THREE.HemisphereLight('#ffffff', this.level.groundDark, 2.1);
+    const sun = new THREE.DirectionalLight('#fff6e0', 1.5);
+    sun.position.set(-18, 34, 26);
+    this.scene.add(ambient, sun);
+
+    this.buildTrack();
+    this.buildContraptions();
+    this.buildBanks();
+    this.buildSpikes();
+    this.buildFinish();
+    this.buildCoins();
+    this.buildTruck();
+
     this.bind();
     this.last = performance.now();
     requestAnimationFrame(this.loop);
+  }
+
+  private track(geometry: THREE.BufferGeometry, material: THREE.Material) {
+    this.disposables.push(geometry, material);
+  }
+
+  /**
+   * The road, as one continuous ribbon following trackY, with side walls.
+   *
+   * Built from stacked blocks instead, every slope becomes a visible staircase
+   * of step faces — a ramp has to actually be a slope.
+   */
+  private buildTrack() {
+    // Contiguous stretches of track. A gap ends one and starts the next.
+    const runs: Array<Array<{ x: number; top: number }>> = [];
+    let run: Array<{ x: number; top: number }> = [];
+    for (let x = -90; x < this.level.length + 260; x += COLUMN) {
+      const mid = x + COLUMN / 2;
+      if (inGap(mid, this.level)) { if (run.length) { runs.push(run); run = []; } continue; }
+      run.push({ x: mid, top: trackY(mid, this.level) });
+    }
+    if (run.length) runs.push(run);
+
+    type Point = [number, number, number];
+    const quad = (out: number[], a: Point, b: Point, c: Point, d: Point) => {
+      out.push(...a, ...b, ...c, ...a, ...c, ...d);
+    };
+
+    const tops: number[] = [];
+    const sides: number[] = [];
+    const floor = up(GROUND_BASE + FLOOR_DEPTH);
+    const H = ROAD_HALF;
+
+    runs.forEach((slices) => {
+      for (let i = 0; i < slices.length - 1; i += 1) {
+        const x1 = slices[i].x * S;
+        const y1 = up(slices[i].top);
+        const x2 = slices[i + 1].x * S;
+        const y2 = up(slices[i + 1].top);
+        quad(tops, [x1, y1, -H], [x1, y1, H], [x2, y2, H], [x2, y2, -H]);
+        quad(sides, [x1, y1, H], [x1, floor, H], [x2, floor, H], [x2, y2, H]);
+        quad(sides, [x2, y2, -H], [x2, floor, -H], [x1, floor, -H], [x1, y1, -H]);
+      }
+      // Cap both ends, so a gap reads as a hole with walls rather than a void.
+      const first = slices[0];
+      const last = slices[slices.length - 1];
+      const fx = first.x * S;
+      const fy = up(first.top);
+      quad(sides, [fx, fy, -H], [fx, floor, -H], [fx, floor, H], [fx, fy, H]);
+      const lx = last.x * S;
+      const ly = up(last.top);
+      quad(sides, [lx, ly, H], [lx, floor, H], [lx, floor, -H], [lx, ly, -H]);
+    });
+
+    const surface = new THREE.MeshLambertMaterial({ color: this.level.groundDark });
+    const under = new THREE.MeshLambertMaterial({ color: new THREE.Color(this.level.groundDark).multiplyScalar(0.58) });
+    this.disposables.push(surface, under);
+
+    [[tops, surface], [sides, under]].forEach(([data, material]) => {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(data as number[], 3));
+      // Unindexed triangles, so this gives each face its own flat normal.
+      geometry.computeVertexNormals();
+      this.disposables.push(geometry);
+      this.scene.add(new THREE.Mesh(geometry, material as THREE.Material));
+    });
+  }
+
+  /** Seesaws, lifts and hammers: the parts of the course that move. */
+  private buildContraptions() {
+    const plankMat = new THREE.MeshLambertMaterial({ color: '#a9773f' });
+    const metalMat = new THREE.MeshLambertMaterial({ color: '#6f6b74' });
+    const headMat = new THREE.MeshLambertMaterial({ color: '#b5443a' });
+    this.disposables.push(plankMat, metalMat, headMat);
+
+    this.level.features.forEach((feature) => {
+      if (!isMoving(feature)) return;
+
+      if (feature.kind === 'seesaw') {
+        const plankGeo = new THREE.BoxGeometry(feature.width * S, 7 * S, ROAD_HALF * 2);
+        const postGeo = new THREE.BoxGeometry(14 * S, feature.height * S, 0.5);
+        this.disposables.push(plankGeo, postGeo);
+        const pivotX = feature.x + feature.width / 2;
+        // The plank hangs off a group centred on the pivot, so rotating the
+        // group is the same as the plank tipping about its post.
+        const group = new THREE.Group();
+        group.position.set(pivotX * S, up(GROUND_BASE - feature.height), 0);
+        group.add(new THREE.Mesh(plankGeo, plankMat));
+        const post = new THREE.Mesh(postGeo, metalMat);
+        post.position.set(pivotX * S, up(GROUND_BASE - feature.height / 2), 0);
+        this.scene.add(group, post);
+        // Rests tipped towards the truck, so there is a low end to drive up.
+        this.seesaws.push({ feature, angle: -seesawTilt(feature), spin: 0, mesh: group });
+      }
+
+      if (feature.kind === 'platform') {
+        const geo = new THREE.BoxGeometry(feature.width * S, 10 * S, ROAD_HALF * 2);
+        this.disposables.push(geo);
+        const mesh = new THREE.Mesh(geo, metalMat);
+        this.scene.add(mesh);
+        this.platforms.push({ feature, y: GROUND_BASE - feature.height, mesh });
+      }
+
+      if (feature.kind === 'hammer') {
+        const armGeo = new THREE.BoxGeometry(6 * S, feature.length * S, 6 * S);
+        const headGeo = new THREE.BoxGeometry(HAMMER_HEAD * 2 * S, HAMMER_HEAD * 1.5 * S, ROAD_HALF * 1.5);
+        this.disposables.push(armGeo, headGeo);
+        const pivotY = GROUND_BASE - feature.length - 46;
+        const group = new THREE.Group();
+        group.position.set(feature.x * S, up(pivotY), 0);
+        const arm = new THREE.Mesh(armGeo, metalMat);
+        // Hang the arm and head below the pivot the group turns about.
+        arm.position.y = -feature.length * S / 2;
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.y = -feature.length * S;
+        group.add(arm, head);
+        this.scene.add(group);
+        this.hammers.push({ feature, angle: 0, pivotY, nextHit: 0, mesh: group });
+      }
+    });
+  }
+
+  /** The surface of a seesaw at x, or null when x is off the end of the plank. */
+  private seesawSurface(seesaw: { feature: Extract<Feature, { kind: 'seesaw' }>; angle: number }, x: number) {
+    const { feature, angle } = seesaw;
+    const pivotX = feature.x + feature.width / 2;
+    const half = (feature.width / 2) * Math.cos(angle);
+    if (x < pivotX - half || x > pivotX + half) return null;
+    return (GROUND_BASE - feature.height) + (x - pivotX) * Math.tan(angle);
+  }
+
+  /**
+   * The top of a lift at x, or null when the truck is not above it.
+   *
+   * One-way on purpose: a solid platform hovering over the ground would put an
+   * invisible vertical wall across the track, and the truck simply hits it.
+   */
+  private platformSurface(platform: { feature: Extract<Feature, { kind: 'platform' }>; y: number }, x: number) {
+    const { feature } = platform;
+    if (x < feature.x || x > feature.x + feature.width) return null;
+    const wheelBottom = this.y + WHEEL_R + 17;
+    if (wheelBottom > platform.y + PLATFORM_STEP) return null;
+    return platform.y;
+  }
+
+  private stepContraptions(dt: number) {
+    this.seesaws.forEach((seesaw) => {
+      const limit = seesawTilt(seesaw.feature);
+      const pivotX = seesaw.feature.x + seesaw.feature.width / 2;
+      const half = seesaw.feature.width / 2;
+      const surface = this.seesawSurface(seesaw, this.x);
+      // "Loaded" means the truck is actually resting on the plank.
+      const loaded = surface !== null && Math.abs(this.y + 21 - surface) < 26;
+      if (loaded) {
+        // Weight past the pivot tips it — that is the whole trick of a seesaw.
+        seesaw.spin += ((this.x - pivotX) / half) * TILT_GAIN * dt;
+      } else {
+        seesaw.spin += Math.sign(seesaw.angle || -1) * TILT_GAIN * 0.35 * dt;
+      }
+      seesaw.spin *= Math.pow(TILT_DAMP, dt);
+      seesaw.angle += seesaw.spin * dt;
+      if (seesaw.angle > limit) { seesaw.angle = limit; seesaw.spin = 0; }
+      if (seesaw.angle < -limit) { seesaw.angle = -limit; seesaw.spin = 0; }
+    });
+
+    this.platforms.forEach((platform) => {
+      const { feature } = platform;
+      const t = (Math.cos((this.time / feature.period) * Math.PI * 2) * 0.5 + 0.5);
+      platform.y = GROUND_BASE - feature.height - feature.rise * (1 - t);
+    });
+
+    this.hammers.forEach((hammer) => {
+      hammer.angle = HAMMER_SWING * Math.sin((this.time / hammer.feature.period) * Math.PI * 2 + hammer.feature.phase);
+    });
+  }
+
+  /** A hammer head that reaches the truck knocks it flying. */
+  private hammerHits() {
+    this.hammers.forEach((hammer) => {
+      if (this.time < hammer.nextHit) return;
+      const headX = hammer.feature.x + Math.sin(hammer.angle) * hammer.feature.length;
+      const headY = hammer.pivotY + Math.cos(hammer.angle) * hammer.feature.length;
+      const dx = this.x - headX;
+      const dy = this.y - headY;
+      const distance = Math.hypot(dx, dy);
+      if (distance > HAMMER_HEAD + 32) return;
+      hammer.nextHit = this.time + 0.6;
+      const nx = dx / (distance || 1);
+      const ny = dy / (distance || 1);
+      this.vx += nx * HAMMER_KNOCK;
+      this.vy += ny * HAMMER_KNOCK - 140;
+      // Spin the truck the way the head was travelling.
+      this.spin += Math.cos(hammer.angle) * (nx > 0 ? 5 : -5);
+    });
+  }
+
+  /** Grassy banks either side, with trees, so the road runs through somewhere. */
+  private buildBanks() {
+    const width = BANK_OUT - BANK_IN;
+    const length = this.level.length + 400;
+    const geometry = new THREE.BoxGeometry(length * S, 6, width);
+    const material = new THREE.MeshLambertMaterial({ color: this.level.ground });
+    this.track(geometry, material);
+    [-1, 1].forEach((side) => {
+      const bank = new THREE.Mesh(geometry, material);
+      bank.position.set((this.level.length / 2 - 90) * S, up(GROUND_BASE) - 3, side * (BANK_IN + width / 2));
+      this.scene.add(bank);
+    });
+
+    const trunkGeo = new THREE.BoxGeometry(0.34, 1.5, 0.34);
+    const leafGeo = new THREE.BoxGeometry(1.7, 1.7, 1.7);
+    const trunkMat = new THREE.MeshLambertMaterial({ color: '#5f4026' });
+    const leafMat = new THREE.MeshLambertMaterial({ color: this.level.groundDark });
+    this.track(trunkGeo, trunkMat);
+    this.disposables.push(leafGeo, leafMat);
+    // Far bank only. The camera sits out past the near bank, so a tree on this
+    // side of the road would stand directly between it and the truck.
+    for (let x = -60; x < this.level.length + 200; x += 95) {
+      // Two staggered rows, so the backdrop has some depth to it.
+      const row = (x / 95) % 2 === 0 ? 0 : 1;
+      const z = -(BANK_IN + 1.8 + row * 3.4 + ((x * 7) % 24) / 10);
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.set(x * S, up(GROUND_BASE) + 0.75, z);
+      const leaves = new THREE.Mesh(leafGeo, leafMat);
+      leaves.position.set(x * S, up(GROUND_BASE) + 2.2, z);
+      this.scene.add(trunk, leaves);
+    }
+  }
+
+  private buildSpikes() {
+    const geometry = new THREE.ConeGeometry(0.13, 0.42, 5);
+    const material = new THREE.MeshLambertMaterial({ color: '#6d6a72' });
+    this.track(geometry, material);
+    this.level.features.forEach((feature) => {
+      if (feature.kind !== 'spikes') return;
+      for (let sx = feature.x; sx < feature.x + feature.width; sx += 9) {
+        const top = trackY(sx + 4.5, this.level);
+        for (let z = -2.4; z <= 2.4; z += 1.2) {
+          const spike = new THREE.Mesh(geometry, material);
+          spike.position.set((sx + 4.5) * S, up(top) + 0.21, z);
+          this.scene.add(spike);
+        }
+      }
+    });
+  }
+
+  private buildFinish() {
+    const top = trackY(this.level.length, this.level);
+    const poleGeo = new THREE.BoxGeometry(0.12, 3.2, 0.12);
+    const poleMat = new THREE.MeshLambertMaterial({ color: '#4a3a2a' });
+    const flagGeo = new THREE.BoxGeometry(1.5, 0.9, 0.06);
+    const flagMat = new THREE.MeshLambertMaterial({ color: '#e8503a' });
+    this.track(poleGeo, poleMat);
+    this.disposables.push(flagGeo, flagMat);
+    [-2.6, 2.6].forEach((z) => {
+      const pole = new THREE.Mesh(poleGeo, poleMat);
+      pole.position.set(this.level.length * S, up(top) + 1.6, z);
+      const flag = new THREE.Mesh(flagGeo, flagMat);
+      flag.position.set(this.level.length * S + 0.8, up(top) + 2.8, z);
+      this.scene.add(pole, flag);
+    });
+  }
+
+  private buildCoins() {
+    const geometry = new THREE.CylinderGeometry(11 * S, 11 * S, 0.1, 18);
+    geometry.rotateX(Math.PI / 2);
+    const material = new THREE.MeshLambertMaterial({ color: '#f2c94c', emissive: '#5a4300' });
+    this.track(geometry, material);
+    this.coins.forEach((coin) => {
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(coin.x * S, up(coin.y), 0);
+      this.coinMeshes.push(mesh);
+      this.scene.add(mesh);
+    });
+  }
+
+  private buildTruck() {
+    const bodyMat = new THREE.MeshLambertMaterial({ color: this.colour.body });
+    const darkMat = new THREE.MeshLambertMaterial({ color: this.colour.dark });
+    const trimMat = new THREE.MeshLambertMaterial({ color: this.colour.trim });
+    const tyreMat = new THREE.MeshLambertMaterial({ color: '#2f2a30' });
+    this.disposables.push(bodyMat, darkMat, trimMat, tyreMat);
+
+    const chassisGeo = new THREE.BoxGeometry(BODY_W * S, BODY_H * S, TRUCK_D);
+    const chassis = new THREE.Mesh(chassisGeo, bodyMat);
+    const skirtGeo = new THREE.BoxGeometry(BODY_W * S, 8 * S, TRUCK_D + 0.04);
+    const skirt = new THREE.Mesh(skirtGeo, darkMat);
+    skirt.position.y = -BODY_H / 2 * S;
+    // The cab sits on the back half, matching the flat-side truck silhouette.
+    const cabGeo = new THREE.BoxGeometry(36 * S, 22 * S, TRUCK_D * 0.88);
+    const cab = new THREE.Mesh(cabGeo, bodyMat);
+    cab.position.set(22 * S, up(-BODY_H / 2 - 10), 0);
+    const windowGeo = new THREE.BoxGeometry(22 * S, 12 * S, TRUCK_D * 0.9);
+    const glass = new THREE.Mesh(windowGeo, trimMat);
+    glass.position.set(22 * S, up(-BODY_H / 2 - 24), 0);
+    this.disposables.push(chassisGeo, skirtGeo, cabGeo, windowGeo);
+    this.truck.add(chassis, skirt, cab, glass);
+
+    const tyreGeo = new THREE.CylinderGeometry(WHEEL_R * S, WHEEL_R * S, 0.3, 16);
+    tyreGeo.rotateX(Math.PI / 2);
+    const hubGeo = new THREE.CylinderGeometry(WHEEL_R * 0.45 * S, WHEEL_R * 0.45 * S, 0.34, 12);
+    hubGeo.rotateX(Math.PI / 2);
+    const spokeGeo = new THREE.BoxGeometry(0.05, WHEEL_R * 0.9 * S, 0.36);
+    this.disposables.push(tyreGeo, hubGeo, spokeGeo);
+    WHEELS.forEach((offset) => {
+      [-1, 1].forEach((side) => {
+        const wheel = new THREE.Group();
+        wheel.add(new THREE.Mesh(tyreGeo, tyreMat));
+        wheel.add(new THREE.Mesh(hubGeo, trimMat));
+        wheel.add(new THREE.Mesh(spokeGeo, tyreMat));
+        wheel.position.set(offset.x * S, up(offset.y), side * (TRUCK_D / 2 + 0.02));
+        this.wheelMeshes.push(wheel);
+        this.truck.add(wheel);
+      });
+    });
+    this.scene.add(this.truck);
   }
 
   // ---- input -------------------------------------------------------------
@@ -117,7 +488,22 @@ export class DriveEngine {
 
   // ---- physics -----------------------------------------------------------
 
-  private groundAt(x: number) { return trackY(x, this.level); }
+  /**
+   * The surface under x: the solid ground, or a contraption standing above it.
+   * Screen y grows downwards, so the highest surface is the smallest number.
+   */
+  private groundAt(x: number) {
+    let y = trackY(x, this.level);
+    this.seesaws.forEach((seesaw) => {
+      const surface = this.seesawSurface(seesaw, x);
+      if (surface !== null && surface < y) y = surface;
+    });
+    this.platforms.forEach((platform) => {
+      const surface = this.platformSurface(platform, x);
+      if (surface !== null && surface < y) y = surface;
+    });
+    return y;
+  }
 
   /** Slope of the track, so wheels push away from the surface properly. */
   private normalAt(x: number) {
@@ -138,6 +524,7 @@ export class DriveEngine {
   }
 
   private update(dt: number) {
+    this.stepContraptions(dt);
     this.vy += GRAVITY * dt;
     this.grounded = false;
     let slope = 0;
@@ -188,6 +575,7 @@ export class DriveEngine {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
     this.wheelSpin += this.vx * dt * 0.08;
+    this.hammerHits();
 
     // Crash if the chassis itself scrapes the ground (flipped or nose-dived).
     const corners = [
@@ -201,10 +589,11 @@ export class DriveEngine {
     if (this.grounded && onSpikes(this.x, this.level)) { this.crash('🌵 You hit the spikes!'); return; }
     if (this.y > GROUND_BASE + 320) { this.crash('🕳️ You fell down the gap!'); return; }
 
-    this.coins.forEach((coin) => {
+    this.coins.forEach((coin, index) => {
       if (coin.taken) return;
       if (Math.hypot(coin.x - this.x, coin.y - this.y) > 34) return;
       coin.taken = true;
+      this.coinMeshes[index].visible = false;
       this.collected += 1;
       this.options.onCoin();
     });
@@ -222,129 +611,39 @@ export class DriveEngine {
 
   // ---- drawing -----------------------------------------------------------
 
-  private draw() {
-    const { ctx } = this;
-    const camX = this.x - 250;
-    const camY = Math.min(0, this.y - 250);
+  private draw(dt: number) {
+    const tx = this.x * S;
+    const ty = up(this.y);
 
-    const sky = ctx.createLinearGradient(0, 0, 0, VIEW_H);
-    sky.addColorStop(0, this.level.sky);
-    sky.addColorStop(1, '#f3f7e9');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    this.truck.position.set(tx, ty, 0);
+    // Physics y points down and three.js y points up, so the angle flips.
+    this.truck.rotation.z = -this.angle;
+    this.wheelMeshes.forEach((wheel) => { wheel.rotation.z = -this.wheelSpin; });
 
-    ctx.save();
-    ctx.translate(-camX, -camY);
-
-    // The track: one filled ribbon following trackY, skipping the gaps.
-    ctx.fillStyle = this.level.ground;
-    ctx.strokeStyle = this.level.groundDark;
-    ctx.lineWidth = 6;
-    let drawing = false;
-    ctx.beginPath();
-    for (let x = camX - 20; x < camX + VIEW_W + 20; x += 6) {
-      if (inGap(x, this.level)) {
-        if (drawing) { ctx.lineTo(x, GROUND_BASE + 700); ctx.closePath(); ctx.fill(); ctx.beginPath(); drawing = false; }
-        continue;
-      }
-      const y = trackY(x, this.level);
-      if (!drawing) { ctx.moveTo(x, GROUND_BASE + 700); ctx.lineTo(x, y); drawing = true; }
-      else ctx.lineTo(x, y);
-    }
-    if (drawing) { ctx.lineTo(camX + VIEW_W + 20, GROUND_BASE + 700); ctx.closePath(); ctx.fill(); }
-
-    // A darker crust on top of the ground.
-    ctx.beginPath();
-    let pen = false;
-    for (let x = camX - 20; x < camX + VIEW_W + 20; x += 6) {
-      if (inGap(x, this.level)) { pen = false; continue; }
-      const y = trackY(x, this.level);
-      if (!pen) { ctx.moveTo(x, y); pen = true; } else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-
-    // Spike strips, drawn sitting on the track.
-    this.level.features.forEach((f) => {
-      if (f.kind !== 'spikes') return;
-      if (f.x + f.width < camX - 40 || f.x > camX + VIEW_W + 40) return;
-      // Small, low razors: they hug the ground rather than tower over it.
-      for (let sx = f.x; sx < f.x + f.width; sx += 9) {
-        const gy = trackY(sx + 4.5, this.level);
-        ctx.fillStyle = '#6d6a72';
-        ctx.beginPath();
-        ctx.moveTo(sx, gy);
-        ctx.lineTo(sx + 4.5, gy - 11);
-        ctx.lineTo(sx + 9, gy);
-        ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = '#403e45';
-        ctx.beginPath();
-        ctx.moveTo(sx + 4.5, gy - 11);
-        ctx.lineTo(sx + 9, gy);
-        ctx.lineTo(sx + 6, gy);
-        ctx.closePath();
-        ctx.fill();
-      }
+    this.coinMeshes.forEach((coin, index) => {
+      if (coin.visible) coin.rotation.y = this.time * 2.4 + index;
     });
 
-    // Finish flag.
-    const fx = this.level.length;
-    if (fx > camX - 40 && fx < camX + VIEW_W + 40) {
-      const fy = trackY(fx, this.level);
-      ctx.fillStyle = '#4a3a2a';
-      ctx.fillRect(fx - 2, fy - 96, 5, 96);
-      ctx.fillStyle = '#e8503a';
-      ctx.fillRect(fx + 3, fy - 96, 44, 26);
-      ctx.fillStyle = '#fffaf0';
-      for (let i = 0; i < 3; i += 1) ctx.fillRect(fx + 3 + i * 15, fy - 96 + (i % 2) * 13, 7, 13);
-    }
-
-    this.coins.forEach((coin) => {
-      if (coin.taken || coin.x < camX - 40 || coin.x > camX + VIEW_W + 40) return;
-      if (this.coinSprite.complete && this.coinSprite.naturalWidth) {
-        ctx.drawImage(this.coinSprite, coin.x - 11, coin.y - 11, 22, 22);
-      } else {
-        ctx.fillStyle = '#f2c94c';
-        ctx.beginPath();
-        ctx.arc(coin.x, coin.y, 11, 0, Math.PI * 2);
-        ctx.fill();
-      }
+    // Physics y points down and three.js y points up, so every angle flips.
+    this.seesaws.forEach((seesaw) => { seesaw.mesh.rotation.z = -seesaw.angle; });
+    this.platforms.forEach((platform) => {
+      platform.mesh.position.set(
+        (platform.feature.x + platform.feature.width / 2) * S,
+        up(platform.y) - 5 * S,
+        0,
+      );
     });
+    this.hammers.forEach((hammer) => { hammer.mesh.rotation.z = -hammer.angle; });
 
-    // The truck.
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate(this.angle);
-    ctx.fillStyle = this.colour.dark;
-    ctx.fillRect(-BODY_W / 2, -BODY_H / 2 + 4, BODY_W, BODY_H);
-    ctx.fillStyle = this.colour.body;
-    ctx.fillRect(-BODY_W / 2, -BODY_H / 2, BODY_W, BODY_H);
-    // Cab and window.
-    ctx.fillStyle = this.colour.body;
-    ctx.fillRect(4, -BODY_H / 2 - 21, 36, 22);
-    ctx.fillStyle = this.colour.trim;
-    ctx.fillRect(11, -BODY_H / 2 - 16, 22, 12);
-    ctx.restore();
+    // Sit ahead of the truck so there is road to read, and never duck below
+    // the base of the track.
+    const lead = tx + 2.2;
+    const height = Math.max(ty + 1.9, up(GROUND_BASE) + 1.4);
+    const target = new THREE.Vector3(lead, height, 13);
+    this.camera.position.lerp(target, Math.min(1, dt * 5));
+    this.camera.lookAt(this.camera.position.x, this.camera.position.y - 1.1, 0);
 
-    WHEELS.forEach((offset) => {
-      const world = this.toWorld(offset);
-      ctx.save();
-      ctx.translate(world.x, world.y);
-      ctx.rotate(this.wheelSpin);
-      ctx.fillStyle = '#2f2a30';
-      ctx.beginPath();
-      ctx.arc(0, 0, WHEEL_R, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = this.colour.trim;
-      ctx.beginPath();
-      ctx.arc(0, 0, WHEEL_R * 0.45, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#2f2a30';
-      ctx.fillRect(-2, -WHEEL_R * 0.45, 4, WHEEL_R * 0.9);
-      ctx.restore();
-    });
-
-    ctx.restore();
+    this.renderer.render(this.scene, this.camera);
   }
 
   private snapshot(): DriveSnapshot {
@@ -361,14 +660,17 @@ export class DriveEngine {
   dispose() {
     this.running = false;
     this.unbind();
+    this.disposables.forEach((item) => item.dispose());
+    this.renderer.dispose();
   }
 
   private loop = (now: number) => {
     if (!this.running) return;
     const dt = Math.min((now - this.last) / 1000, 0.028);
     this.last = now;
+    this.time += dt;
     if (this.status === 'playing') this.update(dt);
-    this.draw();
+    this.draw(dt);
     this.options.onUpdate(this.snapshot());
     requestAnimationFrame(this.loop);
   };

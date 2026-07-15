@@ -1,13 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Ключи берутся из .env.local (локально) и из Vercel → Settings → Environment Variables (на проде).
+// Keys come from .env.local when running locally, and from Vercel → Settings →
+// Environment Variables in production.
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-// Понятная ошибка вместо «белого экрана», если ключи забыли вставить.
+// A clear error beats a blank white screen when the keys are missing.
 if (!url || !anonKey) {
   throw new Error(
-    'Нет ключей Supabase. Скопируй .env.example → .env.local и вставь VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY.',
+    'Supabase keys are missing. Copy .env.example to .env.local and fill in VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.',
   );
 }
 

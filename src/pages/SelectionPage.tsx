@@ -202,7 +202,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
         completedQuests={savedProfile.completedQuests} isMember={isMember} ownsHouse={ownsHouse} houseName={houseName}
         onOpenProfile={() => setProfileOpen(true)} />
       <p className="games-sign">Games</p>
-      <button className="power-button" onClick={() => onStart(selection)}>⚡ Power House <span>→</span></button>
+      <button className="power-button" onClick={() => onStart(selection)}>🏰 Tower Royal <span>→</span></button>
       <button className="hunger-button" onClick={() => setHungerOpen(true)}>🏹 Hunger Quests <span>→</span></button>
       <button className="medicine-button" onClick={() => setMedicineIsland(islands[0].name)}>🌿 Medicine Mission <span>→</span></button>
       <button className="runner-button" onClick={() => setRunnerIsland(islands[0].name)}>🏃 Runner Up <span>→</span></button>

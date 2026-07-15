@@ -29,7 +29,7 @@ export function ShopMenu({ coins, foodBalance, ownedItems, onBuy, onClose, colle
   return (
     <div className="menu-backdrop" onClick={onClose}>
       <aside className="shop-menu" onClick={(event) => event.stopPropagation()}>
-        <div className="shop-heading"><div><span className="card-kicker">Tower Royal</span><h2>Menu</h2></div><button onClick={onClose} aria-label="Close menu">×</button></div>
+        <div className="shop-heading"><div><span className="card-kicker">Magical Islands</span><h2>Menu</h2></div><button onClick={onClose} aria-label="Close menu">×</button></div>
         <p className="shop-balance"><img className="hud-collectible" src="/assets/pixel-coin.png" alt="" /> {coins} coins</p>
         <div className="shop-sections"><section className="shop-section"><button className="shop-dropdown map-menu-link" onClick={onOpenMap}><span>🗺️ Map · 30 Islands</span><b>→</b></button></section>{sections.map((section) => <section className="shop-section" key={section.id}>
           <button className="shop-dropdown" onClick={() => setOpenSection(openSection === section.id ? null : section.id)}><span>{section.icon} {section.label}</span><b>{openSection === section.id ? '−' : '+'}</b></button>

@@ -1,11 +1,19 @@
 import type { Cat, Ladder } from './types';
 
+/** The full width of a floor. Cats walk all of it, wall to wall. */
+const WALK_FROM = 8;
+const WALK_TO = 92;
+
+/**
+ * Cats never stop and never turn early: each one walks the whole floor and only
+ * turns round when it reaches an end.
+ */
 export function updateCats(cats: Cat[], deltaSeconds: number): Cat[] {
   return cats.map((cat) => {
     const direction = cat.direction === 'right' ? 1 : -1;
     const nextX = cat.x + direction * cat.speed * deltaSeconds;
-    if (nextX <= 8) return { ...cat, x: 8, direction: 'right' };
-    if (nextX >= 92) return { ...cat, x: 92, direction: 'left' };
+    if (nextX <= WALK_FROM) return { ...cat, x: WALK_FROM, direction: 'right' };
+    if (nextX >= WALK_TO) return { ...cat, x: WALK_TO, direction: 'left' };
     return { ...cat, x: nextX };
   });
 }

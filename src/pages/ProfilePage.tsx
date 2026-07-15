@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { loadPrivateProfile, savePrivateProfile } from '../lib/players';
+import { USERNAME_RULE, changeUsername, isTakenError, isUsernameFree, loadPrivateProfile, savePrivateProfile } from '../lib/players';
 import { characterAssets, characterCollectibles } from '../game/characters';
 import { ChoiceCard } from '../components/ChoiceCard';
 import { CharacterCustomizer } from '../components/CharacterCustomizer';
@@ -54,7 +54,45 @@ export function ProfilePage({ character, setting, coins, foodBalance, completedQ
   const [day, setDay] = useState(birthday);
   const [place, setPlace] = useState(country);
   const [note, setNote] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const [nameNote, setNameNote] = useState('');
+  const [nameTaken, setNameTaken] = useState(false);
   const collectible = characterCollectibles[character];
+
+  const saveUsername = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const clean = draftName.trim();
+    setNameTaken(false);
+    if (clean.toLowerCase() === username.toLowerCase()) { setEditingName(false); setNameNote(''); return; }
+    if (!USERNAME_RULE.test(clean)) {
+      setNameTaken(true);
+      setNameNote('Usernames are 3–24 letters, numbers or underscores — no spaces.');
+      return;
+    }
+    setSavingName(true);
+    setNameNote('');
+    try {
+      // A "false" here is a definite no; null just means we could not check, and
+      // the database's unique index still has the final say below.
+      if (await isUsernameFree(clean) === false) {
+        setNameTaken(true);
+        setNameNote(`Sorry, @${clean} is already taken. Try another one!`);
+        return;
+      }
+      await changeUsername(userId, clean);
+      setUsername(clean);
+      setEditingName(false);
+      setNameNote(`You are now @${clean}. Your friends can search for you with it.`);
+    } catch (error) {
+      setNameTaken(true);
+      if (isTakenError(error)) setNameNote(`Sorry, @${clean} is already taken. Try another one!`);
+      else setNameNote('Could not change your username — the account tables are not online yet.');
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -86,7 +124,7 @@ export function ProfilePage({ character, setting, coins, foodBalance, completedQ
   return <main className="profile-page">
     <header className="map-top">
       {firstTime ? <span className="profile-step">Step 1</span> : <button onClick={onBack}>← Back</button>}
-      <div><p className="eyebrow">Tower Royal</p><h1>{firstTime ? 'Welcome!' : 'My Profile'}</h1></div>
+      <div><p className="eyebrow">Magical Islands</p><h1>{firstTime ? 'Welcome!' : 'My Profile'}</h1></div>
       <span>⭐ {completedQuests} quests</span>
     </header>
 
@@ -132,10 +170,32 @@ export function ProfilePage({ character, setting, coins, foodBalance, completedQ
     <section className="profile-section">
       <h3>Account</h3>
       <dl className="profile-rows">
-        <div><dt>Username</dt><dd>{username ? `@${username}` : 'Guest — not logged in'}</dd></div>
+        <div><dt>Username</dt><dd>
+          {!userId ? 'Guest — not logged in'
+            : editingName ? <form className="username-edit" onSubmit={saveUsername}>
+              <span>@</span>
+              <input
+                value={draftName}
+                onChange={(event) => setDraftName(event.target.value)}
+                minLength={3}
+                maxLength={24}
+                pattern="[A-Za-z0-9_]+"
+                title="Use letters, numbers and underscores only"
+                autoFocus
+                required
+              />
+              <button type="submit" disabled={savingName}>{savingName ? '…' : 'Save'}</button>
+              <button type="button" className="ghost" onClick={() => { setEditingName(false); setNameNote(''); }}>Cancel</button>
+            </form>
+            : <span className="username-view">
+              @{username}
+              <button onClick={() => { setDraftName(username); setEditingName(true); setNameNote(''); }}>✏️ Change</button>
+            </span>}
+        </dd></div>
         <div><dt>Email</dt><dd>{email || 'Guest — not logged in'}</dd></div>
       </dl>
-      <p className="profile-hint">Your username is the name other players see and search for.</p>
+      {nameNote && <p className={`username-note ${nameTaken ? 'bad' : 'good'}`}>{nameNote}</p>}
+      <p className="profile-hint">Your username is the name other players see and search for, so everybody needs a different one.</p>
     </section>
 
     <section className="profile-section profile-private">

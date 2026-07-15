@@ -1,6 +1,13 @@
 import type { CharacterId, GameState, LevelLayout, SettingId } from '../game/types';
+import { laserPhase } from '../game/laser';
 import { characterAssets, characterCollectibles } from '../game/characters';
 import { itemById } from '../shop/catalog';
+
+/** Only clothing is worn. A 🔮 Moon Spell is not a hat. */
+const wornIcon = (id: string) => {
+  const item = itemById(id);
+  return item && item.category === 'clothing' ? item.icon : null;
+};
 
 const characterNames: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo the penguin', toby: 'Toby the fox', ollie: 'Ollie the otter', coral: 'Coral the clownfish', biscuit: 'Biscuit the puppy' };
 
@@ -9,10 +16,12 @@ interface GameBoardProps {
   character: CharacterId;
   setting: SettingId;
   ladders: LevelLayout['ladders'];
+  walls: LevelLayout['walls'];
+  lasers: LevelLayout['lasers'];
   equippedItem?: string;
 }
 
-export function GameBoard({ state, character, setting, ladders, equippedItem = '' }: GameBoardProps) {
+export function GameBoard({ state, character, setting, ladders, walls, lasers, equippedItem = '' }: GameBoardProps) {
   const cameraY = (9 - state.player.floor + 0.5) * 10;
   const portalIsNear = state.player.floor === 2 && Math.abs(state.player.x - 88) <= 14;
   return (
@@ -41,12 +50,22 @@ export function GameBoard({ state, character, setting, ladders, equippedItem = '
               <i className="door-sparkles" aria-hidden="true"><s>✦</s><s>✧</s><s>✦</s><s>✧</s></i>
             </span>
           )}
+          {lasers.filter((laser) => laser.floor === floor).map((laser) => {
+            const phase = laserPhase(laser, state.time);
+            return <span className={`laser-beam ${phase}`} key={`laser-${laser.floor}`} aria-hidden="true" />;
+          })}
+          {walls.filter((wall) => wall.floor === floor).map((wall) => (
+            <span className="brick-wall" style={{ left: `${wall.x}%` }} key={`wall-${wall.floor}`} aria-label="A brick wall to hide behind" />
+          ))}
+          {state.secrets.filter((secret) => secret.floor === floor).map((secret) => (
+            <span className="secret entity" style={{ left: `${secret.x}%` }} key={secret.id} aria-label="A secret power">?</span>
+          ))}
           {state.cats.filter((cat) => cat.floor === floor).map((cat) => (
-            <img className={`cat entity sprite walking facing-${cat.direction}`} src="/assets/calico-cat.png" alt="Walking calico cat" style={{ left: `${cat.x}%` }} key={cat.floor} />
+            <img className={`cat entity sprite walking facing-${cat.direction}`} src="/assets/calico-cat.png" alt="Walking calico cat" style={{ left: `${cat.x}%` }} key={cat.id} />
           ))}
           {state.player.floor === floor && (
-            <span className={`player entity walking ${Date.now() < state.invincibleUntil ? 'invincible' : ''}`} style={{ left: `${state.player.x}%` }}>
-              <img className="sprite" src={characterAssets[character]} alt={characterNames[character]} />{itemById(equippedItem) && <b className="game-worn-item">{itemById(equippedItem)?.icon}</b>}
+            <span className={`player entity walking ${Date.now() < state.invincibleUntil ? 'invincible' : ''} ${Date.now() < state.invisibleUntil ? 'invisible' : ''}`} style={{ left: `${state.player.x}%` }}>
+              <img className="sprite" src={characterAssets[character]} alt={characterNames[character]} />{wornIcon(equippedItem) && <b className="game-worn-item">{wornIcon(equippedItem)}</b>}
             </span>
           )}
         </div>

@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GameBoard } from '../components/GameBoard';
 import { GameHud } from '../components/GameHud';
 import { TouchControls } from '../components/TouchControls';
-import { COIN_SCORE, HIT_INVINCIBILITY_MS, POWER_INVINCIBILITY_MS, POWER_SCORE } from '../game/constants';
+import { COIN_SCORE, HIT_INVINCIBILITY_MS, INVISIBLE_MS, MAX_LIVES, POWER_INVINCIBILITY_MS, POWER_SCORE } from '../game/constants';
 import { crossesEnemy, isNear, touchesEnemy } from '../game/collision';
 import { actionFromKey, type GameAction } from '../game/keyboard';
 import { createGameState, generateLevel } from '../game/levelGenerator';
 import { climb, enterSecretPortal, moveHorizontal } from '../game/movement';
 import { updateCats, updateLadders } from '../game/patrol';
+import { laserCatches } from '../game/laser';
 import type { GameSelection, GameState } from '../game/types';
 import { characterCollectibles } from '../game/characters';
 import { loadLocalProfile, saveLocalProfile } from '../lib/localProfile';
@@ -22,7 +23,7 @@ export function GamePage({ selection, onExit }: GamePageProps) {
   const lastFrame = useRef<number | null>(null);
   const frame = useRef<number | null>(null);
   const collected = layout.coins.length - state.coins.length;
-  const collectedGold = layout.goldCoins.length - state.goldCoins.length;
+  const collectedGold = layout.goldCoins.length - state.goldCoins.length + state.goldBonus;
   // What has already been paid into the profile this level, so nothing is
   // banked twice when React re-renders or replays an update.
   const bankedFood = useRef(0);
@@ -54,6 +55,13 @@ export function GamePage({ selection, onExit }: GamePageProps) {
       const gainedCoins = current.coins.length - coins.length;
       const gainedGold = current.goldCoins.length - goldCoins.length;
       const gotPower = current.powerUp ? isNear(player, current.powerUp) : false;
+      const found = current.secrets.find((secret) => isNear(player, secret));
+      const secrets = found ? current.secrets.filter((secret) => secret.id !== found.id) : current.secrets;
+      const doubled = current.doubled || found?.kind === 'double';
+      const secretNote = found?.kind === 'heart' ? '💗 Secret found — an extra heart!'
+        : found?.kind === 'double' ? '💰 Secret found — every coin is worth double now!'
+        : found?.kind === 'invisible' ? '👻 Secret found — invisible! Cats and lasers cannot catch you.'
+        : current.secretNote;
       // The star opens a magic door right where it was found.
       const magicDoor = gotPower
         ? { floor: player.floor, x: Math.min(92, Math.max(8, player.x + 20)) }
@@ -61,11 +69,15 @@ export function GamePage({ selection, onExit }: GamePageProps) {
       const throughDoor = !gotPower && current.magicDoor ? isNear(player, current.magicDoor) : false;
       const arrived = throughDoor ? { floor: 9, x: player.x } : player;
       const won = coins.length === 0 && goldCoins.length === 0 && arrived.floor === 9;
-      const crossedCat = Date.now() >= current.invincibleUntil
-        && crossesEnemy(current.player, player, current.cats);
-      const lives = crossedCat ? current.lives - 1 : current.lives;
+      const untouchable = Date.now() < current.invincibleUntil || Date.now() < current.invisibleUntil;
+      const crossedCat = !untouchable && crossesEnemy(current.player, player, current.cats);
+      const lives = Math.min(MAX_LIVES,
+        (crossedCat ? current.lives - 1 : current.lives) + (found?.kind === 'heart' ? 1 : 0));
       return {
-        ...current, player: arrived, coins, goldCoins,
+        ...current, player: arrived, coins, goldCoins, secrets, doubled, secretNote,
+        secretUntil: found ? Date.now() + 2600 : current.secretUntil,
+        invisibleUntil: found?.kind === 'invisible' ? Date.now() + INVISIBLE_MS : current.invisibleUntil,
+        goldBonus: current.goldBonus + (doubled ? gainedGold : 0),
         powerUp: gotPower ? null : current.powerUp,
         magicDoor: throughDoor ? null : magicDoor,
         invincibleUntil: gotPower ? Date.now() + POWER_INVINCIBILITY_MS : crossedCat ? Date.now() + HIT_INVINCIBILITY_MS : current.invincibleUntil,
@@ -94,17 +106,26 @@ export function GamePage({ selection, onExit }: GamePageProps) {
       setState((current): GameState => {
         if (current.status !== 'playing') return current;
         const cats = updateCats(current.cats, delta);
-        if (Date.now() >= current.invincibleUntil && touchesEnemy(current.player, cats)) {
+        const time = current.time + delta;
+        const safe = Date.now() < current.invincibleUntil || Date.now() < current.invisibleUntil;
+        const zapped = !safe && laserCatches(current.player, layout.lasers, layout.walls, time);
+        if (!safe && (zapped || touchesEnemy(current.player, cats))) {
           const lives = current.lives - 1;
-          return { ...current, cats, lives, caughtUntil: Date.now() + 1200, invincibleUntil: Date.now() + HIT_INVINCIBILITY_MS, status: lives === 0 ? 'lost' : 'playing' };
+          return {
+            ...current, cats, time, lives,
+            caughtUntil: Date.now() + 1200,
+            zappedUntil: zapped ? Date.now() + 1200 : current.zappedUntil,
+            invincibleUntil: Date.now() + HIT_INVINCIBILITY_MS,
+            status: lives === 0 ? 'lost' : 'playing',
+          };
         }
-        return { ...current, cats };
+        return { ...current, cats, time };
       });
       frame.current = requestAnimationFrame(tick);
     };
     frame.current = requestAnimationFrame(tick);
     return () => { if (frame.current !== null) cancelAnimationFrame(frame.current); };
-  }, []);
+  }, [layout]);
 
   const resetBank = () => { bankedFood.current = 0; bankedCoins.current = 0; };
   const restart = () => { lastFrame.current = null; resetBank(); setLadders(layout.ladders); setState(createGameState(layout)); };
@@ -120,8 +141,8 @@ export function GamePage({ selection, onExit }: GamePageProps) {
   return (
     <main className="game-page page-shell">
       <div className="game-top"><button className="ghost" onClick={onExit}>← Quest home</button><GameHud lives={state.lives} coins={collected} totalCoins={layout.coins.length} score={state.score} level={level} collectibleAsset={characterCollectibles[selection.character].asset} goldCoins={collectedGold} totalGoldCoins={layout.goldCoins.length} /></div>
-      <GameBoard state={state} character={selection.character} setting={selection.setting} ladders={ladders} equippedItem={selection.equippedItem} />
-      <p className={`game-tip ${Date.now() < state.caughtUntil ? 'caught-message' : ''}`}>{Date.now() < state.caughtUntil ? '🐾 A cat caught you! One heart was removed.' : state.magicDoor ? '✨ A magic door appeared! Walk into it to be whisked to the top floor.' : level === 1 ? 'Level 1: the first three floors are safe. Stand near a glowing ladder and press ↑ or W.' : `Level ${level}: more cats and moving ladders—time your climb carefully!`}</p>
+      <GameBoard state={state} character={selection.character} setting={selection.setting} ladders={ladders} walls={layout.walls} lasers={layout.lasers} equippedItem={selection.equippedItem} />
+      <p className={`game-tip ${Date.now() < state.caughtUntil ? 'caught-message' : ''}`}>{Date.now() < state.secretUntil ? state.secretNote : Date.now() < state.zappedUntil ? '🔴 The laser got you! Hide behind the brick wall next time.' : Date.now() < state.caughtUntil ? '🐾 A cat caught you! One heart was removed.' : state.magicDoor ? '✨ A magic door appeared! Walk into it to be whisked to the top floor.' : level === 1 ? 'Level 1: the first three floors are safe. Stand near a glowing ladder and press ↑ or W.' : `Level ${level}: the higher you climb, the more cats. Hide behind a 🧱 brick wall when a laser fires, then dash for the ladder!`}</p>
       <TouchControls onAction={act} />
       {state.status !== 'playing' && <div className="result-overlay"><div className="result-card"><h2>{state.status === 'won' ? `Level ${level} Complete! ✨` : 'Game Over'}</h2><p>{state.status === 'won' ? `You collected every coin and ${characterCollectibles[selection.character].singular}, then finished all 10 floors. Level ${level + 1} will be harder!` : 'The cats caught your toy hero.'}</p><button onClick={state.status === 'won' ? nextLevel : restart}>{state.status === 'won' ? `Start Level ${level + 1}` : 'Try again'}</button><button className="ghost" onClick={onExit}>Change hero</button></div></div>}
     </main>
