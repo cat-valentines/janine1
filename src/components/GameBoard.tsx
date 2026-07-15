@@ -1,9 +1,8 @@
 import type { CharacterId, GameState, LevelLayout, SettingId } from '../game/types';
-import { characterCollectibles } from '../game/characters';
+import { characterAssets, characterCollectibles } from '../game/characters';
 import { itemById } from '../shop/catalog';
 
-const faces: Record<CharacterId, string> = { cottontail: '/assets/cottontail.png', momo: '/assets/pixel-penguin.png', toby: '/assets/pixel-fox.png' };
-const characterNames: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo the penguin', toby: 'Toby the fox' };
+const characterNames: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo the penguin', toby: 'Toby the fox', ollie: 'Ollie the otter', coral: 'Coral the clownfish', biscuit: 'Biscuit the puppy' };
 
 interface GameBoardProps {
   state: GameState;
@@ -36,12 +35,18 @@ export function GameBoard({ state, character, setting, ladders, equippedItem = '
           {state.powerUp?.floor === floor && (
             <span className="power entity" style={{ left: `${state.powerUp.x}%` }}>★</span>
           )}
+          {state.magicDoor?.floor === floor && (
+            <span className="magic-door entity" style={{ left: `${state.magicDoor.x}%` }} aria-label="A magic door appeared">
+              <b>🚪</b>
+              <i className="door-sparkles" aria-hidden="true"><s>✦</s><s>✧</s><s>✦</s><s>✧</s></i>
+            </span>
+          )}
           {state.cats.filter((cat) => cat.floor === floor).map((cat) => (
             <img className={`cat entity sprite walking facing-${cat.direction}`} src="/assets/calico-cat.png" alt="Walking calico cat" style={{ left: `${cat.x}%` }} key={cat.floor} />
           ))}
           {state.player.floor === floor && (
             <span className={`player entity walking ${Date.now() < state.invincibleUntil ? 'invincible' : ''}`} style={{ left: `${state.player.x}%` }}>
-              <img className="sprite" src={faces[character]} alt={characterNames[character]} />{itemById(equippedItem) && <b className="game-worn-item">{itemById(equippedItem)?.icon}</b>}
+              <img className="sprite" src={characterAssets[character]} alt={characterNames[character]} />{itemById(equippedItem) && <b className="game-worn-item">{itemById(equippedItem)?.icon}</b>}
             </span>
           )}
         </div>

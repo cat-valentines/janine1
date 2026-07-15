@@ -35,6 +35,7 @@ export function createGameState(layout: LevelLayout): GameState {
     coins: layout.coins,
     goldCoins: layout.goldCoins,
     powerUp: layout.powerUp,
+    magicDoor: null,
     score: 0,
     lives: 3,
     invincibleUntil: 0,

@@ -1,19 +1,52 @@
-const leaders = [
-  ['1', 'Luna', '8,920', '12', 'Special character'],
-  ['2', 'Kai', '7,650', '10', 'Early island pass'],
-  ['3', 'Mira', '6,410', '9', '5 bonus coins'],
-  ['4', 'You', '1,240', '2', 'Power-up'],
-];
+import { useEffect, useState } from 'react';
+import { loadLeaderboard, type LeaderboardRow } from '../lib/gameData';
+import { supabase } from '../lib/supabase';
+
+/** Seasonal prizes go by rank, so they follow whoever actually holds the spot. */
+const prizes = ['Special character', 'Early island pass', '5 bonus coins'];
+const prizeFor = (rank: number) => prizes[rank - 1] ?? 'Power-up';
 
 export function Leaderboard() {
+  const [rows, setRows] = useState<LeaderboardRow[]>([]);
+  const [me, setMe] = useState('');
+  const [state, setState] = useState<'loading' | 'ready' | 'offline'>('loading');
+
+  const refresh = () => loadLeaderboard()
+    .then((data) => { setRows(data); setState('ready'); })
+    .catch(() => setState('offline'));
+
+  useEffect(() => {
+    const readName = (name?: string) => setMe(name ?? '');
+    supabase.auth.getUser().then(({ data }) => readName(data.user?.user_metadata.display_name as string | undefined));
+    refresh();
+    // A new sign-up creates a profile row, so re-read the board when auth changes.
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      readName(session?.user?.user_metadata.display_name as string | undefined);
+      refresh();
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  const leader = rows[0];
   return (
     <section className="panel leaderboard">
-      <div className="section-heading"><div><span className="card-kicker">Island rankings</span><h2>Leaderboard</h2></div><span className="leader-prize">👑 Luna can win a special character</span></div>
-      <div className="leader-table" role="table">
-        <div className="leader-row header" role="row"><span>Rank</span><span>Player</span><span>Score</span><span>Level</span><span>Prize</span></div>
-        {leaders.map((row) => <div className={`leader-row ${row[1] === 'You' ? 'you' : ''}`} role="row" key={row[0]}>{row.map((cell) => <span key={cell}>{cell}</span>)}</div>)}
+      <div className="section-heading"><div><span className="card-kicker">Island rankings</span><h2>Leaderboard</h2></div>
+        {leader && <span className="leader-prize">👑 {leader.display_name} can win a special character</span>}
       </div>
-      <p className="fine-print">Each seasonal prize can only be claimed once.</p>
+      {state === 'ready' && rows.length > 0 && <div className="leader-table" role="table">
+        <div className="leader-row header" role="row"><span>Rank</span><span>Player</span><span>Score</span><span>Level</span><span>Prize</span></div>
+        {rows.map((row, index) => <div className={`leader-row ${me && row.display_name === me ? 'you' : ''}`} role="row" key={`${row.display_name}-${index}`}>
+          <span>{row.rank}</span>
+          <span>{me && row.display_name === me ? `${row.display_name} (you)` : row.display_name}</span>
+          <span>{row.score.toLocaleString()}</span>
+          <span>{row.level}</span>
+          <span>{prizeFor(row.rank)}</span>
+        </div>)}
+      </div>}
+      {state === 'loading' && <p className="leader-empty">Loading the rankings…</p>}
+      {state === 'ready' && !rows.length && <p className="leader-empty">No players on the board yet. Sign up and finish a quest to be the first!</p>}
+      {state === 'offline' && <p className="leader-empty">The rankings are not online yet. Apply the database update to see real players here.</p>}
+      <p className="fine-print">Every player here is a real signed-up player. Each seasonal prize can only be claimed once.</p>
     </section>
   );
 }

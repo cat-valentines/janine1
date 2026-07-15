@@ -1,4 +1,4 @@
-export type CharacterId = 'cottontail' | 'momo' | 'toby';
+export type CharacterId = 'cottontail' | 'momo' | 'toby' | 'ollie' | 'coral' | 'biscuit';
 export type SettingId = 'haunted' | 'secret' | 'power';
 export type Direction = 'left' | 'right';
 
@@ -40,6 +40,8 @@ export interface GameState {
   coins: Position[];
   goldCoins: Position[];
   powerUp: Position | null;
+  /** Appears where the star was collected, and sparkles until used. */
+  magicDoor: Position | null;
   score: number;
   lives: number;
   invincibleUntil: number;

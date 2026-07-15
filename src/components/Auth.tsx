@@ -10,6 +10,19 @@ export function Auth({ initialMode = 'signin' }: { initialMode?: 'signin' | 'sig
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
+  async function handleGoogleSignIn() {
+    setBusy(true);
+    setMessage('');
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}${window.location.pathname}` },
+    });
+    if (error) {
+      setMessage(error.message);
+      setBusy(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -32,6 +45,10 @@ export function Auth({ initialMode = 'signin' }: { initialMode?: 'signin' | 'sig
   return (
     <section className="card">
       <h2>{mode === 'signin' ? 'Вход' : 'Регистрация'}</h2>
+      <button className="google-auth-button" type="button" disabled={busy} onClick={handleGoogleSignIn}>
+        <span aria-hidden="true">G</span> Continue with Google
+      </button>
+      <div className="auth-divider"><span>or use email</span></div>
       <form onSubmit={handleSubmit} className="form">
         {mode === 'signup' && <input
           type="text"
