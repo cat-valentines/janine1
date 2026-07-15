@@ -34,7 +34,7 @@ create table public.game_progress (
 
 create table public.friend_challenges (
   id uuid primary key default gen_random_uuid(), creator_id uuid not null references auth.users(id) on delete cascade,
-  title text not null default 'House Quest Challenge', invite_code text not null unique default encode(gen_random_bytes(18), 'hex'),
+  title text not null default 'House Quest Challenge', invite_code text not null unique default replace(gen_random_uuid()::text, '-', ''),
   goal_score integer not null default 5000, shared_score integer not null default 0,
   reward_type text not null default 'bonus_coins', reward_value text not null default '5',
   status text not null default 'open' check (status in ('open','complete','closed')),
