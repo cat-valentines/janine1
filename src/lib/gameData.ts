@@ -31,6 +31,15 @@ export async function loadLeaderboard() {
   return (data ?? []) as LeaderboardRow[];
 }
 
+/**
+ * Records a finished run against the account, which is what puts a player on
+ * the leaderboard. Keeps your best score, not your latest.
+ */
+export async function recordScore(score: number, level: number) {
+  const { error } = await supabase.rpc('record_score', { new_score: score, new_level: level });
+  if (error) throw error;
+}
+
 export async function saveLevelProgress(userId: string, score: number, coins: number) {
   const { error } = await supabase.from('game_progress').upsert({
     user_id: userId, island: 1, level: 1, highest_floor: 10,

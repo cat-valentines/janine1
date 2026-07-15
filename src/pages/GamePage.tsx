@@ -12,6 +12,8 @@ import { laserCatches } from '../game/laser';
 import type { GameSelection, GameState } from '../game/types';
 import { characterCollectibles } from '../game/characters';
 import { loadLocalProfile, saveLocalProfile } from '../lib/localProfile';
+import { recordScore } from '../lib/gameData';
+import { supabase } from '../lib/supabase';
 
 interface GamePageProps { selection: GameSelection; onExit: () => void }
 
@@ -28,6 +30,8 @@ export function GamePage({ selection, onExit }: GamePageProps) {
   // banked twice when React re-renders or replays an update.
   const bankedFood = useRef(0);
   const bankedCoins = useRef(0);
+  /** The best score already sent to the account, so a run is never filed twice. */
+  const filedScore = useRef(0);
 
   useEffect(() => {
     const food = collected - bankedFood.current;
@@ -42,6 +46,18 @@ export function GamePage({ selection, onExit }: GamePageProps) {
       shopCoins: profile.shopCoins + Math.max(0, coins),
     });
   }, [collected, collectedGold]);
+
+  // When a run ends, file the score against the account. Without this nothing
+  // ever writes total_score and the leaderboard stays empty for everyone.
+  useEffect(() => {
+    if (state.status === 'playing') return;
+    if (state.score <= filedScore.current) return;
+    filedScore.current = state.score;
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return;
+      recordScore(state.score, level).catch(() => undefined);
+    });
+  }, [state.status, state.score, level]);
 
   const act = useCallback((action: GameAction) => {
     setState((current) => {
@@ -127,7 +143,7 @@ export function GamePage({ selection, onExit }: GamePageProps) {
     return () => { if (frame.current !== null) cancelAnimationFrame(frame.current); };
   }, [layout]);
 
-  const resetBank = () => { bankedFood.current = 0; bankedCoins.current = 0; };
+  const resetBank = () => { bankedFood.current = 0; bankedCoins.current = 0; filedScore.current = 0; };
   const restart = () => { lastFrame.current = null; resetBank(); setLadders(layout.ladders); setState(createGameState(layout)); };
   const nextLevel = () => {
     const next = level + 1;
