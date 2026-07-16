@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { MansionEngine, type MansionSnapshot } from '../game/mansionEngine';
-import { DAYS, KEYS_TO_ESCAPE } from '../game/mansion';
+import { DAYS, KEYS_TO_ESCAPE, STONES_PER_NIGHT } from '../game/mansion';
 import { characterAssets } from '../game/characters';
 import type { CharacterId } from '../game/types';
 
@@ -61,6 +61,8 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
           <div><span>🚪</span><strong>Get to the door</strong><small>It glows faintly. Stand at it and press Space once you have every key.</small></div>
           <div><span>🚪</span><strong>Hide</strong><small>Press Space at a wardrobe to climb in, or at a bed to slide underneath. But if she watches you get in, she will come and open it.</small></div>
           <div><span>🪵</span><strong>Mind the floorboards</strong><small>The worn brown boards creak if you run over them, and she hears it from anywhere.</small></div>
+          <div><span>🪤</span><strong>Watch for bear traps</strong><small>Step in one and you are held there for a few seconds, yelling — and she comes running. You can always walk around them.</small></div>
+          <div><span>🪨</span><strong>Throw a stone</strong><small>Press E to lob one. It clatters where it lands and she goes to look — which buys you the room she was in. {STONES_PER_NIGHT} a night.</small></div>
           <div><span>🌙</span><strong>You get {DAYS} nights</strong><small>She catches you, you wake up and it is the next night — but you keep every key you already found.</small></div>
           <div><span>🤫</span><strong>Sneak</strong><small>Hold Shift to walk quietly. Running is loud — she can hear it through walls.</small></div>
         </div>
@@ -82,9 +84,10 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
         <div className="escape-keys">
           {Array.from({ length: KEYS_TO_ESCAPE }, (_, i) => <b className={i < (snapshot?.keys ?? 0) ? 'got' : ''} key={i}>🔑</b>)}
         </div>
+        <div className="escape-stones"><strong>🪨 {snapshot?.stones ?? STONES_PER_NIGHT}</strong><small>stones</small></div>
         <div className="escape-night"><strong>🌙 Night {snapshot?.day ?? 1}</strong><small>of {DAYS}</small></div>
         <div className="escape-state">
-          <strong>{snapshot?.hidden ? '🤫 Hidden' : snapshot?.keeperState === 'chase' ? '🏃 She sees you!' : snapshot?.keeperState === 'search' ? '👀 She is looking' : '🚶 She is patrolling'}</strong>
+          <strong>{(snapshot?.trapped ?? 0) > 0 ? `🪤 Stuck! ${snapshot?.trapped}s` : snapshot?.hidden ? '🤫 Hidden' : snapshot?.keeperState === 'chase' ? '🏃 She sees you!' : snapshot?.keeperState === 'search' ? '👀 She is looking' : '🚶 She is patrolling'}</strong>
           <i className="escape-alarm"><s style={{ width: `${Math.round((snapshot?.alarm ?? 0) * 100)}%` }} /></i>
         </div>
       </div>
@@ -94,7 +97,7 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
 
       {snapshot?.message && <p className="escape-message">{snapshot.message}</p>}
       {snapshot?.status === 'playing' && <p className="escape-help">
-        <b>↑ ↓</b> walk · <b>← →</b> turn · <b>Shift</b> sneak · <b>Space</b> {snapshot.hidden ? 'come back out' : snapshot.nearHide ? 'hide here' : snapshot.nearDoor ? 'open the door' : 'hide / open doors'}
+        <b>↑ ↓</b> walk · <b>← →</b> turn · <b>Shift</b> sneak · <b>E</b> throw a stone · <b>Space</b> {snapshot.hidden ? 'come back out' : snapshot.nearHide ? 'hide here' : snapshot.nearDoor ? 'open the door' : 'hide / open doors'}
       </p>}
 
       {caught && <div className="quest-over">

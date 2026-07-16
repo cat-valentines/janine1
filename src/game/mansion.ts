@@ -4,23 +4,24 @@
  * #  wall              .  floor
  * K  a key             H  a wardrobe to hide in
  * B  a bed to hide under   C  a creaky floorboard
+ * T  a bear trap       S  a stone you can throw
  * D  the front door — the way out
  * P  the bedroom you wake up in
  */
 export const LAYOUT = [
   '####################',
-  '#........#.........#',
-  '#..H.....#....K....#',
+  '#.....T..#.........#',
+  '#..H.....#....K..T.#',
   '#........#....C....#',
   '#....#####....#....#',
-  '#..B.#........#..B.#',
+  '#..B.#...S....#..B.#',
   '#....#....H...#....#',
   '#....C....#####....#',
   '#####.#............#',
   '#.....#....K...#####',
-  '#..K..#...C....#...#',
+  '#..K..#...C..T.#...#',
   '#.....#....H...#.P.#',
-  '#.....##########...#',
+  '#.....##########.S.#',
   '#....B.............#',
   '#########D##########',
 ];
@@ -65,6 +66,10 @@ export const hideSpots: HideSpot[] = [
 ];
 /** Floorboards that groan. Tread on one at a run and she comes looking. */
 export const creakySpots = find('C');
+/** Bear traps. Step in one and you are held there, yelling. */
+export const trapSpots = find('T');
+/** Stones lying about. Pick them up, lob them, let her go and look. */
+export const stoneSpots = find('S');
 export const doorSpot = find('D')[0];
 export const startSpot = find('P')[0];
 
@@ -97,3 +102,10 @@ export const HIDE_DISTANCE = 1.6;
 export const DAYS = 5;
 /** How close she has to get to a hiding place she saw you use. */
 export const SEARCH_HIDE_DISTANCE = 1.9;
+
+/** How long a bear trap holds you. Long enough to be terrifying. */
+export const TRAP_SECONDS = 3.2;
+/** How far a thrown stone flies, and how far away she hears it land. */
+export const THROW_DISTANCE = 11;
+export const THROW_HEARD = 15;
+export const STONES_PER_NIGHT = 3;

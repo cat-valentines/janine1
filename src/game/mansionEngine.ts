@@ -4,8 +4,9 @@ import {
   CELL, COLS, DAYS, HIDE_DISTANCE, KEEPER_CHASE_SPEED, KEEPER_FOV, KEEPER_HEARING,
   KEEPER_PATROL_SPEED, KEEPER_REACH, KEEPER_SEARCH_SECONDS, KEEPER_SIGHT, KEYS_TO_ESCAPE,
   PLAYER_EYE, PLAYER_RADIUS, PLAYER_SPEED, ROWS, SEARCH_HIDE_DISTANCE, SNEAK_SPEED, TURN_SPEED,
-  WALL_H, cellAt, colOf, creakySpots, doorSpot, hideSpots, isWall, keySpots, rowOf, startSpot,
-  worldOf, type HideKind,
+  STONES_PER_NIGHT, THROW_DISTANCE, THROW_HEARD, TRAP_SECONDS, WALL_H, cellAt, colOf, creakySpots,
+  doorSpot, hideSpots, isWall, keySpots, rowOf, startSpot, stoneSpots, trapSpots, worldOf,
+  type HideKind,
 } from './mansion';
 
 export interface MansionSnapshot {
@@ -17,6 +18,9 @@ export interface MansionSnapshot {
   hideKind: HideKind | null;
   /** True when she saw you climb in — she is coming to look.  */
   busted: boolean;
+  /** Seconds left in a bear trap, or 0. */
+  trapped: number;
+  stones: number;
   /** 0 calm, 1 hunting you. Drives the warning bar. */
   alarm: number;
   keeperState: 'patrol' | 'chase' | 'search';
@@ -98,6 +102,8 @@ export class MansionEngine {
   private searchLeft = 0;
   private lastSeen = new THREE.Vector3();
   private hideAt = new THREE.Vector3();
+  /** Where a stone just landed, for one frame. */
+  private clatterAt: THREE.Vector3 | null = null;
 
   private keyMeshes: Array<{ mesh: THREE.Object3D; taken: boolean; at: Cell }> = [];
   private hideMeshes: Array<{ mesh: THREE.Object3D; at: Cell; kind: HideKind }> = [];
@@ -111,6 +117,15 @@ export class MansionEngine {
   private creakedAt = '';
   /** Set for one frame when a board groans, so she comes looking. */
   private creaked = false;
+  /** Seconds still held by a bear trap. */
+  private trapped = 0;
+  private trapMeshes: Array<{ mesh: THREE.Object3D; at: Cell; sprung: boolean }> = [];
+  private stones = STONES_PER_NIGHT;
+  private thrown: Array<{ mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; t: number }> = [];
+  private stoneGeo = new THREE.DodecahedronGeometry(0.14);
+  private stoneMat = new THREE.MeshLambertMaterial({ color: '#8a8a92' });
+  /** Loose stones lying on the floor, for flavour — you always carry three. */
+  private stonePiles: THREE.Object3D[] = [];
   private alarm = 0;
   private status: MansionSnapshot['status'] = 'playing';
   private message = '';
@@ -149,6 +164,8 @@ export class MansionEngine {
 
     this.buildHouse();
     this.buildCreaks();
+    this.buildTraps();
+    this.buildStones();
     this.buildTorches();
     this.buildKeys();
     this.buildHideSpots();
@@ -232,6 +249,41 @@ export class MansionEngine {
     const glow = new THREE.PointLight('#ffb457', 6, 7, 2);
     glow.position.set(at.x, 1.8, at.z);
     this.scene.add(glow);
+  }
+
+  /** Bear traps, open and waiting. Drawn plainly — you are meant to see them. */
+  private buildTraps() {
+    const jawGeo = new THREE.TorusGeometry(0.42, 0.07, 6, 12);
+    const plateGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.06, 10);
+    const iron = new THREE.MeshLambertMaterial({ color: '#8b8b95', emissive: '#1a1a20' });
+    this.disposables.push(jawGeo, plateGeo, iron);
+    trapSpots.forEach((at) => {
+      const world = worldOf(at.col, at.row);
+      const group = new THREE.Group();
+      const jaws = new THREE.Mesh(jawGeo, iron);
+      jaws.rotation.x = Math.PI / 2;
+      const plate = new THREE.Mesh(plateGeo, iron);
+      plate.position.y = -0.02;
+      group.add(jaws, plate);
+      group.position.set(world.x, 0.09, world.z);
+      this.scene.add(group);
+      this.trapMeshes.push({ mesh: group, at, sprung: false });
+    });
+  }
+
+  /** A little pile of stones, so the idea of throwing one is discoverable. */
+  private buildStones() {
+    this.disposables.push(this.stoneGeo, this.stoneMat);
+    stoneSpots.forEach((at) => {
+      const world = worldOf(at.col, at.row);
+      [[-0.2, -0.15], [0.18, 0.1], [0, 0.28]].forEach(([dx, dz], i) => {
+        const stone = new THREE.Mesh(this.stoneGeo, this.stoneMat);
+        stone.position.set(world.x + dx, 0.12, world.z + dz);
+        stone.rotation.set(i, i * 2, i * 3);
+        this.scene.add(stone);
+        this.stonePiles.push(stone);
+      });
+    });
   }
 
   /** Worn, split boards. Visible on purpose — a trap you cannot see is unfair. */
@@ -392,10 +444,11 @@ export class MansionEngine {
   // ---- input -------------------------------------------------------------
 
   private onKeyDown = (event: KeyboardEvent) => {
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft'].includes(event.code)) event.preventDefault();
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'KeyE'].includes(event.code)) event.preventDefault();
     if (this.keys.has(event.code)) return;
     this.keys.add(event.code);
     if (event.code === 'Space') this.useSpace();
+    if (event.code === 'KeyE') this.throwStone();
   };
   private onKeyUp = (event: KeyboardEvent) => this.keys.delete(event.code);
 
@@ -444,6 +497,33 @@ export class MansionEngine {
     }
   }
 
+  /**
+   * Lob a stone. It clatters where it lands, and she goes to look there —
+   * which is the whole point: it buys you the room she is standing in.
+   */
+  private throwStone() {
+    if (this.status !== 'playing' || this.hidden || this.stones <= 0) return;
+    this.stones -= 1;
+    const look = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).negate();
+    const to = this.position.clone().add(look.multiplyScalar(THROW_DISTANCE));
+    // Do not let it sail through a wall — stop it at the first one.
+    const steps = Math.ceil(THROW_DISTANCE / 0.5);
+    for (let i = 1; i <= steps; i += 1) {
+      const t = i / steps;
+      const x = this.position.x + (to.x - this.position.x) * t;
+      const z = this.position.z + (to.z - this.position.z) * t;
+      if (isWall(colOf(x), rowOf(z))) {
+        to.set(this.position.x + (to.x - this.position.x) * ((i - 1) / steps), 0,
+          this.position.z + (to.z - this.position.z) * ((i - 1) / steps));
+        break;
+      }
+    }
+    const mesh = new THREE.Mesh(this.stoneGeo, this.stoneMat);
+    this.scene.add(mesh);
+    this.thrown.push({ mesh, from: this.position.clone().setY(1.2), to: to.setY(0.12), t: 0 });
+    this.say('🪨 You lob a stone…', 1.2);
+  }
+
   // ---- movement ----------------------------------------------------------
 
   private blocked(x: number, z: number) {
@@ -460,6 +540,12 @@ export class MansionEngine {
   private movePlayer(dt: number) {
     const turn = (this.keys.has('ArrowLeft') ? 1 : 0) - (this.keys.has('ArrowRight') ? 1 : 0);
     if (turn) this.yaw += turn * TURN_SPEED * dt;
+    // Held in a trap: you can look around, and that is all.
+    if (this.trapped > 0) {
+      this.trapped = Math.max(0, this.trapped - dt);
+      if (this.trapped === 0) this.say('You prise it open and pull free.', 1.6);
+      return;
+    }
     const forward = (this.keys.has('ArrowUp') ? 1 : 0) - (this.keys.has('ArrowDown') ? 1 : 0);
     if (this.hidden || !forward) return;
 
@@ -471,6 +557,18 @@ export class MansionEngine {
     // Slide along walls rather than sticking to them.
     if (!this.blocked(this.position.x + dx, this.position.z)) this.position.x += dx;
     if (!this.blocked(this.position.x, this.position.z + dz)) this.position.z += dz;
+
+    // Bear traps. They do not care how quietly you were walking.
+    const trap = this.trapMeshes.find((item) => !item.sprung
+      && item.at.col === colOf(this.position.x) && item.at.row === rowOf(this.position.z));
+    if (trap) {
+      trap.sprung = true;
+      trap.mesh.scale.set(1, 0.35, 1);
+      this.trapped = TRAP_SECONDS;
+      this.creaked = true;
+      this.say('🪤 A bear trap! You cannot move — and she heard you!', 2.6);
+      return;
+    }
 
     // Creaky floorboards. Sneaking over one is fine; running over it is not.
     const here = `${colOf(this.position.x)},${rowOf(this.position.z)}`;
@@ -531,6 +629,18 @@ export class MansionEngine {
     const seen = this.canSee();
     const heard = this.canHear() || this.creaked;
     this.creaked = false;
+
+    // A stone that has just landed pulls her away from wherever she was.
+    if (this.clatterAt && this.keeperPos.distanceTo(this.clatterAt) < THROW_HEARD) {
+      this.lastSeen.copy(this.clatterAt);
+      this.keeperState = 'search';
+      this.searchLeft = KEEPER_SEARCH_SECONDS;
+      this.path = [];
+      this.repath = 0;
+      this.clatterAt = null;
+    } else {
+      this.clatterAt = null;
+    }
 
     if (seen || heard) {
       if (this.keeperState !== 'chase') this.say(seen ? '👀 She has seen you — run!' : '👂 She heard you!', 1.8);
@@ -622,6 +732,9 @@ export class MansionEngine {
     this.keeperState = 'patrol';
     this.path = [];
     this.alarm = 0;
+    this.trapped = 0;
+    this.stones = STONES_PER_NIGHT;
+    this.trapMeshes.forEach((trap) => { trap.sprung = false; trap.mesh.scale.set(1, 1, 1); });
     this.status = 'playing';
     this.say(`🌙 Night ${this.day}. She is walking again…`, 3);
   }
@@ -643,6 +756,7 @@ export class MansionEngine {
       keys: this.collected, totalKeys: KEYS_TO_ESCAPE,
       day: this.day, totalDays: DAYS,
       hidden: this.hidden, hideKind: this.hideKind, busted: this.busted,
+      trapped: Math.ceil(this.trapped), stones: this.stones,
       alarm: this.alarm, keeperState: this.keeperState,
       nearHide: !!hide && hide.distance < HIDE_DISTANCE,
       nearDoor: this.atDoor(),
@@ -681,6 +795,20 @@ export class MansionEngine {
     this.keeper.position.copy(this.keeperPos);
     this.keeper.rotation.y = this.keeperYaw;
     this.keyMeshes.forEach((key) => { key.mesh.rotation.y = this.time * 1.6; });
+
+    this.thrown = this.thrown.filter((stone) => {
+      stone.t += dt * 1.8;
+      if (stone.t >= 1) {
+        this.scene.remove(stone.mesh);
+        this.clatterAt = stone.to.clone();
+        return false;
+      }
+      // A lobbed arc, rather than a laser beam.
+      stone.mesh.position.lerpVectors(stone.from, stone.to, stone.t);
+      stone.mesh.position.y += Math.sin(stone.t * Math.PI) * 1.1;
+      stone.mesh.rotation.set(stone.t * 9, stone.t * 7, 0);
+      return true;
+    });
     this.torches.forEach((torch) => {
       const flicker = 0.78 + Math.sin(this.time * 8.5 + torch.seed) * 0.13 + Math.sin(this.time * 21 + torch.seed * 3) * 0.09;
       torch.light.intensity = 5.4 * flicker;
