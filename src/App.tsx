@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { GamePage } from './pages/GamePage';
 import { SelectionPage } from './pages/SelectionPage';
 import { InvitePage } from './pages/InvitePage';
+import { AuthErrorBanner } from './components/AuthErrorBanner';
 import type { GameSelection } from './game/types';
 
 export default function App() {
@@ -15,9 +16,12 @@ export default function App() {
     }} />;
   }
 
-  return selection ? (
-    <GamePage selection={selection} onExit={() => setSelection(null)} />
-  ) : (
-    <SelectionPage onStart={setSelection} />
+  return (
+    <>
+      <AuthErrorBanner />
+      {selection
+        ? <GamePage selection={selection} onExit={() => setSelection(null)} />
+        : <SelectionPage onStart={setSelection} />}
+    </>
   );
 }
