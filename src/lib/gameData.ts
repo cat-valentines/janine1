@@ -26,7 +26,7 @@ export async function updateProfileSelection(userId: string, selection: GameSele
 }
 
 export async function loadLeaderboard() {
-  const { data, error } = await supabase.from('safe_leaderboard').select('*').order('rank').limit(20);
+  const { data, error } = await supabase.from('safe_leaderboard').select('*').order('rank').order('score', { ascending: false }).limit(100);
   if (error) throw error;
   return (data ?? []) as LeaderboardRow[];
 }
