@@ -325,7 +325,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .games-sign { width: fit-content; margin: 6px auto 0; padding: 3px 14px; background: #fffaf0e8; border: 3px solid #6c5c4f; box-shadow: 3px 3px 0 #423b3566; color: #4f4054; font-family: "Courier New", monospace; font-size: .8rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
 
 /* The game shelf: one pill per game, same size, stacked, deepest green first. */
-.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
+.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
 .power-button { margin-top: 18px; background: #27543a; box-shadow: 0 7px 0 #18382596; }
 .hunger-button { background: #3f6b4a; box-shadow: 0 7px 0 #2d4d35; }
 .medicine-button { background: #5b9a6b; box-shadow: 0 7px 0 #427451; }
@@ -335,6 +335,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .pong-button { background: #2f6b45; box-shadow: 0 7px 0 #1f4a2f; }
 .gruits-button { background: #c0452f; box-shadow: 0 7px 0 #8b2c1c; }
 .escape-button { background: #3a2b46; box-shadow: 0 7px 0 #241a2c; }
+.connector-button { background: #d19a2b; box-shadow: 0 7px 0 #a2741a; }
 .more-button { background: transparent; border: 3px solid #4f4054; box-shadow: 0 5px 0 #4f405433; color: #4f4054; margin-bottom: 38px; }
 .power-button span, .hunger-button span, .medicine-button span, .runner-button span, .drive-button span, .riddle-button span, .pong-button span, .gruits-button span, .escape-button span, .more-button span { margin: 0; }
 .quest-pick { min-height: 100vh; padding: 16px; background: linear-gradient(#1c2a1e99, #1c2a1e99), url('/assets/pixel-magical-forest.png') center / cover fixed; }
@@ -1055,3 +1056,20 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .invite-send { width: 100%; margin-top: 10px; padding: 10px; border: 3px solid #233a29; background: #f4c765; font-weight: 850; cursor: pointer; }
 .invite-friend-link { width: 100%; margin-top: 6px; padding: 8px; border: 2px dashed #2f6b45; background: #eef6ef; color: #2f6b45; font-weight: 800; font-size: .78rem; cursor: pointer; }
 .invite-friend-link:hover { background: #fff; }
+
+/* Connector */
+.connector-page { min-height: 100vh; padding: 12px 12px 40px; background: #efe6d0; }
+.connector-page .quest-top-row { max-width: 460px; margin: 0 auto 10px; }
+.connector-page .quest-top-row span { background: #8a6d2f; border-color: #6a521f; color: #fff6e0; }
+.connector-hud { display: flex; gap: 8px; max-width: 460px; margin: 0 auto 10px; }
+.connector-score, .connector-chip { padding: 8px 12px; background: #bda36a; border: 3px solid #8a6d2f; color: #fff8e8; text-align: center; }
+.connector-score small, .connector-chip small { display: block; font-size: .58rem; letter-spacing: .08em; text-transform: uppercase; color: #f3e6c4; }
+.connector-score b { font-size: 1.5rem; line-height: 1.1; }
+.connector-chip b { font-size: 1.1rem; }
+.connector-live { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 6px 12px; background: #f3ead4; border: 3px dashed #bda36a; color: #8a6d2f; font-weight: 700; font-size: .82rem; }
+.connector-live.on { border-style: solid; border-color: #3aa0ff; background: #e6f2ff; color: #1c6fc4; }
+.connector-live b { font-size: 1.1rem; }
+.connector-live span { font-size: .74rem; }
+.connector-stage { position: relative; width: min(100%, 460px); margin: 0 auto; }
+.connector-canvas { display: block; width: 100%; height: auto; border: 4px solid #8a6d2f; border-radius: 8px; touch-action: none; cursor: pointer; }
+.connector-help { max-width: 460px; margin: 12px auto 0; padding: 9px; text-align: center; background: #f3ead4; border: 3px solid #bda36a; color: #6a542a; font-size: .78rem; line-height: 1.5; }
