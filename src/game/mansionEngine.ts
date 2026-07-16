@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { pixelTexture } from './pixelTexture';
 import {
   CELL, COLS, HIDE_DISTANCE, KEEPER_CHASE_SPEED, KEEPER_FOV, KEEPER_HEARING, KEEPER_PATROL_SPEED,
   KEEPER_REACH, KEEPER_SEARCH_SECONDS, KEEPER_SIGHT, KEYS_TO_ESCAPE, PLAYER_EYE, PLAYER_RADIUS,
@@ -101,6 +102,7 @@ export class MansionEngine {
   private messageUntil = 0;
 
   private torch: THREE.PointLight;
+  private torches: Array<{ light: THREE.PointLight; flame: THREE.Mesh; seed: number }> = [];
   private running = true;
   private clock = new THREE.Clock();
   private time = 0;
@@ -112,6 +114,10 @@ export class MansionEngine {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
+    // Without this, standing close to a wall clips the torchlight straight past
+    // white and the whole screen goes blank. This rolls the highlights off.
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
     container.appendChild(this.renderer.domElement);
 
     this.camera = new THREE.PerspectiveCamera(72, container.clientWidth / container.clientHeight, 0.1, 90);
@@ -119,11 +125,15 @@ export class MansionEngine {
     this.scene.fog = new THREE.Fog('#05060a', 4, 22);
 
     // Almost pitch dark. Your torch is nearly all the light there is.
-    this.scene.add(new THREE.AmbientLight('#3a4064', 0.5));
-    this.torch = new THREE.PointLight('#ffdba8', 26, 17, 1.6);
+    this.scene.add(new THREE.AmbientLight('#4a5175', 0.8));
+    // A soft glow, not a floodlight. Any point light this close to a wall blows
+    // the view out, so the wall torches do the real lighting and this only keeps
+    // your own patch of floor readable.
+    this.torch = new THREE.PointLight('#ffdba8', 3.6, 13, 1);
     this.scene.add(this.torch);
 
     this.buildHouse();
+    this.buildTorches();
     this.buildKeys();
     this.buildHideSpots();
     this.buildKeeper(options.characterAsset);
@@ -145,11 +155,12 @@ export class MansionEngine {
   // ---- building ----------------------------------------------------------
 
   private buildHouse() {
+    // Castle stone, flagstones underfoot and a timber ceiling.
     const wallGeo = new THREE.BoxGeometry(CELL, WALL_H, CELL);
-    const wallMat = new THREE.MeshLambertMaterial({ color: '#4a3f52' });
-    const floorMat = new THREE.MeshLambertMaterial({ color: '#2e2733' });
-    const ceilMat = new THREE.MeshLambertMaterial({ color: '#221c28' });
-    const doorMat = new THREE.MeshLambertMaterial({ color: '#7a4a22', emissive: '#2a1607' });
+    const wallMat = new THREE.MeshLambertMaterial({ map: pixelTexture('#7a7885', '#4e4c59', 'brick') });
+    const floorMat = new THREE.MeshLambertMaterial({ map: pixelTexture('#5c5a66', '#3c3a46', 'cobble', COLS * 2, ROWS * 2) });
+    const ceilMat = new THREE.MeshLambertMaterial({ map: pixelTexture('#3e2f24', '#2a1f18', 'planks', COLS, ROWS) });
+    const doorMat = new THREE.MeshLambertMaterial({ map: pixelTexture('#7a4a22', '#4e2c11', 'planks'), emissive: '#3a1e08' });
     this.disposables.push(wallGeo, wallMat, floorMat, ceilMat, doorMat);
 
     const walls: THREE.Matrix4[] = [];
@@ -178,16 +189,75 @@ export class MansionEngine {
     ceiling.position.set(w / 2, WALL_H, d / 2);
     this.scene.add(floor, ceiling);
 
-    // The way out, glowing faintly so you can find it in the dark.
+    // Timber beams across the ceiling, the way a great hall is built.
+    const beamGeo = new THREE.BoxGeometry(COLS * CELL, 0.26, 0.34);
+    const beamMat = new THREE.MeshLambertMaterial({ color: '#33261d' });
+    this.disposables.push(beamGeo, beamMat);
+    for (let row = 1; row < ROWS; row += 2) {
+      const beam = new THREE.Mesh(beamGeo, beamMat);
+      beam.position.set((COLS * CELL) / 2, WALL_H - 0.16, (row + 0.5) * CELL);
+      this.scene.add(beam);
+    }
+
+    // The way out: a studded oak door, glowing faintly so you can find it.
     const doorGeo = new THREE.BoxGeometry(CELL * 0.8, 2.6, 0.3);
-    this.disposables.push(doorGeo);
+    const bandGeo = new THREE.BoxGeometry(CELL * 0.84, 0.16, 0.36);
+    const ironMat = new THREE.MeshLambertMaterial({ color: '#3a3a42' });
+    this.disposables.push(doorGeo, bandGeo, ironMat);
     const door = new THREE.Mesh(doorGeo, doorMat);
     const at = worldOf(doorSpot.col, doorSpot.row);
     door.position.set(at.x, 1.3, at.z);
     this.scene.add(door);
+    [0.55, 1.95].forEach((y) => {
+      const band = new THREE.Mesh(bandGeo, ironMat);
+      band.position.set(at.x, y, at.z);
+      this.scene.add(band);
+    });
     const glow = new THREE.PointLight('#ffb457', 6, 7, 2);
     glow.position.set(at.x, 1.8, at.z);
     this.scene.add(glow);
+  }
+
+  /**
+   * Torches in iron brackets on the walls.
+   *
+   * Point lights are not free, so only a handful are placed and they are spread
+   * around the house rather than clustered in one room.
+   */
+  private buildTorches() {
+    const bracketGeo = new THREE.BoxGeometry(0.11, 0.52, 0.11);
+    const flameGeo = new THREE.SphereGeometry(0.14, 6, 5);
+    const bracketMat = new THREE.MeshLambertMaterial({ color: '#2f2620' });
+    const flameMat = new THREE.MeshBasicMaterial({ color: '#ffb347' });
+    this.disposables.push(bracketGeo, flameGeo, bracketMat, flameMat);
+
+    const steps = [{ c: 1, r: 0 }, { c: -1, r: 0 }, { c: 0, r: 1 }, { c: 0, r: -1 }];
+    const spots: Array<{ col: number; row: number; c: number; r: number }> = [];
+    for (let row = 0; row < ROWS; row += 1) {
+      for (let col = 0; col < COLS; col += 1) {
+        if (isWall(col, row)) continue;
+        const against = steps.find((step) => isWall(col + step.c, row + step.r));
+        if (against) spots.push({ col, row, c: against.c, r: against.r });
+      }
+    }
+    // Spread the handful we can afford evenly around the house.
+    const want = 7;
+    const stride = Math.max(1, Math.floor(spots.length / want));
+    for (let i = 0; i < want; i += 1) {
+      const spot = spots[(i * stride) % spots.length];
+      if (!spot) continue;
+      const at = worldOf(spot.col, spot.row);
+      const x = at.x + spot.c * CELL * 0.4;
+      const z = at.z + spot.r * CELL * 0.4;
+      const bracket = new THREE.Mesh(bracketGeo, bracketMat);
+      bracket.position.set(x, 2.05, z);
+      const flame = new THREE.Mesh(flameGeo, flameMat);
+      flame.position.set(x, 2.36, z);
+      const light = new THREE.PointLight('#ff9b3d', 5.4, 11, 1.25);
+      light.position.set(x, 2.4, z);
+      this.scene.add(bracket, flame, light);
+      this.torches.push({ light, flame, seed: i * 1.7 });
+    }
   }
 
   private buildKeys() {
@@ -205,9 +275,6 @@ export class MansionEngine {
       group.position.set(world.x, 1.1, world.z);
       this.scene.add(group);
       this.keyMeshes.push({ mesh: group, taken: false, at });
-      const shine = new THREE.PointLight('#ffdf7a', 2.4, 4.5, 2);
-      shine.position.set(world.x, 1.2, world.z);
-      this.scene.add(shine);
     });
   }
 
@@ -495,6 +562,11 @@ export class MansionEngine {
     this.keeper.position.copy(this.keeperPos);
     this.keeper.rotation.y = this.keeperYaw;
     this.keyMeshes.forEach((key) => { key.mesh.rotation.y = this.time * 1.6; });
+    this.torches.forEach((torch) => {
+      const flicker = 0.78 + Math.sin(this.time * 8.5 + torch.seed) * 0.13 + Math.sin(this.time * 21 + torch.seed * 3) * 0.09;
+      torch.light.intensity = 5.4 * flicker;
+      torch.flame.scale.setScalar(0.82 + flicker * 0.3);
+    });
 
     // Hiding drops you down inside the wardrobe and kills your torch.
     const eye = this.hidden ? 1.05 : PLAYER_EYE;
@@ -502,7 +574,7 @@ export class MansionEngine {
     const look = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).negate();
     this.camera.lookAt(this.camera.position.clone().add(look));
     this.torch.position.set(this.position.x, 1.9, this.position.z);
-    this.torch.intensity = this.hidden ? 1.5 : 26;
+    this.torch.intensity = this.hidden ? 0.7 : 3.6;
 
     this.renderer.render(this.scene, this.camera);
     this.options.onUpdate(this.snapshot());
