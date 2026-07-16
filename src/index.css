@@ -1040,3 +1040,18 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 
 /* Guest note on the setup screen */
 .setup-guest-note { padding: 9px 11px; background: #fff4e0; border: 2px solid #e0b877; color: #7a5a2a; font-size: .76rem; line-height: 1.5; }
+
+/* Friend invites — trays and menu links */
+.friend-actions button.on { background: #2f6b45; color: #fff; }
+.invite-tray { margin: 8px 0; padding: 12px; background: #f3ece0; border: 3px solid #b9a68d; }
+.invite-tray-title { margin-bottom: 8px; font-weight: 800; color: #4c3b28; font-size: .82rem; }
+.invite-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 7px; }
+.invite-grid button { display: flex; align-items: center; gap: 6px; padding: 9px 10px; background: #fffaf0; border: 2px solid #cdbba0; font-weight: 700; font-size: .8rem; cursor: pointer; }
+.invite-grid button:hover { border-color: #2f6b45; background: #fff; }
+.invite-grid button span { font-size: 1.15rem; }
+.invite-field { display: grid; gap: 3px; margin-top: 7px; font-size: .76rem; font-weight: 700; color: #4c3b28; }
+.invite-field select, .invite-field input { padding: 7px; border: 2px solid #a99b8d; background: var(--paper); font-size: .82rem; }
+.invite-when { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.invite-send { width: 100%; margin-top: 10px; padding: 10px; border: 3px solid #233a29; background: #f4c765; font-weight: 850; cursor: pointer; }
+.invite-friend-link { width: 100%; margin-top: 6px; padding: 8px; border: 2px dashed #2f6b45; background: #eef6ef; color: #2f6b45; font-weight: 800; font-size: .78rem; cursor: pointer; }
+.invite-friend-link:hover { background: #fff; }

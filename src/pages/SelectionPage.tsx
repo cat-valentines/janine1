@@ -321,7 +321,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <button className="more-button" onClick={() => navigate('/games')}>⊞ See all games <span>→</span></button>
       <Leaderboard />
       <ChallengeRoom onChallenge={createFriendChallenge} inviteLink={inviteLink} message={challengeMessage} />
-      {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); navigate('/market'); }} onOpenHouse={() => { setMenuOpen(false); navigate('/house'); }} onOpenMap={() => { setMenuOpen(false); navigate('/map'); }} />}
+      {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); navigate('/market'); }} onOpenHouse={() => { setMenuOpen(false); navigate('/house'); }} onOpenMap={() => { setMenuOpen(false); navigate('/map'); }} onInviteFriend={() => { setMenuOpen(false); setFriendsOpen(true); }} />}
       {friendsOpen && <FriendsPanel onClose={() => setFriendsOpen(false)} onShare={() => { createFriendChallenge(); setFriendsOpen(false); }} />}
       {authMode && <div className="auth-backdrop" onClick={() => setAuthMode(null)}><div className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="auth-close" onClick={() => setAuthMode(null)}>×</button><Auth key={authMode} initialMode={authMode} /></div></div>}
     </main>

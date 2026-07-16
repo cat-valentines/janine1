@@ -27,10 +27,19 @@ export async function loadMyFriends() {
   return (data ?? []) as FriendRow[];
 }
 
+/**
+ * Friends someone straight away — no "request pending" step. Kids just want to
+ * add each other and play, so the connection goes in already accepted.
+ */
 export async function addFriend(requesterId: string, friendId: string) {
   const { error } = await supabase.from('friend_connections')
-    .insert({ requester_id: requesterId, friend_id: friendId });
+    .insert({ requester_id: requesterId, friend_id: friendId, status: 'accepted' });
   if (error && error.code !== '23505') throw error;
+  // If a row already existed as pending (from before), make it accepted too.
+  if (error?.code === '23505') {
+    await supabase.from('friend_connections').update({ status: 'accepted' })
+      .or(`and(requester_id.eq.${requesterId},friend_id.eq.${friendId}),and(requester_id.eq.${friendId},friend_id.eq.${requesterId})`);
+  }
 }
 
 export async function acceptFriend(myId: string, requesterId: string) {

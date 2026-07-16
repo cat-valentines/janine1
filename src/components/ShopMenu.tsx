@@ -13,6 +13,7 @@ interface ShopMenuProps {
   onOpenMarket: () => void;
   onOpenHouse: () => void;
   onOpenMap: () => void;
+  onInviteFriend: () => void;
 }
 
 const sections = [
@@ -21,7 +22,7 @@ const sections = [
   { id: 'food' as const, label: 'Food Shop', icon: '🍎' },
 ];
 
-export function ShopMenu({ coins, foodBalance, ownedItems, onBuy, onClose, collectibleAsset, collectibleName, onOpenMarket, onOpenHouse, onOpenMap }: ShopMenuProps) {
+export function ShopMenu({ coins, foodBalance, ownedItems, onBuy, onClose, collectibleAsset, collectibleName, onOpenMarket, onOpenHouse, onOpenMap, onInviteFriend }: ShopMenuProps) {
   const [openSection, setOpenSection] = useState<ShopItem['category'] | null>('clothing');
   const [marketOpen, setMarketOpen] = useState(false);
   const [listings, setListings] = useState<MarketListing[]>([]);
@@ -38,8 +39,8 @@ export function ShopMenu({ coins, foodBalance, ownedItems, onBuy, onClose, colle
             return <article className="shop-item" key={item.id}><span>{item.icon}</span><strong>{item.name}</strong><small><img className="hud-collectible" src="/assets/pixel-coin.png" alt="" /> {item.price}</small><button disabled={owned || coins < item.price} onClick={() => onBuy(item)}>{owned ? 'Owned' : coins < item.price ? 'Need more' : 'Buy'}</button></article>;
           })}</div>}
         </section>)}<section className="shop-section"><button className="shop-dropdown" onClick={() => setMarketOpen((open) => !open)}><span>🏪 Your Market</span><b>{marketOpen ? '−' : '+'}</b></button>
-          {marketOpen && <div className="your-shop"><p><img className="hud-collectible" src={collectibleAsset} alt="" /> You have {foodBalance} {collectibleName}. Walk around town in 3D and buy from real shops.</p><button className="list-food" onClick={onOpenMarket}>Walk into town</button>{listings.length > 0 && <p className="fine-print">{listings.length} real player stands are open.</p>}</div>}
-        </section><section className="shop-section"><button className="shop-dropdown" onClick={onOpenHouse}><span>🏡 Your House</span><b>→</b></button></section></div>
+          {marketOpen && <div className="your-shop"><p><img className="hud-collectible" src={collectibleAsset} alt="" /> You have {foodBalance} {collectibleName}. Walk around town in 3D and buy from real shops.</p><button className="list-food" onClick={onOpenMarket}>Walk into town</button><button className="invite-friend-link" onClick={onInviteFriend}>👋 Invite a friend to the Market</button>{listings.length > 0 && <p className="fine-print">{listings.length} real player stands are open.</p>}</div>}
+        </section><section className="shop-section"><button className="shop-dropdown" onClick={onOpenHouse}><span>🏡 Your House</span><b>→</b></button><button className="invite-friend-link" onClick={onInviteFriend}>👋 Invite a friend to your House</button></section></div>
       </aside>
     </div>
   );
