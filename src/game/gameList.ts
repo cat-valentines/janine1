@@ -27,7 +27,7 @@ export const gameList: GameCard[] = [
   { id: 'pong', name: 'Ping Pong', icon: '🏓', kind: 'Arcade', blurb: 'Keep it up on your own, beat the bot, or play a friend on one keyboard.' },
   { id: 'fruit', name: 'Fruit', icon: '🍓', kind: 'Puzzle', blurb: 'Drop fruit in a cup. Two of the same merge. Do not let it overflow.' },
   { id: 'escape', name: 'The Housekeeper', icon: '🔦', kind: 'Scary', blurb: 'Find three keys and escape her house. Hide before she sees you.' },
-  { id: 'connector', name: 'Connector', icon: '🔢', kind: 'Puzzle', blurb: 'Swipe to connect matching numbers. They merge and multiply — how high can you go?' },
+  { id: 'connector', name: 'Connector', icon: '🔢', kind: 'Puzzle', blurb: 'Swipe to connect blocks with the same number. They merge and multiply — how high can you go?' },
 ];
 
 export const gameById = (id: GameId) => gameList.find((game) => game.id === id);

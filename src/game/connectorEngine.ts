@@ -88,15 +88,9 @@ export class ConnectorEngine {
 
   private inChain = (cell: Cell) => this.chain.some((item) => item.c === cell.c && item.r === cell.r);
 
-  /** Recompute the running "required value" after a backtrack. */
+  /** After a backtrack, the required value is just the chain's first block. */
   private recompute() {
-    if (!this.chain.length) { this.required = 0; return; }
-    let req = this.grid[this.chain[0].r][this.chain[0].c];
-    for (let i = 1; i < this.chain.length; i += 1) {
-      const v = this.grid[this.chain[i].r][this.chain[i].c];
-      if (v === req * 2) req = v;
-    }
-    this.required = req;
+    this.required = this.chain.length ? this.grid[this.chain[0].r][this.chain[0].c] : 0;
   }
 
   private extend(cell: Cell) {
@@ -113,12 +107,8 @@ export class ConnectorEngine {
     if (this.inChain(cell)) return;
     const last = this.chain[this.chain.length - 1];
     if (!adjacent(last, cell)) return;
-    const v = this.grid[cell.r][cell.c];
-    // Next block must match the current level, or be its immediate double.
-    if (v === this.required || v === this.required * 2) {
-      this.chain.push(cell);
-      if (v === this.required * 2) this.required = v;
-    }
+    // Only the same number connects — no doubles.
+    if (this.grid[cell.r][cell.c] === this.required) this.chain.push(cell);
   }
 
   private onDown = (event: PointerEvent) => {

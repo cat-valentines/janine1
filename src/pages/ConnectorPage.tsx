@@ -58,6 +58,6 @@ export function ConnectorPage({ onScore, onBack }: ConnectorPageProps) {
       </div>}
     </div>
 
-    <p className="connector-help">Swipe across blocks in any direction — up, down, sideways or diagonal — to connect ones with the <b>same</b> number or its <b>double</b>. They merge into the next number.</p>
+    <p className="connector-help">Swipe across blocks in any direction — up, down, sideways or diagonal — to connect two or more with the <b>same</b> number. They merge into the next number up.</p>
   </main>;
 }

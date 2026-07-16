@@ -41,9 +41,8 @@ export const adjacent = (a: Cell, b: Cell) =>
 /**
  * Is there any valid connect left?
  *
- * The smallest move is two touching blocks that are equal, or where one is
- * exactly double the other (start on the smaller, step up to the double). When
- * no such pair exists anywhere, no chain can be made and the game is over.
+ * A move is two touching blocks with the same number. When no two neighbours
+ * are equal anywhere on the board, no chain can be made and the game is over.
  */
 export function hasMove(grid: number[][]) {
   for (let r = 0; r < ROWS; r += 1) {
@@ -54,9 +53,7 @@ export function hasMove(grid: number[][]) {
         const nc = c + dc;
         const nr = r + dr;
         if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS) continue;
-        const n = grid[nr][nc];
-        if (!n) continue;
-        if (v === n || v === n * 2 || n === v * 2) return true;
+        if (grid[nr][nc] === v) return true;
       }
     }
   }
