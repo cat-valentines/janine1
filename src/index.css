@@ -325,7 +325,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .games-sign { width: fit-content; margin: 6px auto 0; padding: 3px 14px; background: #fffaf0e8; border: 3px solid #6c5c4f; box-shadow: 3px 3px 0 #423b3566; color: #4f4054; font-family: "Courier New", monospace; font-size: .8rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
 
 /* The game shelf: one pill per game, same size, stacked, deepest green first. */
-.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .drift-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
+.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
 .power-button { margin-top: 18px; background: #27543a; box-shadow: 0 7px 0 #18382596; }
 .hunger-button { background: #3f6b4a; box-shadow: 0 7px 0 #2d4d35; }
 .medicine-button { background: #5b9a6b; box-shadow: 0 7px 0 #427451; }
@@ -335,7 +335,6 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .pong-button { background: #2f6b45; box-shadow: 0 7px 0 #1f4a2f; }
 .gruits-button { background: #c0452f; box-shadow: 0 7px 0 #8b2c1c; }
 .escape-button { background: #3a2b46; box-shadow: 0 7px 0 #241a2c; }
-.drift-button { background: #c0257a; box-shadow: 0 7px 0 #8a1857; }
 .more-button { background: transparent; border: 3px solid #4f4054; box-shadow: 0 5px 0 #4f405433; color: #4f4054; margin-bottom: 38px; }
 .power-button span, .hunger-button span, .medicine-button span, .runner-button span, .drive-button span, .riddle-button span, .pong-button span, .gruits-button span, .escape-button span, .more-button span { margin: 0; }
 .quest-pick { min-height: 100vh; padding: 16px; background: linear-gradient(#1c2a1e99, #1c2a1e99), url('/assets/pixel-magical-forest.png') center / cover fixed; }
@@ -1041,21 +1040,3 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 
 /* Guest note on the setup screen */
 .setup-guest-note { padding: 9px 11px; background: #fff4e0; border: 2px solid #e0b877; color: #7a5a2a; font-size: .76rem; line-height: 1.5; }
-
-/* Drift Rush */
-.drift-page { min-height: 100vh; padding: 12px; background: #160c26; }
-.drift-stage { position: relative; width: min(100%, 1000px); height: min(74vh, 660px); margin: 0 auto; overflow: hidden; border: 5px solid #ff3ea5; border-radius: 8px; box-shadow: 0 0 40px #ff3ea555, 0 0 60px #38e6ff33 inset; }
-.drift-canvas { width: 100%; height: 100%; }
-.drift-hud { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px; pointer-events: none; }
-.drift-score, .drift-chip { padding: 7px 12px; background: #160c26cc; border: 2px solid #ff3ea5; color: #ffe3f4; text-align: center; }
-.drift-score small, .drift-chip small { display: block; font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; color: #ff8fd0; }
-.drift-score b { font-size: 1.4rem; line-height: 1.1; }
-.drift-chip { border-color: #38e6ff; }
-.drift-chip small { color: #7fe6ff; }
-.drift-chip b { font-size: 1rem; }
-.drift-chip.speed.fast b { color: #ffe14a; }
-.drift-flash { position: absolute; top: 20%; left: 50%; translate: -50% 0; padding: 6px 18px; background: #ff3ea5; color: #fff; font-size: 1.4rem; font-weight: 900; letter-spacing: .1em; border-radius: 6px; box-shadow: 0 0 24px #ff3ea5; animation: drift-pulse .4s ease-in-out infinite; pointer-events: none; }
-.drift-flash span { color: #ffe14a; }
-@keyframes drift-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
-.drift-help { position: absolute; bottom: 12px; left: 50%; translate: -50% 0; padding: 7px 14px; background: #160c26cc; border: 2px solid #38e6ff; border-radius: 6px; color: #cfe9ff; font-size: .76rem; white-space: nowrap; pointer-events: none; }
-@media (max-width: 620px) { .drift-help { white-space: normal; text-align: center; width: 92%; } }

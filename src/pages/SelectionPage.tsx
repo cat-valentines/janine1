@@ -36,7 +36,6 @@ const RunnerUpPage = lazy(() => import('./RunnerUpPage').then((m) => ({ default:
 const DriveMadPage = lazy(() => import('./DriveMadPage').then((m) => ({ default: m.DriveMadPage })));
 const TownMarketPage = lazy(() => import('./TownMarketPage').then((m) => ({ default: m.TownMarketPage })));
 const EscapePage = lazy(() => import('./EscapePage').then((m) => ({ default: m.EscapePage })));
-const DriftPage = lazy(() => import('./DriftPage').then((m) => ({ default: m.DriftPage })));
 import { RiddlePage } from './RiddlePage';
 import { PingPongPage } from './PingPongPage';
 import { GruitsPage } from './GruitsPage';
@@ -63,7 +62,6 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const hungerOpen = path === '/play/hunger';
   const driveOpen = path === '/play/truck';
   const houseMarketOpen = path === '/house/market';
-  const driftOpen = path === '/play/drift';
   const medicineIsland = paramOf(path, '/play/medicine');
   const runnerIsland = paramOf(path, '/play/runner');
   const home = () => navigate('/');
@@ -244,11 +242,9 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     if (id === 'pong') navigate('/play/pong');
     if (id === 'fruit') navigate('/play/fruit');
     if (id === 'escape') navigate('/play/housekeeper');
-    if (id === 'drift') navigate('/play/drift');
   };
 
   if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => home()} />;
-  if (driftOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Warming up the engine…</p></main>}><DriftPage onCoin={() => setShopCoins((total) => total + 1)} onBack={() => home()} /></Suspense>;
   if (escapeOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Opening the front door…</p></main>}><EscapePage character={character} onEscape={(coins) => setShopCoins((total) => total + coins)} onBack={() => home()} /></Suspense>;
   if (gruitsOpen) return <GruitsPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;
@@ -322,7 +318,6 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <button className="pong-button" onClick={() => navigate('/play/pong')}>🏓 Ping Pong <span>→</span></button>
       <button className="gruits-button" onClick={() => navigate('/play/fruit')}>🍓 Fruit <span>→</span></button>
       <button className="escape-button" onClick={() => navigate('/play/housekeeper')}>🔦 The Housekeeper <span>→</span></button>
-      <button className="drift-button" onClick={() => navigate('/play/drift')}>🏎️ Drift Rush <span>→</span></button>
       <button className="more-button" onClick={() => navigate('/games')}>⊞ See all games <span>→</span></button>
       <Leaderboard />
       <ChallengeRoom onChallenge={createFriendChallenge} inviteLink={inviteLink} message={challengeMessage} />
