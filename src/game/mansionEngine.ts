@@ -555,19 +555,32 @@ export class MansionEngine {
     this.keeper2 = { group, pos: new THREE.Vector3(w.x, 0, w.z), yaw: 0, path: [], repath: 0, patrolAt: mid };
 
     const colours = ['#c9782e', '#2e8bc9', '#3fa34d', '#b0407a', '#7a5cc0'];
+    // Everyone starts in the same place — the bedroom you wake up in — so you
+    // see the whole crowd at the drop, then they scatter to hunt keys.
+    const spots = this.cellsNearStart(8);
     for (let i = 0; i < 5; i += 1) {
       const real = names[i];
-      const cell = this.floorCells[Math.floor(Math.random() * this.floorCells.length)];
+      const cell = spots[(i + 1) % spots.length];
       const world = worldOf(cell.col, cell.row);
+      const ox = (Math.random() - 0.5) * 1.2;
+      const oz = (Math.random() - 0.5) * 1.2;
       const figure = this.buildFigure(colours[i % colours.length],
         real ? `@${real}` : `🤖 Runner ${i + 1}`,
         real ? '#f2c94c' : '#bfe0ff', real ? '#c9a02e' : '#4a90c0', false);
-      this.bots.push({ group: figure, pos: new THREE.Vector3(world.x, 0, world.z), yaw: 0, path: [], repath: 0, patrolAt: 0, flash: 0 });
+      this.bots.push({ group: figure, pos: new THREE.Vector3(world.x + ox, 0, world.z + oz), yaw: 0, path: [], repath: 0, patrolAt: 0, flash: 0 });
     }
   }
 
   private randomCell(): Cell {
     return this.floorCells[Math.floor(Math.random() * this.floorCells.length)];
+  }
+
+  /** Floor squares nearest the starting bedroom, so everyone starts together. */
+  private cellsNearStart(n: number): Cell[] {
+    return [...this.floorCells]
+      .sort((a, b) => Math.hypot(a.col - startSpot.col, a.row - startSpot.row)
+        - Math.hypot(b.col - startSpot.col, b.row - startSpot.row))
+      .slice(0, n);
   }
 
   /** Flatten the character PNG onto a colour; raw alpha renders black. */
@@ -859,6 +872,14 @@ export class MansionEngine {
     this.position.set(start.x, 0, start.z);
     this.yaw = Math.PI;
     this.hidden = false; this.hideKind = null; this.busted = false;
+    // The others follow you into the new level — back at the start with you.
+    const spots = this.cellsNearStart(8);
+    this.bots.forEach((bot, i) => {
+      const cell = spots[(i + 1) % spots.length];
+      const world = worldOf(cell.col, cell.row);
+      bot.pos.set(world.x + (Math.random() - 0.5) * 1.2, 0, world.z + (Math.random() - 0.5) * 1.2);
+      bot.path = [];
+    });
     this.say(`🔒 Level ${this.level} unlocked! Find the keys again — the house is more dangerous now.`, 4.5);
   }
 
