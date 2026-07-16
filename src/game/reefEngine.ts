@@ -20,6 +20,8 @@ const PLAYER_R = 0.85;        // how close to coral before you bump it
 const GRAB_DIST = 2.3;        // reach for coins and keys
 const HOLE_DIST = 2.6;        // reach for a key-hole
 const HURT_INVULN = 1.6;      // seconds of safety after being caught
+const SHIELD_TIME = 20;       // a bubble shield lasts 20 seconds
+const SHIELD_COOLDOWN = 8;    // then you must wait before blowing another
 
 interface Predator {
   kind: 'shark' | 'eel' | 'big';
@@ -45,6 +47,8 @@ export interface ReefSnapshot {
   status: 'swim' | 'won' | 'over';
   hasAllKeys: boolean; nearHole: boolean;
   hurt: number;           // >0 = flash red
+  shield: number;         // seconds of bubble shield left
+  shieldReady: boolean;   // can you blow a new bubble?
   message: string;
 }
 
@@ -94,6 +98,9 @@ export class ReefEngine {
   private status: 'swim' | 'won' | 'over' = 'swim';
   private hurt = 0;
   private invuln = 0;
+  private shield = 0;
+  private shieldCooldown = 0;
+  private bubble: THREE.Mesh | null = null;
   private message = '';
   private messageUntil = 0;
 
@@ -171,44 +178,58 @@ export class ReefEngine {
     this.scene.add(surface);
   }
 
-  /** Coral walls: rocky pillars, brightened with colourful coral heads. */
+  /**
+   * The maze barriers are living CORAL, not stone walls: a warm limestone base
+   * almost completely buried under a thicket of bright coral — brain coral,
+   * staghorn branches, pillar coral and fans — so every wall reads as reef.
+   */
   private buildReefWalls() {
-    const rockTex = pixelTexture('#7f9bb0', '#5f7688', 'cobble');
-    const rockMat = new THREE.MeshLambertMaterial({ map: rockTex });
-    const wallGeo = new THREE.BoxGeometry(CELL, 5, CELL);
-    const coralColours = ['#ff6f91', '#ff9f45', '#c77dff', '#4ecdc4', '#ffd23f', '#ff5d73'];
+    const baseTex = pixelTexture('#c98a72', '#9c6252', 'noise');
+    const baseMat = new THREE.MeshLambertMaterial({ map: baseTex });
+    const wallGeo = new THREE.BoxGeometry(CELL, 4.6, CELL);
+    const coralColours = ['#ff6f91', '#ff9f45', '#c77dff', '#4ecdc4', '#ffd23f', '#ff5d73', '#7ee8b0', '#ff8fb1'];
+    const coralMats = coralColours.map((c) => new THREE.MeshLambertMaterial({ color: c, emissive: shade(c, 0.3) }));
+    // shared coral shapes, reused across every wall so the mesh count stays sane
     const coralGeos = [
-      new THREE.BoxGeometry(0.5, 1.6, 0.5),
-      new THREE.SphereGeometry(0.7, 6, 5),
-      new THREE.ConeGeometry(0.6, 1.5, 6),
+      new THREE.SphereGeometry(0.85, 7, 6),          // brain coral
+      new THREE.ConeGeometry(0.5, 1.8, 6),           // staghorn
+      new THREE.CylinderGeometry(0.3, 0.42, 1.9, 7), // pillar coral
+      new THREE.BoxGeometry(1.2, 1.1, 0.2),          // fan coral
     ];
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
     for (let row = 0; row < ROWS; row += 1) {
       for (let col = 0; col < COLS; col += 1) {
         if (this.reef.grid[row][col] !== '#') continue;
-        // only build coral that borders open water — the rest is never seen
-        let borders = false;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          if (!this.isWall(col + dx, row + dy)) borders = true;
-        }
-        if (!borders) continue;
+        // which faces look onto open water — those are the ones you see
+        const openSides = dirs.filter(([dx, dy]) => !this.isWall(col + dx, row + dy));
+        if (!openSides.length) continue;
         const w = worldOf(col, row);
-        const rock = new THREE.Mesh(wallGeo, rockMat);
-        rock.position.set(w.x, 2.5, w.z);
-        this.scene.add(rock);
-        // colourful coral heads on top, seeded by position so it is stable
-        const bumps = 1 + ((col * 7 + row * 13) % 3);
-        for (let i = 0; i < bumps; i += 1) {
-          const colour = coralColours[(col + row + i) % coralColours.length];
-          const geo = coralGeos[(col * 3 + row + i) % coralGeos.length];
-          const coral = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: colour }));
-          coral.position.set(
-            w.x + ((i * 5 + col) % 3 - 1) * 0.9,
-            5 + ((i + row) % 2) * 0.5,
-            w.z + ((i * 3 + row) % 3 - 1) * 0.9,
-          );
+        const base = new THREE.Mesh(wallGeo, baseMat);
+        base.position.set(w.x, 2.3, w.z);
+        this.scene.add(base);
+
+        // a deterministic per-cell RNG, so the reef looks the same on replay
+        let s = ((col * 73856093) ^ (row * 19349663)) >>> 0;
+        const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+        const drop = (x: number, y: number, z: number) => {
+          const coral = new THREE.Mesh(coralGeos[Math.floor(rnd() * coralGeos.length)], coralMats[Math.floor(rnd() * coralMats.length)]);
+          coral.position.set(x, y, z);
+          coral.rotation.set(rnd() * 0.5, rnd() * Math.PI, rnd() * 0.5);
+          coral.scale.setScalar(0.75 + rnd() * 0.7);
           this.scene.add(coral);
+        };
+        // clothe every open face in coral, up and down its whole height
+        for (const [dx, dy] of openSides) {
+          for (const h of [1.0, 2.5, 4.0, 5.1]) {
+            const t = (rnd() * 2 - 1) * 1.5;                 // slide along the face
+            const ox = dx !== 0 ? dx * 1.8 : t;
+            const oz = dy !== 0 ? dy * 1.8 : t;
+            drop(w.x + ox, h + (rnd() - 0.5) * 0.5, w.z + oz);
+          }
         }
+        // and a couple of heads crowning the top
+        for (let i = 0; i < 2; i += 1) drop(w.x + (rnd() * 2 - 1) * 1.3, 4.9, w.z + (rnd() * 2 - 1) * 1.3);
       }
     }
   }
@@ -322,6 +343,14 @@ export class ReefEngine {
     this.player = group;
     this.tail = tail; this.finL = finL; this.finR = finR;
     this.scene.add(group);
+
+    // the protective bubble — hidden until you blow one with Space
+    this.bubble = new THREE.Mesh(
+      new THREE.SphereGeometry(1.8, 16, 12),
+      new THREE.MeshBasicMaterial({ color: '#a6ecff', transparent: true, opacity: 0.26, side: THREE.DoubleSide }),
+    );
+    this.bubble.visible = false;
+    this.scene.add(this.bubble);
   }
 
   /** A blocky pixel fish with a wagging tail and flapping side fins. */
@@ -529,15 +558,26 @@ export class ReefEngine {
   // ---- input -----------------------------------------------------------------
 
   private onKeyDown = (event: KeyboardEvent) => {
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) event.preventDefault();
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ControlLeft'].includes(event.code)) event.preventDefault();
+    // Space blows a protective bubble (a press, not a hold)
+    if (event.code === 'Space' && !event.repeat) this.blowBubble();
     this.pressed.add(event.code);
   };
   private onKeyUp = (event: KeyboardEvent) => this.pressed.delete(event.code);
 
   /** Touch / on-screen buttons drive the same set the keys do. */
   setTouch(dir: 'up' | 'down' | 'left' | 'right' | 'rise' | 'dive', on: boolean) {
-    const code = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', rise: 'Space', dive: 'ShiftLeft' }[dir];
+    const code = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', rise: 'ShiftLeft', dive: 'ControlLeft' }[dir];
     if (on) this.pressed.add(code); else this.pressed.delete(code);
+  }
+
+  /** Blow a 20-second protective bubble (from Space or the on-screen button). */
+  blowBubble() {
+    if (this.status !== 'swim') return;
+    if (this.shield > 0) { this.say('🫧 Your bubble is already up!', 1.4); return; }
+    if (this.shieldCooldown > 0) { this.say(`🫧 Bubble recharging — ${Math.ceil(this.shieldCooldown)}s.`, 1.4); return; }
+    this.shield = SHIELD_TIME;
+    this.say('🫧 Bubble shield! You are safe for 20 seconds.', 2.6);
   }
 
   private say(text: string, seconds = 2.4) {
@@ -562,7 +602,7 @@ export class ReefEngine {
     const turn = (this.has('ArrowLeft', 'KeyA') ? 1 : 0) - (this.has('ArrowRight', 'KeyD') ? 1 : 0);
     this.yaw += turn * TURN_SPEED * dt;
     const forward = (this.has('ArrowUp', 'KeyW') ? 1 : 0) - (this.has('ArrowDown', 'KeyS') ? 1 : 0);
-    const vertical = (this.has('Space') ? 1 : 0) - (this.has('ShiftLeft', 'ShiftRight', 'ControlLeft') ? 1 : 0);
+    const vertical = (this.has('ShiftLeft', 'ShiftRight') ? 1 : 0) - (this.has('ControlLeft', 'ControlRight', 'KeyC') ? 1 : 0);
 
     const dx = Math.sin(this.yaw) * forward * SWIM_SPEED * dt;
     const dz = Math.cos(this.yaw) * forward * SWIM_SPEED * dt;
@@ -687,9 +727,17 @@ export class ReefEngine {
       const targetY = chasing ? this.pos.y : p.cruise + Math.sin(this.time * 0.8 + p.phase) * 0.5;
       p.pos.y += (targetY - p.pos.y) * Math.min(1, dt * 1.6);
 
-      // catch! (needs to be at your depth too, so surfacing can save you)
-      if (this.status === 'swim' && this.invuln <= 0 && flat < p.reach && Math.abs(this.pos.y - p.pos.y) < 2.2) {
-        this.caught(p.kind);
+      // a predator reaches you
+      if (this.status === 'swim' && flat < p.reach && Math.abs(this.pos.y - p.pos.y) < 2.2) {
+        if (this.shield > 0) {
+          // the bubble protects you — bump the attacker away and send it fleeing
+          const away = Math.atan2(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
+          p.pos.x = this.pos.x + Math.sin(away) * (p.reach + 1.4);
+          p.pos.z = this.pos.z + Math.cos(away) * (p.reach + 1.4);
+          p.path = this.findPath({ col: colOf(p.pos.x), row: rowOf(p.pos.z) }, this.randomFloor());
+        } else if (this.invuln <= 0) {
+          this.caught(p.kind);
+        }
       }
     }
   }
@@ -720,6 +768,8 @@ export class ReefEngine {
       hasAllKeys: this.collectedKeys >= KEYS_TO_WIN,
       nearHole: false, // set by loop
       hurt: this.hurt,
+      shield: this.shield,
+      shieldReady: this.shield <= 0 && this.shieldCooldown <= 0,
       message: this.time < this.messageUntil ? this.message : '',
     };
   }
@@ -727,7 +777,7 @@ export class ReefEngine {
   restart() {
     // simplest safe reset: rebuild from a fresh seed by reloading the page-level engine
     this.collectedKeys = 0; this.coins = 0; this.lives = START_LIVES;
-    this.status = 'swim'; this.hurt = 0; this.invuln = 0;
+    this.status = 'swim'; this.hurt = 0; this.invuln = 0; this.shield = 0; this.shieldCooldown = 0;
     this.coinMeshes.forEach((c) => { c.taken = false; c.mesh.visible = true; });
     this.keyMeshes.forEach((k) => { k.taken = false; k.mesh.visible = true; });
     const start = worldOf(this.reef.start.col, this.reef.start.row);
@@ -765,6 +815,12 @@ export class ReefEngine {
     this.time += dt;
     if (this.hurt > 0) this.hurt = Math.max(0, this.hurt - dt * 1.5);
     if (this.invuln > 0) this.invuln = Math.max(0, this.invuln - dt);
+    if (this.shield > 0) {
+      this.shield = Math.max(0, this.shield - dt);
+      if (this.shield === 0) { this.shieldCooldown = SHIELD_COOLDOWN; this.say('🫧 Your bubble popped!', 2); }
+    } else if (this.shieldCooldown > 0) {
+      this.shieldCooldown = Math.max(0, this.shieldCooldown - dt);
+    }
 
     let nearHole = false;
     if (this.status === 'swim') {
@@ -777,6 +833,12 @@ export class ReefEngine {
     // place & animate the player fish
     this.player.position.copy(this.pos);
     this.player.rotation.set(this.pitch, this.yaw, 0);
+    if (this.bubble) {
+      this.bubble.visible = this.shield > 0;
+      this.bubble.position.copy(this.pos);
+      const flicker = this.shield > 0 && this.shield < 4 ? (Math.sin(this.time * 14) > 0 ? 1 : 0.4) : 1;
+      this.bubble.scale.setScalar((1 + Math.sin(this.time * 3) * 0.05) * flicker);
+    }
     const wag = Math.sin(this.time * 9) * 0.5;
     if (this.tail) this.tail.rotation.y = wag;
     if (this.finL) this.finL.rotation.z = Math.sin(this.time * 7) * 0.4 - 0.2;

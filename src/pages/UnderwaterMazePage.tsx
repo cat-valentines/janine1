@@ -107,6 +107,9 @@ export function UnderwaterMazePage({ onCoins, onBack }: UnderwaterMazePageProps)
   const lives = snapshot?.lives ?? START_LIVES;
   const won = snapshot?.status === 'won';
   const over = snapshot?.status === 'over';
+  const shield = snapshot?.shield ?? 0;
+  const shieldReady = snapshot?.shieldReady ?? true;
+  const shieldLabel = shield > 0 ? `🫧 ${Math.ceil(shield)}s` : shieldReady ? '🫧 Bubble' : '🫧 …';
 
   return <main className="reef-page">
     <div className="reef-stage">
@@ -119,6 +122,7 @@ export function UnderwaterMazePage({ onCoins, onBack }: UnderwaterMazePageProps)
         <div className="reef-lives" aria-label={`${lives} lives left`}>
           {Array.from({ length: START_LIVES }, (_, i) => <i key={i}>{i < lives ? '❤️' : '🖤'}</i>)}
         </div>
+        <div className={`reef-shield-chip ${shield > 0 ? 'on' : ''}`}><b>{shield > 0 ? `${Math.ceil(shield)}s` : shieldReady ? '🫧' : '⏳'}</b><span>bubble</span></div>
         {snapshot?.hasAllKeys && <div className="reef-goal">🐚 Find a shell lock!</div>}
       </div>
 
@@ -136,12 +140,13 @@ export function UnderwaterMazePage({ onCoins, onBack }: UnderwaterMazePageProps)
           <button className="down" onPointerDown={touch('down', true)} onPointerUp={touch('down', false)} onPointerLeave={touch('down', false)}>▼</button>
         </div>
         <div className="reef-vert">
+          <button className={`reef-bubble-btn ${shield > 0 ? 'active' : ''}`} disabled={!shieldReady && shield <= 0} onPointerDown={(event) => { event.preventDefault(); engine.current?.blowBubble(); }}>{shieldLabel}</button>
           <button onPointerDown={touch('rise', true)} onPointerUp={touch('rise', false)} onPointerLeave={touch('rise', false)}>🔼 Up</button>
           <button onPointerDown={touch('dive', true)} onPointerUp={touch('dive', false)} onPointerLeave={touch('dive', false)}>🔽 Dive</button>
         </div>
       </div>
 
-      {snapshot?.status === 'swim' && <p className="reef-help"><b>↑↓</b> swim · <b>←→</b> turn · <b>Space</b> rise · <b>Shift</b> dive</p>}
+      {snapshot?.status === 'swim' && <p className="reef-help"><b>↑↓</b> swim · <b>←→</b> turn · <b>Space</b> 🫧 bubble · <b>Shift</b> up · <b>Ctrl</b> dive</p>}
 
       {(won || over) && <div className="quest-over">
         <div className={`quest-over-card ${won ? 'win' : ''}`}>

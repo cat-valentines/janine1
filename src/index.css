@@ -1196,3 +1196,11 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .reef-fact-strip { background: #062f4d; color: #cfeaff; padding: 10px 16px; text-align: center; font-size: 14px; border-top: 2px solid #1c6da0; }
 .reef-fact-strip b { color: #7fd0ff; }
 .reef-fact-strip em { color: #9fd6ff; }
+
+/* bubble shield UI */
+.reef-shield-chip { border-color: #6fd0ff !important; }
+.reef-shield-chip.on { background: #0e5a7a !important; border-color: #a6ecff !important; animation: reef-pulse 1s ease-in-out infinite; }
+.reef-shield-chip b { font-size: 16px; }
+.reef-bubble-btn { background: linear-gradient(120deg, #37c0e6, #1f8fd0) !important; color: #04263f !important; font-weight: 900 !important; box-shadow: 0 4px 0 #0d6a9a; }
+.reef-bubble-btn.active { background: linear-gradient(120deg, #a6ecff, #6fd0ff) !important; animation: reef-pulse .9s ease-in-out infinite; }
+.reef-bubble-btn:disabled { background: #2a5372 !important; color: #7fb0cc !important; box-shadow: 0 4px 0 #1c3c54; opacity: .8; }
