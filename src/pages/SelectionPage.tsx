@@ -244,6 +244,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     if (id === 'pong') navigate('/play/pong');
     if (id === 'fruit') navigate('/play/fruit');
     if (id === 'escape') navigate('/play/housekeeper');
+    if (id === 'drift') navigate('/play/drift');
   };
 
   if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => home()} />;
