@@ -9,16 +9,28 @@ export const VIEW_H = ROWS * CELL + (ROWS + 1) * GAP;
 const SPAWN = [2, 2, 2, 2, 4, 4, 8];
 export const spawnValue = () => SPAWN[Math.floor(Math.random() * SPAWN.length)];
 
-/** 2048-style colours. Unknown (very big) values fall back to dark. */
+/**
+ * A bright rainbow: every number is its own colour, so the board reads at a
+ * glance. [background, text] — dark text on the pale yellows, white elsewhere.
+ */
 const palette: Record<number, [string, string]> = {
-  2: ['#eee4da', '#6f6559'], 4: ['#ede0c8', '#6f6559'],
-  8: ['#f2b179', '#fff8f0'], 16: ['#f59563', '#fff8f0'],
-  32: ['#f67c5f', '#fff8f0'], 64: ['#f65e3b', '#fff8f0'],
-  128: ['#edcf72', '#fff8f0'], 256: ['#edcc61', '#fff8f0'],
-  512: ['#edc850', '#fff8f0'], 1024: ['#edc53f', '#fff8f0'],
-  2048: ['#edc22e', '#fff8f0'],
+  2: ['#ff6b6b', '#ffffff'],   // coral
+  4: ['#ff9f43', '#ffffff'],   // orange
+  8: ['#feca57', '#5b4a1e'],   // yellow
+  16: ['#26de81', '#ffffff'],  // green
+  32: ['#00d2d3', '#ffffff'],  // cyan
+  64: ['#54a0ff', '#ffffff'],  // blue
+  128: ['#5f6dff', '#ffffff'], // indigo
+  256: ['#a55eea', '#ffffff'], // violet
+  512: ['#ff6ec7', '#ffffff'], // pink
+  1024: ['#ffd32a', '#5b4a1e'],// gold
+  2048: ['#ff3f34', '#ffffff'],// bright red
 };
-export const colourFor = (value: number): [string, string] => palette[value] ?? ['#3c3a32', '#ffffff'];
+export const colourFor = (value: number): [string, string] => palette[value] ?? ['#2f3542', '#ffffff'];
+
+/** The dark board the bright blocks sit on, and the empty-slot colour. */
+export const BOARD_BG = '#241f3a';
+export const SLOT_BG = '#332d52';
 
 export interface Cell { c: number; r: number }
 

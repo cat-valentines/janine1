@@ -1,6 +1,6 @@
 import {
-  CELL, COLS, GAP, ROWS, VIEW_H, VIEW_W, adjacent, colourFor, hasMove, spawnValue,
-  type Cell,
+  BOARD_BG, CELL, COLS, GAP, ROWS, SLOT_BG, VIEW_H, VIEW_W, adjacent, colourFor, hasMove,
+  spawnValue, type Cell,
 } from './connector';
 
 export interface ConnectorSnapshot {
@@ -196,13 +196,13 @@ export class ConnectorEngine {
 
   private draw(dt: number) {
     const { ctx } = this;
-    ctx.fillStyle = '#b9ad97';
+    ctx.fillStyle = BOARD_BG;
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
     for (let r = 0; r < ROWS; r += 1) {
       for (let c = 0; c < COLS; c += 1) {
         // Empty slot backing.
-        ctx.fillStyle = '#cabfa6';
+        ctx.fillStyle = SLOT_BG;
         this.roundRect(this.cellX(c), this.cellY(r), CELL, CELL, 9);
         ctx.fill();
 
@@ -220,7 +220,7 @@ export class ConnectorEngine {
         this.roundRect(x, y, CELL, CELL, 9);
         ctx.fill();
         if (lit) {
-          ctx.strokeStyle = '#3aa0ff';
+          ctx.strokeStyle = '#ffffff';
           ctx.lineWidth = 4;
           this.roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 8);
           ctx.stroke();
