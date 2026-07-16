@@ -4,6 +4,7 @@ import { DAYS, KEYS_TO_ESCAPE, STONES_PER_NIGHT } from '../game/mansion';
 import { characterAssets } from '../game/characters';
 import { loadMyFriends, type FriendRow } from '../lib/players';
 import { sendFriendMessage } from '../lib/friends';
+import { heartbeat, leaveGame, playersInGame } from '../lib/presence';
 import { supabase } from '../lib/supabase';
 import type { CharacterId } from '../game/types';
 
@@ -21,7 +22,8 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
   const [round, setRound] = useState(1);
   const [snapshot, setSnapshot] = useState<MansionSnapshot | null>(null);
   // Start-screen: play alone, or invite friends to a scheduled game.
-  const [party, setParty] = useState(false);
+  const [mode, setMode] = useState<'alone' | 'friends' | 'everybody'>('alone');
+  const [botNames, setBotNames] = useState<string[]>([]);
   const [userId, setUserId] = useState('');
   const [myName, setMyName] = useState('a friend');
   const [friends, setFriends] = useState<FriendRow[]>([]);
@@ -71,13 +73,25 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
     if (!started || !mount.current) return;
     const created = new MansionEngine(mount.current, {
       characterAsset: characterAssets[character],
+      party: mode === 'everybody',
+      botNames,
       onUpdate: (next) => update.current(next),
     });
     engine.current = created;
     const resize = () => created.resize();
     window.addEventListener('resize', resize);
     return () => { window.removeEventListener('resize', resize); created.dispose(); engine.current = null; };
-  }, [started, round, character]);
+  }, [started, round, character, mode, botNames]);
+
+  // Party mode uses the same live-presence as Hunger Quests: real players in a
+  // Housekeeper match right now become named bots; the rest are AI.
+  useEffect(() => {
+    if (!started || mode !== 'everybody') return;
+    playersInGame('housekeeper').then((players) => setBotNames(players.map((p) => p.name))).catch(() => undefined);
+    heartbeat('housekeeper');
+    const id = setInterval(() => heartbeat('housekeeper'), 5000);
+    return () => { clearInterval(id); leaveGame(); };
+  }, [started, mode]);
 
   const again = () => { paid.current = false; setSnapshot(null); setRound((n) => n + 1); };
   const goFullscreen = () => {
@@ -96,12 +110,17 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
         <p>You are locked in her house. She is already walking the halls.</p>
       </header>
       <section className="quest-pick-card">
-        <div className="escape-mode">
-          <button className={!party ? 'on' : ''} onClick={() => setParty(false)}>🎮 Play alone</button>
-          <button className={party ? 'on' : ''} onClick={() => setParty(true)}>👫 Invite friends</button>
+        <div className="escape-mode escape-mode-3">
+          <button className={mode === 'alone' ? 'on' : ''} onClick={() => setMode('alone')}>🎮 Play alone</button>
+          <button className={mode === 'friends' ? 'on' : ''} onClick={() => setMode('friends')}>👫 Invite friends</button>
+          <button className={mode === 'everybody' ? 'on' : ''} onClick={() => setMode('everybody')}>🌍 Play with everybody</button>
         </div>
 
-        {party && <div className="escape-invite">
+        {mode === 'everybody' && <div className="escape-invite">
+          <p className="escape-invite-note">🌍 A house full of players! <strong>Two housekeepers</strong> patrol, and everyone races to find the keys without getting caught. Escape and you unlock a deeper, harder level — the others follow you down. Real players in a match right now join in; 🤖 bots fill the rest.</p>
+        </div>}
+
+        {mode === 'friends' && <div className="escape-invite">
           {!userId
             ? <p className="escape-invite-note">🔐 Log in from the front page to invite your friends. You can still play alone right now.</p>
             : <>
@@ -154,6 +173,7 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
         </div>
         <div className="escape-stones"><strong>🪨 {snapshot?.stones ?? STONES_PER_NIGHT}</strong><small>stones</small></div>
         <div className="escape-night"><strong>🌙 Night {snapshot?.day ?? 1}</strong><small>of {DAYS}</small></div>
+        {snapshot?.party && <div className="escape-night"><strong>🔒 Level {snapshot.level}</strong><small>go deeper</small></div>}
         <div className="escape-state">
           <strong>{(snapshot?.trapped ?? 0) > 0 ? `🪤 Stuck! ${snapshot?.trapped}s` : snapshot?.hidden ? '🤫 Hidden' : snapshot?.keeperState === 'chase' ? '🏃 She sees you!' : snapshot?.keeperState === 'search' ? '👀 She is looking' : '🚶 She is patrolling'}</strong>
           <i className="escape-alarm"><s style={{ width: `${Math.round((snapshot?.alarm ?? 0) * 100)}%` }} /></i>

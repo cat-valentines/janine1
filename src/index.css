@@ -1128,3 +1128,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 /* Signed-up players browse list */
 .all-players { margin-top: 14px; }
 .all-players h3 { margin-bottom: 6px; font-size: .82rem; color: var(--ink-soft); }
+
+/* The Housekeeper — three-way mode selector */
+.escape-mode-3 { grid-template-columns: 1fr 1fr 1fr; }
+@media (max-width: 520px) { .escape-mode-3 { grid-template-columns: 1fr; } }

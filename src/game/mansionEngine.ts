@@ -27,12 +27,28 @@ export interface MansionSnapshot {
   nearHide: boolean;
   nearDoor: boolean;
   status: 'playing' | 'caught' | 'escaped' | 'lost';
+  party: boolean;
+  level: number;
   message: string;
 }
 
 interface EngineOptions {
   characterAsset: string;
+  /** "Play with everybody": a second housekeeper and a house full of bots. */
+  party?: boolean;
+  /** Names for the bot players — real players in a match now, then filler. */
+  botNames?: string[];
   onUpdate: (snapshot: MansionSnapshot) => void;
+}
+
+/** A second keeper and the bots share this lighter state. */
+interface Roamer {
+  group: THREE.Group;
+  pos: THREE.Vector3;
+  yaw: number;
+  path: Cell[];
+  repath: number;
+  patrolAt: number;
 }
 
 interface Cell { col: number; row: number }
@@ -104,6 +120,13 @@ export class MansionEngine {
   private hideAt = new THREE.Vector3();
   /** Where a stone just landed, for one frame. */
   private clatterAt: THREE.Vector3 | null = null;
+  /** Party mode: a second keeper, roaming bot players, and unlockable levels. */
+  private party = false;
+  private level = 1;
+  private speedMul = 1;
+  private keeper2: Roamer | null = null;
+  private bots: Array<Roamer & { flash: number }> = [];
+  private floorCells: Cell[] = [];
 
   private keyMeshes: Array<{ mesh: THREE.Object3D; taken: boolean; at: Cell }> = [];
   private hideMeshes: Array<{ mesh: THREE.Object3D; at: Cell; kind: HideKind }> = [];
@@ -179,6 +202,15 @@ export class MansionEngine {
     const first = this.patrolPoints[0];
     const keeperStart = worldOf(first.col, first.row);
     this.keeperPos.set(keeperStart.x, 0, keeperStart.z);
+
+    // Every walkable square, for random bot targets.
+    for (let row = 0; row < ROWS; row += 1) for (let col = 0; col < COLS; col += 1) {
+      if (!isWall(col, row)) this.floorCells.push({ col, row });
+    }
+    if (options.party) {
+      this.party = true;
+      this.buildParty(options.botNames ?? []);
+    }
 
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
@@ -463,6 +495,91 @@ export class MansionEngine {
     this.scene.add(this.keeper);
   }
 
+  /** A floating name tag sprite that reads through the dark. */
+  private nameSprite(text: string, colour: string, border: string) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#0b0810d8';
+      ctx.fillRect(0, 0, 256, 64);
+      ctx.strokeStyle = border;
+      ctx.lineWidth = 4;
+      ctx.strokeRect(2, 2, 252, 60);
+      ctx.font = 'bold 24px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = colour;
+      ctx.fillText(text.slice(0, 16), 128, 34);
+    }
+    const mat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false, transparent: true });
+    this.disposables.push(mat);
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(2.6, 0.65, 1);
+    sprite.position.y = 2.4;
+    return sprite;
+  }
+
+  /** A blocky person: another keeper, or a bot player. */
+  private buildFigure(bodyColour: string, tag: string, tagColour: string, border: string, withAxe: boolean) {
+    const group = new THREE.Group();
+    const body = new THREE.MeshLambertMaterial({ color: bodyColour });
+    const skin = new THREE.MeshLambertMaterial({ color: '#d8bfae' });
+    const torsoGeo = new THREE.BoxGeometry(0.55, 0.95, 0.32);
+    const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+    this.disposables.push(body, skin, torsoGeo, headGeo);
+    const torso = new THREE.Mesh(torsoGeo, body);
+    torso.position.y = 1.0;
+    const head = new THREE.Mesh(headGeo, skin);
+    head.position.y = 1.72;
+    group.add(torso, head);
+    if (withAxe) {
+      const haftGeo = new THREE.BoxGeometry(0.07, 0.07, 0.9);
+      const bladeGeo = new THREE.BoxGeometry(0.09, 0.42, 0.32);
+      const haftMat = new THREE.MeshLambertMaterial({ color: '#5b3a22' });
+      const bladeMat = new THREE.MeshLambertMaterial({ color: '#c7ccd4', emissive: '#20242b' });
+      this.disposables.push(haftGeo, bladeGeo, haftMat, bladeMat);
+      const axe = new THREE.Group();
+      axe.add(new THREE.Mesh(haftGeo, haftMat));
+      const blade = new THREE.Mesh(bladeGeo, bladeMat);
+      blade.position.set(0, 0.05, 0.45);
+      axe.add(blade);
+      axe.position.set(0.38, 1.05, 0.5);
+      group.add(axe);
+    }
+    group.add(this.nameSprite(tag, tagColour, border));
+    this.scene.add(group);
+    return group;
+  }
+
+  /** Build the second keeper and the roaming bot players. */
+  private buildParty(names: string[]) {
+    const mid = Math.floor(this.patrolPoints.length / 2);
+    const spot = this.patrolPoints[mid];
+    const w = worldOf(spot.col, spot.row);
+    const group = this.buildFigure('#33244a', '🪓 Housekeeper 2', '#ffb0c0', '#c0455a', true);
+    const lamp = new THREE.PointLight('#9fc6ff', 6, 8, 2);
+    lamp.position.set(0, 1.5, 0.4);
+    group.add(lamp);
+    this.keeper2 = { group, pos: new THREE.Vector3(w.x, 0, w.z), yaw: 0, path: [], repath: 0, patrolAt: mid };
+
+    const colours = ['#c9782e', '#2e8bc9', '#3fa34d', '#b0407a', '#7a5cc0'];
+    for (let i = 0; i < 5; i += 1) {
+      const real = names[i];
+      const cell = this.floorCells[Math.floor(Math.random() * this.floorCells.length)];
+      const world = worldOf(cell.col, cell.row);
+      const figure = this.buildFigure(colours[i % colours.length],
+        real ? `@${real}` : `🤖 Runner ${i + 1}`,
+        real ? '#f2c94c' : '#bfe0ff', real ? '#c9a02e' : '#4a90c0', false);
+      this.bots.push({ group: figure, pos: new THREE.Vector3(world.x, 0, world.z), yaw: 0, path: [], repath: 0, patrolAt: 0, flash: 0 });
+    }
+  }
+
+  private randomCell(): Cell {
+    return this.floorCells[Math.floor(Math.random() * this.floorCells.length)];
+  }
+
   /** Flatten the character PNG onto a colour; raw alpha renders black. */
   private faceTexture(asset: string) {
     const canvas = document.createElement('canvas');
@@ -537,8 +654,8 @@ export class MansionEngine {
     }
     if (this.atDoor()) {
       if (this.collected >= KEYS_TO_ESCAPE) {
-        this.status = 'escaped';
-        this.say('🚪 You got out!', 6);
+        if (this.party) this.nextLevel();
+        else { this.status = 'escaped'; this.say('🚪 You got out!', 6); }
       } else {
         this.say(`🔒 Locked. You need ${KEYS_TO_ESCAPE - this.collected} more keys.`, 2.4);
       }
@@ -631,23 +748,98 @@ export class MansionEngine {
     }
   }
 
-  /** Can she see you from where she is standing? */
-  private canSee() {
+  /** Can a keeper at this spot, facing this way, see you? */
+  private canSeeFrom(pos: THREE.Vector3, yaw: number) {
     if (this.hidden || this.status !== 'playing') return false;
-    const to = new THREE.Vector3().subVectors(this.position, this.keeperPos);
+    const to = new THREE.Vector3().subVectors(this.position, pos);
     const distance = to.length();
     if (distance > KEEPER_SIGHT) return false;
-    const facing = new THREE.Vector3(Math.sin(this.keeperYaw), 0, Math.cos(this.keeperYaw)).negate();
+    const facing = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).negate();
     if (to.clone().normalize().dot(facing) < Math.cos(KEEPER_FOV)) return false;
     // Walk the line between us: any wall in the way and she sees nothing.
     const steps = Math.ceil(distance / 0.4);
     for (let i = 1; i < steps; i += 1) {
       const t = i / steps;
-      const x = this.keeperPos.x + to.x * t;
-      const z = this.keeperPos.z + to.z * t;
+      const x = pos.x + to.x * t;
+      const z = pos.z + to.z * t;
       if (isWall(colOf(x), rowOf(z))) return false;
     }
     return true;
+  }
+
+  private canSee() { return this.canSeeFrom(this.keeperPos, this.keeperYaw); }
+
+  /** Generic pathfollowing for the second keeper and the bots. */
+  private advance(m: Roamer, dt: number, speed: number) {
+    if (!m.path.length) return;
+    const next = m.path[0];
+    const world = worldOf(next.col, next.row);
+    const dx = world.x - m.pos.x;
+    const dz = world.z - m.pos.z;
+    const distance = Math.hypot(dx, dz);
+    if (distance < 0.25) { m.path.shift(); return; }
+    m.pos.x += (dx / distance) * speed * dt;
+    m.pos.z += (dz / distance) * speed * dt;
+    m.yaw = Math.atan2(-dx, -dz);
+  }
+
+  /** The second keeper: a simpler patroller that chases the moment it sees you. */
+  private moveKeeper2(dt: number) {
+    const k = this.keeper2;
+    if (!k) return;
+    const here = { col: colOf(k.pos.x), row: rowOf(k.pos.z) };
+    const seen = this.canSeeFrom(k.pos, k.yaw);
+    k.repath -= dt;
+    if (seen) {
+      if (k.repath <= 0 || !k.path.length) { k.path = findPath(here, { col: colOf(this.position.x), row: rowOf(this.position.z) }); k.repath = 0.4; }
+      this.advance(k, dt, KEEPER_CHASE_SPEED * this.speedMul);
+      this.alarm = 1;
+    } else {
+      if (!k.path.length) { k.patrolAt = (k.patrolAt + 1) % this.patrolPoints.length; k.path = findPath(here, this.patrolPoints[k.patrolAt]); }
+      this.advance(k, dt, KEEPER_PATROL_SPEED * this.speedMul);
+    }
+    if (!this.hidden && k.pos.distanceTo(this.position) < KEEPER_REACH) this.caught('🪓 The second housekeeper caught you!');
+  }
+
+  /** Bot players wandering the house, fleeing whichever keeper gets close. */
+  private moveBots(dt: number) {
+    const keepers = [this.keeperPos];
+    if (this.keeper2) keepers.push(this.keeper2.pos);
+    this.bots.forEach((bot) => {
+      if (bot.flash > 0) bot.flash -= dt;
+      const here = { col: colOf(bot.pos.x), row: rowOf(bot.pos.z) };
+      let nearest = Infinity;
+      keepers.forEach((kp) => { const d = kp.distanceTo(bot.pos); if (d < nearest) nearest = d; });
+      bot.repath -= dt;
+      if (nearest < 6) {
+        if (bot.repath <= 0 || !bot.path.length) { bot.path = findPath(here, this.randomCell()); bot.repath = 0.8; }
+        this.advance(bot, dt, KEEPER_PATROL_SPEED * 1.3);
+      } else {
+        if (!bot.path.length) bot.path = findPath(here, this.randomCell());
+        this.advance(bot, dt, KEEPER_PATROL_SPEED * 0.9);
+      }
+      // Caught: dragged off, reappears elsewhere — so the house stays busy.
+      if (nearest < KEEPER_REACH) {
+        const cell = this.randomCell();
+        const w = worldOf(cell.col, cell.row);
+        bot.pos.set(w.x, 0, w.z);
+        bot.path = [];
+        bot.flash = 0.6;
+      }
+    });
+  }
+
+  /** Escaping in party mode opens a deeper, harder level instead of winning. */
+  private nextLevel() {
+    this.level += 1;
+    this.speedMul += 0.12;
+    this.collected = 0;
+    this.keyMeshes.forEach((key) => { key.taken = false; key.mesh.visible = true; });
+    const start = worldOf(startSpot.col, startSpot.row);
+    this.position.set(start.x, 0, start.z);
+    this.yaw = Math.PI;
+    this.hidden = false; this.hideKind = null; this.busted = false;
+    this.say(`🔒 Level ${this.level} unlocked! Find the keys again — the house is more dangerous now.`, 4.5);
   }
 
   /** Running is loud. Sneaking is not. */
@@ -809,6 +1001,7 @@ export class MansionEngine {
       nearHide: !!hide && hide.distance < HIDE_DISTANCE,
       nearDoor: this.atDoor(),
       status: this.status,
+      party: this.party, level: this.level,
       message: this.time < this.messageUntil ? this.message : '',
     };
   }
@@ -837,11 +1030,14 @@ export class MansionEngine {
     if (this.status === 'playing') {
       this.movePlayer(dt);
       this.moveKeeper(dt);
+      if (this.party) { this.moveKeeper2(dt); this.moveBots(dt); }
       this.collectKeys();
     }
 
     this.keeper.position.copy(this.keeperPos);
     this.keeper.rotation.y = this.keeperYaw;
+    if (this.keeper2) { this.keeper2.group.position.copy(this.keeper2.pos); this.keeper2.group.rotation.y = this.keeper2.yaw; }
+    this.bots.forEach((bot) => { bot.group.position.copy(bot.pos); bot.group.rotation.y = bot.yaw; });
     this.keyMeshes.forEach((key) => { key.mesh.rotation.y = this.time * 1.6; });
 
     this.thrown = this.thrown.filter((stone) => {
