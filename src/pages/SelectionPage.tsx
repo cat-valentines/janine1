@@ -12,6 +12,8 @@ import { Auth } from '../components/Auth';
 import { loadLocalProfile, saveLocalProfile } from '../lib/localProfile';
 import { navigate, paramOf, useRoute } from '../lib/router';
 import { ensureGuestAccount, isAnonymous } from '../lib/players';
+import { NotificationsPanel } from '../components/NotificationsPanel';
+import { countUnread, loadNotifications, loadSeenAt, markSeen, type NotificationItem } from '../lib/notifications';
 import { updateProfileSelection } from '../lib/gameData';
 import type { ShopItem } from '../shop/catalog';
 import { YourHousePage } from './YourHousePage';
@@ -83,6 +85,9 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const [daysPlayed, setDaysPlayed] = useState(savedProfile.daysPlayed);
   const [lastPlayed, setLastPlayed] = useState(savedProfile.lastPlayed);
   const [signedIn, setSignedIn] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifs, setNotifs] = useState<NotificationItem[]>([]);
+  const [notifSeen, setNotifSeen] = useState(loadSeenAt);
   const [worldMode, setWorldMode] = useState<'build' | 'walk'>('build');
   const [foodBalance] = useState(savedProfile.foodBalance);
   const [shopCoins, setShopCoins] = useState(savedProfile.shopCoins);
@@ -175,6 +180,15 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   }, []);
 
   const makeGuestReal = () => { ensureGuestAccount(); };
+
+  useEffect(() => {
+    // Dev-only: lets the headless test push real-shaped notifications in.
+    if (import.meta.env.DEV) (window as unknown as { __notifTest: unknown }).__notifTest = { setNotifs, setSignedIn };
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return;
+      loadNotifications(data.user.id).then(setNotifs).catch(() => undefined);
+    });
+  }, []);
 
   useEffect(() => {
     const local = countTodayAsPlayed({ lastPlayed, streak, daysPlayed });
@@ -306,6 +320,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <button className="profile-button" onClick={() => navigate('/profile')} title="My profile" aria-label="My profile"><img src={characterAssets[character]} alt="" /></button>
       <button className={`crown-button ${isMember ? 'is-member' : ''}`} onClick={() => navigate('/royal')} title="Royal Membership" aria-label="Royal Membership">♛</button>
       <button className={`streak-button ${streak > 0 ? 'burning' : ''}`} onClick={() => navigate('/streak')} title="Your daily streak" aria-label="Your daily streak"><span>🔥</span><b>{streak}</b></button>
+      <button className="notif-button" onClick={() => { setNotifOpen(true); markSeen(); setNotifSeen(loadSeenAt()); }} title="Notifications" aria-label="Notifications">🔔{countUnread(notifs, notifSeen) > 0 && <i className="notif-badge">{Math.min(9, countUnread(notifs, notifSeen))}</i>}</button>
       {username ? <><span className="signed-in-name">☺ {username}</span><button className="auth-button login-button" onClick={() => supabase.auth.signOut()}>Log out</button></> : <><button className="auth-button login-button" onClick={() => setAuthMode('signin')}>Log in</button><button className="auth-button signup-button" onClick={() => setAuthMode('signup')}>Sign up</button></>}
       <header className="royal-header"><p className="eyebrow">A 30-island adventure</p><h1><span>♛</span> Magical Islands <span>♛</span></h1><p>Climb cozy towers, finish quests, and unlock a magical kingdom—alone or together with friends.</p></header>
       <ProfileTab character={character} setting={setting} accessory={accessory} coins={shopCoins} foodBalance={foodBalance}
@@ -327,6 +342,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <Leaderboard />
       <ChallengeRoom onChallenge={createFriendChallenge} inviteLink={inviteLink} message={challengeMessage} />
       {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); navigate('/market'); }} onOpenHouse={() => { setMenuOpen(false); navigate('/house'); }} onOpenMap={() => { setMenuOpen(false); navigate('/map'); }} onInviteFriend={() => { setMenuOpen(false); setFriendsOpen(true); }} />}
+      {notifOpen && <NotificationsPanel items={notifs} signedIn={signedIn} seenAt={notifSeen} onClose={() => setNotifOpen(false)} onOpenFriends={() => { setNotifOpen(false); setFriendsOpen(true); }} />}
       {friendsOpen && <FriendsPanel onClose={() => setFriendsOpen(false)} onShare={() => { createFriendChallenge(); setFriendsOpen(false); }} />}
       {authMode && <div className="auth-backdrop" onClick={() => setAuthMode(null)}><div className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="auth-close" onClick={() => setAuthMode(null)}>×</button><Auth key={authMode} initialMode={authMode} /></div></div>}
     </main>
