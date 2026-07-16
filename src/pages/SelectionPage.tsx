@@ -321,6 +321,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <button className="pong-button" onClick={() => navigate('/play/pong')}>🏓 Ping Pong <span>→</span></button>
       <button className="gruits-button" onClick={() => navigate('/play/fruit')}>🍓 Fruit <span>→</span></button>
       <button className="escape-button" onClick={() => navigate('/play/housekeeper')}>🔦 The Housekeeper <span>→</span></button>
+      <button className="drift-button" onClick={() => navigate('/play/drift')}>🏎️ Drift Rush <span>→</span></button>
       <button className="more-button" onClick={() => navigate('/games')}>⊞ See all games <span>→</span></button>
       <Leaderboard />
       <ChallengeRoom onChallenge={createFriendChallenge} inviteLink={inviteLink} message={challengeMessage} />
