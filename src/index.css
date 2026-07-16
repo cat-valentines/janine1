@@ -1121,3 +1121,6 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .invite-friend-list label { display: flex; align-items: center; gap: 7px; padding: 7px 9px; background: #fffaf0; border: 2px solid #cdbba0; font-weight: 700; font-size: .8rem; color: #4c3b28; cursor: pointer; }
 .invite-friend-list label.on { border-color: #2f6b45; background: #eef6ef; }
 .invite-friend-list label span { font-size: 1.1rem; }
+
+/* Username above the Tower Royal player */
+.player-name { position: absolute; bottom: 100%; left: 50%; translate: -50% -2px; padding: 1px 6px; background: #16241cd8; border: 1px solid #7dffbe; border-radius: 5px; color: #7dffbe; font-size: .6rem; font-weight: 800; white-space: nowrap; pointer-events: none; z-index: 5; }

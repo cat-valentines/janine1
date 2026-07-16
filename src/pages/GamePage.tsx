@@ -22,6 +22,7 @@ export function GamePage({ selection, onExit }: GamePageProps) {
   const layout = useMemo(() => generateLevel(selection.setting, level), [selection.setting, level]);
   const [state, setState] = useState(() => createGameState(layout));
   const [ladders, setLadders] = useState(layout.ladders);
+  const [username, setUsername] = useState('You');
   const lastFrame = useRef<number | null>(null);
   const frame = useRef<number | null>(null);
   const collected = layout.coins.length - state.coins.length;
@@ -58,6 +59,14 @@ export function GamePage({ selection, onExit }: GamePageProps) {
       recordScore(state.score, level).catch(() => undefined);
     });
   }, [state.status, state.score, level]);
+
+  // Your username, to float over your character.
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const name = data.user?.user_metadata.display_name as string | undefined;
+      if (name) setUsername(name);
+    });
+  }, []);
 
   const act = useCallback((action: GameAction) => {
     setState((current) => {
@@ -157,7 +166,7 @@ export function GamePage({ selection, onExit }: GamePageProps) {
   return (
     <main className="game-page page-shell">
       <div className="game-top"><button className="ghost" onClick={onExit}>← Quest home</button><GameHud lives={state.lives} coins={collected} totalCoins={layout.coins.length} score={state.score} level={level} collectibleAsset={characterCollectibles[selection.character].asset} goldCoins={collectedGold} totalGoldCoins={layout.goldCoins.length} /></div>
-      <GameBoard state={state} character={selection.character} setting={selection.setting} ladders={ladders} walls={layout.walls} lasers={layout.lasers} equippedItem={selection.equippedItem} />
+      <GameBoard state={state} character={selection.character} setting={selection.setting} ladders={ladders} walls={layout.walls} lasers={layout.lasers} equippedItem={selection.equippedItem} username={username} />
       <p className={`game-tip ${Date.now() < state.caughtUntil ? 'caught-message' : ''}`}>{Date.now() < state.secretUntil ? state.secretNote : Date.now() < state.zappedUntil ? '🔴 The laser got you! Hide behind the brick wall next time.' : Date.now() < state.caughtUntil ? '🐾 A cat caught you! One heart was removed.' : state.magicDoor ? '✨ A magic door appeared! Walk into it to be whisked to the top floor.' : level === 1 ? 'Level 1: the first three floors are safe. Stand near a glowing ladder and press ↑ or W.' : `Level ${level}: the higher you climb, the more cats. Hide behind a 🧱 brick wall when a laser fires, then dash for the ladder!`}</p>
       <TouchControls onAction={act} />
       {state.status !== 'playing' && <div className="result-overlay"><div className="result-card"><h2>{state.status === 'won' ? `Level ${level} Complete! ✨` : 'Game Over'}</h2><p>{state.status === 'won' ? `You collected every coin and ${characterCollectibles[selection.character].singular}, then finished all 10 floors. Level ${level + 1} will be harder!` : 'The cats caught your toy hero.'}</p><button onClick={state.status === 'won' ? nextLevel : restart}>{state.status === 'won' ? `Start Level ${level + 1}` : 'Try again'}</button><button className="ghost" onClick={onExit}>Change hero</button></div></div>}

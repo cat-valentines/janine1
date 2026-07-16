@@ -19,9 +19,10 @@ interface GameBoardProps {
   walls: LevelLayout['walls'];
   lasers: LevelLayout['lasers'];
   equippedItem?: string;
+  username?: string;
 }
 
-export function GameBoard({ state, character, setting, ladders, walls, lasers, equippedItem = '' }: GameBoardProps) {
+export function GameBoard({ state, character, setting, ladders, walls, lasers, equippedItem = '', username = 'You' }: GameBoardProps) {
   const cameraY = (9 - state.player.floor + 0.5) * 10;
   const portalIsNear = state.player.floor === 2 && Math.abs(state.player.x - 88) <= 14;
   return (
@@ -65,7 +66,7 @@ export function GameBoard({ state, character, setting, ladders, walls, lasers, e
           ))}
           {state.player.floor === floor && (
             <span className={`player entity walking ${Date.now() < state.invincibleUntil ? 'invincible' : ''} ${Date.now() < state.invisibleUntil ? 'invisible' : ''}`} style={{ left: `${state.player.x}%` }}>
-              <img className="sprite" src={characterAssets[character]} alt={characterNames[character]} />{wornIcon(equippedItem) && <b className="game-worn-item">{wornIcon(equippedItem)}</b>}
+              <b className="player-name">{username}</b><img className="sprite" src={characterAssets[character]} alt={characterNames[character]} />{wornIcon(equippedItem) && <b className="game-worn-item">{wornIcon(equippedItem)}</b>}
             </span>
           )}
         </div>

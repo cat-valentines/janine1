@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { PongEngine, type PongSnapshot } from '../game/pongEngine';
 import { WIN_SCORE, modeById, pongModes, type PongMode } from '../game/pong';
 import { characterAssets } from '../game/characters';
+import { supabase } from '../lib/supabase';
 import type { CharacterId } from '../game/types';
 
 interface PingPongPageProps {
@@ -17,6 +18,8 @@ export function PingPongPage({ character, onInvite, inviteLink, onBack }: PingPo
   const [best, setBest] = useState(0);
   const [snapshot, setSnapshot] = useState<PongSnapshot | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const [myName, setMyName] = useState('You');
+  useEffect(() => { supabase.auth.getUser().then(({ data }) => { const n = data.user?.user_metadata.display_name as string | undefined; if (n) setMyName(n); }); }, []);
 
   useEffect(() => {
     if (!mode || !canvas.current) return;
@@ -24,11 +27,12 @@ export function PingPongPage({ character, onInvite, inviteLink, onBack }: PingPo
       mode,
       best,
       characterAsset: characterAssets[character],
+      myName,
       onUpdate: setSnapshot,
     });
     return () => created.dispose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, round, character]);
+  }, [mode, round, character, myName]);
 
   useEffect(() => {
     if (snapshot && snapshot.best > best) setBest(snapshot.best);

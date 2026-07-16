@@ -431,6 +431,31 @@ export class MansionEngine {
     axe.position.set(0.4, 1.05, 0.55);
     this.keeper.add(axe);
 
+    // A floating name tag, so it is clear who is stalking the halls. It reads
+    // through the dark (depthTest off) like a player label.
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#0b0810d8';
+      ctx.fillRect(0, 0, 256, 64);
+      ctx.strokeStyle = '#c0455a';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(2, 2, 252, 60);
+      ctx.font = 'bold 26px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ff9bb0';
+      ctx.fillText('🔦 The Housekeeper', 128, 34);
+    }
+    const tagMat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false, transparent: true });
+    this.disposables.push(tagMat);
+    const tag = new THREE.Sprite(tagMat);
+    tag.scale.set(2.8, 0.7, 1);
+    tag.position.y = 2.5;
+    this.keeper.add(tag);
+
     // Her lamp — if you can see it coming, you still have time.
     const lamp = new THREE.PointLight('#ff9f6e', 7, 9, 2);
     lamp.position.set(0, 1.5, 0.4);

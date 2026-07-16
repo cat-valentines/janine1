@@ -160,6 +160,10 @@ export class QuestEngine {
     const built = buildBody('#4a7fb5', '#f2d0b4', 1, this.faceTexture(options.characterAsset), '#f2d0b4');
     this.avatar = built.group;
     this.limbs = built.limbs;
+    // Your own username floats over your head, in green, so you stand out.
+    const myTag = this.nameTag(options.myName || 'You', '#7dffbe');
+    myTag.position.y = 2.5;
+    this.avatar.add(myTag);
     this.scene.add(this.avatar);
 
     const start = spawnRing(0, RIVAL_COUNT + 1, this.seed);

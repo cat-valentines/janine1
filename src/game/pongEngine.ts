@@ -21,9 +21,11 @@ interface Player {
   side: -1 | 1;
   colour: string;
   face: string;
+  name: string;
 }
 
 interface EngineOptions {
+  myName?: string;
   mode: PongMode;
   best: number;
   characterAsset: string;
@@ -37,8 +39,8 @@ export class PongEngine {
   private sprite = new Image();
 
   private ball = { x: 240, y: 120, vx: 0, vy: 0 };
-  private you: Player = { x: 220, swingUntil: 0, side: 1, colour: '#4a7fb5', face: '🙂' };
-  private them: Player = { x: 740, swingUntil: 0, side: -1, colour: '#b06a5a', face: '🤖' };
+  private you: Player = { x: 220, swingUntil: 0, side: 1, colour: '#4a7fb5', face: '🙂', name: 'You' };
+  private them: Player = { x: 740, swingUntil: 0, side: -1, colour: '#b06a5a', face: '🤖', name: 'Bot' };
 
   private rally = 0;
   private best = 0;
@@ -67,7 +69,8 @@ export class PongEngine {
     if (!ctx) throw new Error('Canvas 2D is not available');
     this.ctx = ctx;
     this.sprite.src = options.characterAsset;
-    if (this.mode === 'friend') this.them.face = '🙃';
+    this.you.name = options.myName || 'You';
+    if (this.mode === 'friend') { this.them.face = '🙃'; this.them.name = 'Player 2'; }
     this.serve();
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
@@ -264,6 +267,16 @@ export class PongEngine {
       ctx.font = '26px serif';
       ctx.textAlign = 'center';
       ctx.fillText(player.face, x, footY - 70);
+    }
+    // Username above the head, so you know who is who.
+    if (player.name) {
+      ctx.font = '700 13px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      const w = ctx.measureText(player.name).width + 12;
+      ctx.fillStyle = '#16241cd0';
+      ctx.fillRect(x - w / 2, footY - 122, w, 18);
+      ctx.fillStyle = isYou ? '#7dffbe' : '#ffd9a0';
+      ctx.fillText(player.name, x, footY - 109);
     }
     // Racket, swung forward when hitting.
     const reach = swinging ? 34 : 20;
