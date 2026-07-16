@@ -463,31 +463,8 @@ export class MansionEngine {
     axe.position.set(0.4, 1.05, 0.55);
     this.keeper.add(axe);
 
-    // A floating name tag, so it is clear who is stalking the halls. It reads
-    // through the dark (depthTest off) like a player label.
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = '#0b0810d8';
-      ctx.fillRect(0, 0, 256, 64);
-      ctx.strokeStyle = '#c0455a';
-      ctx.lineWidth = 4;
-      ctx.strokeRect(2, 2, 252, 60);
-      ctx.font = 'bold 26px Inter, system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#ff9bb0';
-      ctx.fillText('🔦 The Housekeeper', 128, 34);
-    }
-    const tagMat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false, transparent: true });
-    this.disposables.push(tagMat);
-    const tag = new THREE.Sprite(tagMat);
-    tag.scale.set(2.8, 0.7, 1);
-    tag.position.y = 2.5;
-    this.keeper.add(tag);
-
+    // No name tag on the keepers — a label that reads through walls gave her
+    // away. Her lamp is the only warning you get.
     // Her lamp — if you can see it coming, you still have time.
     const lamp = new THREE.PointLight('#ff9f6e', 7, 9, 2);
     lamp.position.set(0, 1.5, 0.4);
@@ -530,10 +507,23 @@ export class MansionEngine {
     const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
     this.disposables.push(body, skin, torsoGeo, headGeo);
     const torso = new THREE.Mesh(torsoGeo, body);
-    torso.position.y = 1.0;
+    torso.position.y = 1.05;
     const head = new THREE.Mesh(headGeo, skin);
-    head.position.y = 1.72;
+    head.position.y = 1.75;
     group.add(torso, head);
+    // Arms and legs, so a bot reads as a whole person, not a floating torso.
+    const limbGeo = new THREE.BoxGeometry(0.15, 0.55, 0.15);
+    this.disposables.push(limbGeo);
+    [[-0.35, 1.05], [0.35, 1.05]].forEach(([x, y]) => {
+      const arm = new THREE.Mesh(limbGeo, body);
+      arm.position.set(x, y, 0);
+      group.add(arm);
+    });
+    [[-0.15, 0.3], [0.15, 0.3]].forEach(([x, y]) => {
+      const leg = new THREE.Mesh(limbGeo, body);
+      leg.position.set(x, y, 0);
+      group.add(leg);
+    });
     if (withAxe) {
       const haftGeo = new THREE.BoxGeometry(0.07, 0.07, 0.9);
       const bladeGeo = new THREE.BoxGeometry(0.09, 0.42, 0.32);
@@ -548,7 +538,7 @@ export class MansionEngine {
       axe.position.set(0.38, 1.05, 0.5);
       group.add(axe);
     }
-    group.add(this.nameSprite(tag, tagColour, border));
+    if (tag) group.add(this.nameSprite(tag, tagColour, border));
     this.scene.add(group);
     return group;
   }
@@ -558,7 +548,7 @@ export class MansionEngine {
     const mid = Math.floor(this.patrolPoints.length / 2);
     const spot = this.patrolPoints[mid];
     const w = worldOf(spot.col, spot.row);
-    const group = this.buildFigure('#33244a', '🪓 Housekeeper 2', '#ffb0c0', '#c0455a', true);
+    const group = this.buildFigure('#33244a', '', '#ffb0c0', '#c0455a', true);
     const lamp = new THREE.PointLight('#9fc6ff', 6, 8, 2);
     lamp.position.set(0, 1.5, 0.4);
     group.add(lamp);
@@ -801,23 +791,38 @@ export class MansionEngine {
     if (!this.hidden && k.pos.distanceTo(this.position) < KEEPER_REACH) this.caught('🪓 The second housekeeper caught you!');
   }
 
-  /** Bot players wandering the house, fleeing whichever keeper gets close. */
+  /**
+   * Bot players racing to find the keys, each on their own — fleeing whichever
+   * keeper gets close, then getting back to the hunt.
+   */
   private moveBots(dt: number) {
     const keepers = [this.keeperPos];
     if (this.keeper2) keepers.push(this.keeper2.pos);
-    this.bots.forEach((bot) => {
+    const keys = this.keyMeshes.filter((key) => !key.taken);
+    this.bots.forEach((bot, i) => {
       if (bot.flash > 0) bot.flash -= dt;
       const here = { col: colOf(bot.pos.x), row: rowOf(bot.pos.z) };
       let nearest = Infinity;
       keepers.forEach((kp) => { const d = kp.distanceTo(bot.pos); if (d < nearest) nearest = d; });
       bot.repath -= dt;
+
       if (nearest < 6) {
-        if (bot.repath <= 0 || !bot.path.length) { bot.path = findPath(here, this.randomCell()); bot.repath = 0.8; }
-        this.advance(bot, dt, KEEPER_PATROL_SPEED * 1.3);
+        // A keeper is close — run somewhere random to get away.
+        if (bot.repath <= 0 || !bot.path.length) { bot.path = findPath(here, this.randomCell()); bot.repath = 0.7; }
+        this.advance(bot, dt, KEEPER_PATROL_SPEED * 1.35);
+      } else if (keys.length) {
+        // Race for a key — bots spread across the different keys, then move on
+        // to the next once they reach one, so they keep hunting.
+        const target = keys[i % keys.length].at;
+        if (bot.repath <= 0 || !bot.path.length) { bot.path = findPath(here, target); bot.repath = 1.4; }
+        this.advance(bot, dt, KEEPER_PATROL_SPEED * 1.05);
+        if (here.col === target.col && here.row === target.row) bot.path = [];
       } else {
+        // All keys found — just roam.
         if (!bot.path.length) bot.path = findPath(here, this.randomCell());
-        this.advance(bot, dt, KEEPER_PATROL_SPEED * 0.9);
+        this.advance(bot, dt, KEEPER_PATROL_SPEED);
       }
+
       // Caught: dragged off, reappears elsewhere — so the house stays busy.
       if (nearest < KEEPER_REACH) {
         const cell = this.randomCell();
