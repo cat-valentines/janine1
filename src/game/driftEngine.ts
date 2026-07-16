@@ -35,6 +35,10 @@ export class DriftEngine {
   private car = new THREE.Group();
   private wheels: THREE.Object3D[] = [];
   private coinMeshes: Array<{ mesh: THREE.Mesh; pos: Pt; taken: boolean }> = [];
+  /** Tyre marks: a ring buffer of little dark quads laid down while drifting. */
+  private skids!: THREE.InstancedMesh;
+  private skidAt = 0;
+  private readonly SKID_CAP = 700;
 
   // Physics is a flat top-down world: position (x,z), a velocity vector, heading.
   private pos = new THREE.Vector2();
@@ -80,6 +84,7 @@ export class DriftEngine {
     this.buildBarriers();
     this.buildSun();
     this.buildCoins();
+    this.buildSkids();
     this.buildCar();
 
     // Start in the middle of the right straight, pointing up it (+z).
@@ -202,6 +207,43 @@ export class DriftEngine {
       this.scene.add(mesh);
       this.coinMeshes.push({ mesh, pos, taken: false });
     });
+  }
+
+  /** One instanced mesh of flat quads, reused round-robin, for the tyre marks. */
+  private buildSkids() {
+    const geo = new THREE.PlaneGeometry(0.5, 1.1);
+    geo.rotateX(-Math.PI / 2);
+    const mat = new THREE.MeshBasicMaterial({ color: '#0c0714', transparent: true, opacity: 0.72, depthWrite: false });
+    this.disposables.push(geo, mat);
+    this.skids = new THREE.InstancedMesh(geo, mat, this.SKID_CAP);
+    // The marks start at the origin, so the auto bounding sphere is tiny; without
+    // this the whole trail is frustum-culled the moment it is laid out on track.
+    this.skids.frustumCulled = false;
+    // Start every mark hidden (scaled to nothing).
+    const hide = new THREE.Matrix4().makeScale(0, 0, 0);
+    for (let i = 0; i < this.SKID_CAP; i += 1) this.skids.setMatrixAt(i, hide);
+    this.skids.instanceMatrix.needsUpdate = true;
+    this.scene.add(this.skids);
+  }
+
+  /** Drop a pair of marks under the rear wheels, angled along the car. */
+  private layTyreMarks() {
+    const cos = Math.cos(this.yaw);
+    const sin = Math.sin(this.yaw);
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw);
+    const scale = new THREE.Vector3(1, 1, 1);
+    for (const side of [-1, 1]) {
+      // Rear wheel in car space (~1.1 out, 1.3 back), rotated into the world.
+      const lx = side * 1.1;
+      const lz = -1.3;
+      const wx = this.pos.x + lx * cos + lz * sin;
+      const wz = this.pos.y - lx * sin + lz * cos;
+      m.compose(new THREE.Vector3(wx, 0.04, wz), q, scale);
+      this.skids.setMatrixAt(this.skidAt, m);
+      this.skidAt = (this.skidAt + 1) % this.SKID_CAP;
+    }
+    this.skids.instanceMatrix.needsUpdate = true;
   }
 
   private buildCar() {
@@ -332,6 +374,7 @@ export class DriftEngine {
       this.multiplier = 1;
     }
 
+    if (this.drifting) this.layTyreMarks();
     this.collectCoins();
     this.best = Math.max(this.best, this.score);
   }
@@ -364,12 +407,12 @@ export class DriftEngine {
       if (i < 2) wheel.rotation.y = this.steerVisual;
     });
 
-    // Chase camera, a little behind and above, looking ahead of the car.
+    // A high, steep chase camera — closer to a top-down drift game than a racer.
     const fwd = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
     const want = new THREE.Vector3(this.pos.x, 0, this.pos.y)
-      .addScaledVector(fwd, -15).add(new THREE.Vector3(0, 11, 0));
+      .addScaledVector(fwd, -9).add(new THREE.Vector3(0, 21, 0));
     this.camera.position.lerp(want, 0.12);
-    this.camera.lookAt(this.pos.x + fwd.x * 8, 1.5, this.pos.y + fwd.z * 8);
+    this.camera.lookAt(this.pos.x + fwd.x * 5, 0, this.pos.y + fwd.z * 5);
 
     this.coinMeshes.forEach((coin, i) => {
       if (coin.mesh.visible) { coin.mesh.rotation.y = this.time * 2.5 + i; coin.mesh.position.y = 1.2 + Math.sin(this.time * 3 + i) * 0.2; }
