@@ -38,6 +38,7 @@ const RunnerUpPage = lazy(() => import('./RunnerUpPage').then((m) => ({ default:
 const DriveMadPage = lazy(() => import('./DriveMadPage').then((m) => ({ default: m.DriveMadPage })));
 const TownMarketPage = lazy(() => import('./TownMarketPage').then((m) => ({ default: m.TownMarketPage })));
 const EscapePage = lazy(() => import('./EscapePage').then((m) => ({ default: m.EscapePage })));
+const UnderwaterMazePage = lazy(() => import('./UnderwaterMazePage').then((m) => ({ default: m.UnderwaterMazePage })));
 import { RiddlePage } from './RiddlePage';
 import { PingPongPage } from './PingPongPage';
 import { GruitsPage } from './GruitsPage';
@@ -66,6 +67,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const driveOpen = path === '/play/truck';
   const houseMarketOpen = path === '/house/market';
   const connectorOpen = path === '/play/connector';
+  const underwaterOpen = path === '/play/underwater';
   const medicineIsland = paramOf(path, '/play/medicine');
   const runnerIsland = paramOf(path, '/play/runner');
   const home = () => navigate('/');
@@ -259,11 +261,13 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     if (id === 'fruit') navigate('/play/fruit');
     if (id === 'escape') navigate('/play/housekeeper');
     if (id === 'connector') navigate('/play/connector');
+    if (id === 'underwater') navigate('/play/underwater');
   };
 
   if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => home()} />;
   if (escapeOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Opening the front door…</p></main>}><EscapePage character={character} onEscape={(coins) => setShopCoins((total) => total + coins)} onBack={() => home()} /></Suspense>;
   if (connectorOpen) return <ConnectorPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 40)))} onBack={() => home()} />;
+  if (underwaterOpen) return <Suspense fallback={<main className="reef-page"><p className="world-loading">Diving into the reef…</p></main>}><UnderwaterMazePage onCoins={(gained) => setShopCoins((total) => total + gained)} onBack={() => home()} /></Suspense>;
   if (gruitsOpen) return <GruitsPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;
   if (riddleOpen) return <RiddlePage startLevel={riddleLevel}
@@ -338,6 +342,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <button className="gruits-button" onClick={() => navigate('/play/fruit')}>🍓 Fruit <span>→</span></button>
       <button className="escape-button" onClick={() => navigate('/play/housekeeper')}>🔦 The Housekeeper <span>→</span></button>
       <button className="connector-button" onClick={() => navigate('/play/connector')}>🔢 Connector <span>→</span></button>
+      <button className="underwater-button" onClick={() => navigate('/play/underwater')}>🐠 Underwater Maze <span>→</span></button>
       <button className="more-button" onClick={() => navigate('/games')}>⊞ See all games <span>→</span></button>
       <Leaderboard />
       <ChallengeRoom onChallenge={createFriendChallenge} inviteLink={inviteLink} message={challengeMessage} />
