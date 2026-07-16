@@ -564,9 +564,10 @@ export class MansionEngine {
       const world = worldOf(cell.col, cell.row);
       const ox = (Math.random() - 0.5) * 1.2;
       const oz = (Math.random() - 0.5) * 1.2;
+      // Real players float their @username above them; bots stay nameless.
       const figure = this.buildFigure(colours[i % colours.length],
-        real ? `@${real}` : `🤖 Runner ${i + 1}`,
-        real ? '#f2c94c' : '#bfe0ff', real ? '#c9a02e' : '#4a90c0', false);
+        real ? `@${real}` : '',
+        '#f2c94c', '#c9a02e', false);
       this.bots.push({ group: figure, pos: new THREE.Vector3(world.x + ox, 0, world.z + oz), yaw: 0, path: [], repath: 0, patrolAt: 0, flash: 0 });
     }
   }
