@@ -12,6 +12,7 @@ export const inviteTargets: InviteTarget[] = [
   { id: 'tower', label: 'Tower Royal', icon: '🏰', path: '/play/tower', game: true },
   { id: 'hunger', label: 'Hunger Quests', icon: '🏹', path: '/play/hunger', game: true },
   { id: 'pong', label: 'Ping Pong', icon: '🏓', path: '/play/pong', game: true },
+  { id: 'escape', label: 'The Housekeeper', icon: '🔦', path: '/play/housekeeper', game: true },
   { id: 'market', label: 'the Market', icon: '🏪', path: '/market', game: false },
   { id: 'house', label: 'my House', icon: '🏡', path: '/house', game: false },
 ];

@@ -22,6 +22,7 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
   const [planGame, setPlanGame] = useState(gameTargets[0].id);
   const [planDate, setPlanDate] = useState('');
   const [planTime, setPlanTime] = useState('');
+  const [planFriends, setPlanFriends] = useState<Set<string>>(new Set());
 
   const refresh = () => loadMyFriends().then((rows) => { setFriends(rows); setSelected((current) => current ? rows.find((row) => row.id === current.id) ?? null : null); });
   const openChat = (id: string) => loadFriendMessages(id).then(setChat).catch(() => setChat([]));
@@ -79,17 +80,31 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
     } catch { setNote('Could not send that invitation.'); }
   };
 
+  const openPlan = () => {
+    if (tray === 'plan') { setTray('none'); return; }
+    // Start with the friend you have open already ticked.
+    setPlanFriends(new Set(selected ? [selected.id] : []));
+    setTray('plan');
+  };
+
+  const togglePlanFriend = (id: string) => setPlanFriends((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
   const sendPlan = async () => {
-    if (!selected) return;
     const target = gameTargets.find((game) => game.id === planGame);
+    const ids = [...planFriends];
     if (!target || !planDate || !planTime) { setNote('Pick a game, a day and a time first.'); return; }
+    if (!ids.length) { setNote('Tick at least one friend to invite.'); return; }
     try {
       const when = new Date(`${planDate}T${planTime}`);
       const pretty = when.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-      await sendFriendMessage(userId, selected.id, `📅 Play date! @${myName} wants to play ${target.icon} ${target.label} with you on ${pretty}. ${inviteLink(target)}`);
-      await openChat(selected.id);
+      await Promise.all(ids.map((id) => sendFriendMessage(userId, id, `📅 Play date! @${myName} wants to play ${target.icon} ${target.label} with you on ${pretty}. ${inviteLink(target)}`)));
+      if (selected && planFriends.has(selected.id)) await openChat(selected.id);
       setTray('none');
-      setNote(`Play date sent to @${selected.name}!`);
+      setNote(`Play date sent to ${ids.length} ${ids.length === 1 ? 'friend' : 'friends'}!`);
     } catch { setNote('Could not send the play date.'); }
   };
 
@@ -111,7 +126,7 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
         {selected.status === 'accepted' && <>
           <div className="friend-actions">
             <button className={tray === 'now' ? 'on' : ''} onClick={() => setTray(tray === 'now' ? 'none' : 'now')}>🎮 Invite to Play</button>
-            <button className={tray === 'plan' ? 'on' : ''} onClick={() => setTray(tray === 'plan' ? 'none' : 'plan')}>📅 Plan a Play Date</button>
+            <button className={tray === 'plan' ? 'on' : ''} onClick={openPlan}>📅 Plan a Play Date</button>
             <button onClick={() => setCalling((active) => !active)}>🎙️ {calling ? 'End Call' : 'Live Talk'}</button>
           </div>
           {calling && <p className="call-status">Live party open with @{selected.name}</p>}
@@ -126,17 +141,24 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
           </div>}
 
           {tray === 'plan' && <div className="invite-tray">
-            <p className="invite-tray-title">Plan a play date with @{selected.name}</p>
+            <p className="invite-tray-title">Plan a play date</p>
             <label className="invite-field">Game
               <select value={planGame} onChange={(event) => setPlanGame(event.target.value)}>
                 {gameTargets.map((game) => <option value={game.id} key={game.id}>{game.icon} {game.label}</option>)}
               </select>
             </label>
+            <p className="invite-tray-sub">Who's coming?</p>
+            <div className="invite-friend-list">
+              {friends.filter((friend) => friend.status === 'accepted').map((friend) => <label key={friend.id} className={planFriends.has(friend.id) ? 'on' : ''}>
+                <input type="checkbox" checked={planFriends.has(friend.id)} onChange={() => togglePlanFriend(friend.id)} />
+                <span>{icons[friend.character_id] ?? '🙂'}</span> @{friend.name}
+              </label>)}
+            </div>
             <div className="invite-when">
               <label className="invite-field">Day<input type="date" value={planDate} min={new Date().toISOString().slice(0, 10)} onChange={(event) => setPlanDate(event.target.value)} /></label>
               <label className="invite-field">Time<input type="time" value={planTime} onChange={(event) => setPlanTime(event.target.value)} /></label>
             </div>
-            <button className="invite-send" onClick={sendPlan}>📅 Send the play date</button>
+            <button className="invite-send" onClick={sendPlan}>📅 Send to {planFriends.size || 'no'} {planFriends.size === 1 ? 'friend' : 'friends'}</button>
           </div>}
 
           <div className="chat-box"><h3>Chat with {selected.name}</h3>{chat.map((item) => <p className={item.sender_id === userId ? 'chat-mine' : ''} key={item.id}>{item.message}</p>)}<div><input value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && send()} placeholder="Write a message…" maxLength={500} /><button onClick={send}>Send</button></div></div>

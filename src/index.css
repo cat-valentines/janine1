@@ -1114,3 +1114,10 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .escape-invite-send { width: 100%; margin-top: 10px; padding: 11px; border: 0; border-radius: 8px; background: #7a4a9e; color: #fff; font-weight: 850; cursor: pointer; }
 .escape-invite-send:disabled { opacity: .5; }
 .escape-invite-ok { margin-top: 8px; padding: 7px 9px; background: #eafaf0; border: 2px solid #8fc09a; color: #2f6b45; font-size: .78rem; font-weight: 700; }
+
+/* Play-date friend checklist */
+.invite-tray-sub { margin: 10px 0 4px; font-size: .76rem; font-weight: 800; color: #6a542a; }
+.invite-friend-list { display: grid; gap: 5px; max-height: 150px; overflow-y: auto; }
+.invite-friend-list label { display: flex; align-items: center; gap: 7px; padding: 7px 9px; background: #fffaf0; border: 2px solid #cdbba0; font-weight: 700; font-size: .8rem; color: #4c3b28; cursor: pointer; }
+.invite-friend-list label.on { border-color: #2f6b45; background: #eef6ef; }
+.invite-friend-list label span { font-size: 1.1rem; }
