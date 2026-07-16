@@ -80,6 +80,10 @@ interface EngineOptions {
   seed: number;
   weapon: Weapon;
   characterAsset: string;
+  /** Usernames of real signed-up players, to name the rivals after. */
+  rivalNames: string[];
+  /** Your own username, floating over your head. */
+  myName: string;
   onUpdate: (snapshot: QuestSnapshot) => void;
 }
 
@@ -214,16 +218,51 @@ export class QuestEngine {
     at = { ...at, y: this.standHeight(at.x, at.z, type.height) };
     built.group.position.set(at.x, at.y, at.z);
     this.scene.add(built.group);
-    this.mobs.push({
+    const mob: Mob = {
       type, hp: type.hp, group: built.group, limbs: built.limbs,
       position: new THREE.Vector3(at.x, at.y, at.z), velocity: new THREE.Vector3(),
       nextAttack: 0, walk: Math.random() * 6, alive: true,
-    });
+    };
+    this.mobs.push(mob);
+    return mob;
+  }
+
+  /**
+   * A floating name tag. depthTest off so it reads through the trees — you are
+   * meant to see who is still out there.
+   */
+  private nameTag(text: string, colour = '#ffffff') {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#0b0810d0';
+      ctx.fillRect(0, 0, 256, 64);
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = 4;
+      ctx.strokeRect(2, 2, 252, 60);
+      ctx.font = 'bold 30px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = colour;
+      ctx.fillText(text.slice(0, 14), 128, 34);
+    }
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(canvas), depthTest: false, transparent: true,
+    }));
+    sprite.scale.set(2.4, 0.6, 1);
+    return sprite;
   }
 
   private spawnRivals() {
     for (let i = 0; i < RIVAL_COUNT; i += 1) {
-      this.addMob(mobTypes.rival, spawnRing(i + 1, RIVAL_COUNT + 1, this.seed));
+      const mob = this.addMob(mobTypes.rival, spawnRing(i + 1, RIVAL_COUNT + 1, this.seed));
+      // Real players if any have signed up; otherwise plain numbered rivals.
+      const real = this.options.rivalNames[i];
+      const tag = this.nameTag(real ?? `Player ${i + 1}`, real ? '#f2c94c' : '#b9c6d8');
+      tag.position.y = mobTypes.rival.height + 0.75;
+      if (mob) mob.group.add(tag);
     }
   }
 

@@ -50,6 +50,18 @@ export async function recordPlayDay() {
   return rows[0] ?? null;
 }
 
+/**
+ * Real signed-up players, newest scores first, for the rivals you face in the
+ * forest. Readable signed out too — safe_leaderboard is a public view of
+ * finished accounts, and never exposes anything private.
+ */
+export async function loadRivalNames(count: number) {
+  const { data, error } = await supabase.from('safe_leaderboard')
+    .select('display_name').order('rank').limit(count);
+  if (error) return [];
+  return (data ?? []).map((row) => (row as { display_name: string }).display_name);
+}
+
 export async function saveLevelProgress(userId: string, score: number, coins: number) {
   const { error } = await supabase.from('game_progress').upsert({
     user_id: userId, island: 1, level: 1, highest_floor: 10,
