@@ -980,3 +980,8 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .auth-error-banner strong { display: block; color: #9d4a30; font-size: .84rem; }
 .auth-error-banner small { color: #7b4a38; font-size: .72rem; line-height: 1.4; word-break: break-word; }
 .auth-error-banner button { margin-left: auto; padding: 2px 8px; border: 2px solid #c0755f; background: transparent; color: #9d4a30; font-weight: 900; cursor: pointer; }
+
+/* The Housekeeper — nights */
+.escape-night { padding: 7px 11px; background: #0b0810d0; border: 2px solid #5b3a6b; color: #e8d5f0; text-align: center; }
+.escape-night strong { display: block; font-size: .78rem; white-space: nowrap; }
+.escape-night small { color: #a893b5; font-size: .62rem; }

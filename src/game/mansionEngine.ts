@@ -1,22 +1,28 @@
 import * as THREE from 'three';
 import { pixelTexture } from './pixelTexture';
 import {
-  CELL, COLS, HIDE_DISTANCE, KEEPER_CHASE_SPEED, KEEPER_FOV, KEEPER_HEARING, KEEPER_PATROL_SPEED,
-  KEEPER_REACH, KEEPER_SEARCH_SECONDS, KEEPER_SIGHT, KEYS_TO_ESCAPE, PLAYER_EYE, PLAYER_RADIUS,
-  PLAYER_SPEED, ROWS, SNEAK_SPEED, TURN_SPEED, WALL_H, colOf, doorSpot, hideSpots, isWall,
-  keySpots, rowOf, startSpot, worldOf,
+  CELL, COLS, DAYS, HIDE_DISTANCE, KEEPER_CHASE_SPEED, KEEPER_FOV, KEEPER_HEARING,
+  KEEPER_PATROL_SPEED, KEEPER_REACH, KEEPER_SEARCH_SECONDS, KEEPER_SIGHT, KEYS_TO_ESCAPE,
+  PLAYER_EYE, PLAYER_RADIUS, PLAYER_SPEED, ROWS, SEARCH_HIDE_DISTANCE, SNEAK_SPEED, TURN_SPEED,
+  WALL_H, cellAt, colOf, creakySpots, doorSpot, hideSpots, isWall, keySpots, rowOf, startSpot,
+  worldOf, type HideKind,
 } from './mansion';
 
 export interface MansionSnapshot {
   keys: number;
   totalKeys: number;
+  day: number;
+  totalDays: number;
   hidden: boolean;
+  hideKind: HideKind | null;
+  /** True when she saw you climb in — she is coming to look.  */
+  busted: boolean;
   /** 0 calm, 1 hunting you. Drives the warning bar. */
   alarm: number;
   keeperState: 'patrol' | 'chase' | 'search';
   nearHide: boolean;
   nearDoor: boolean;
-  status: 'playing' | 'caught' | 'escaped';
+  status: 'playing' | 'caught' | 'escaped' | 'lost';
   message: string;
 }
 
@@ -91,11 +97,20 @@ export class MansionEngine {
   private repath = 0;
   private searchLeft = 0;
   private lastSeen = new THREE.Vector3();
+  private hideAt = new THREE.Vector3();
 
   private keyMeshes: Array<{ mesh: THREE.Object3D; taken: boolean; at: Cell }> = [];
-  private hideMeshes: Array<{ mesh: THREE.Object3D; at: Cell }> = [];
+  private hideMeshes: Array<{ mesh: THREE.Object3D; at: Cell; kind: HideKind }> = [];
   private collected = 0;
+  private day = 1;
   private hidden = false;
+  private hideKind: HideKind | null = null;
+  /** She watched you get in, so hiding will not save you this time. */
+  private busted = false;
+  /** Creaky boards already trodden on this trip across them. */
+  private creakedAt = '';
+  /** Set for one frame when a board groans, so she comes looking. */
+  private creaked = false;
   private alarm = 0;
   private status: MansionSnapshot['status'] = 'playing';
   private message = '';
@@ -133,6 +148,7 @@ export class MansionEngine {
     this.scene.add(this.torch);
 
     this.buildHouse();
+    this.buildCreaks();
     this.buildTorches();
     this.buildKeys();
     this.buildHideSpots();
@@ -218,6 +234,20 @@ export class MansionEngine {
     this.scene.add(glow);
   }
 
+  /** Worn, split boards. Visible on purpose — a trap you cannot see is unfair. */
+  private buildCreaks() {
+    const geo = new THREE.PlaneGeometry(CELL * 0.92, CELL * 0.92);
+    const mat = new THREE.MeshLambertMaterial({ map: pixelTexture('#6b4a2e', '#3d2716', 'planks') });
+    this.disposables.push(geo, mat);
+    creakySpots.forEach((at) => {
+      const world = worldOf(at.col, at.row);
+      const board = new THREE.Mesh(geo, mat);
+      board.rotation.x = -Math.PI / 2;
+      board.position.set(world.x, 0.02, world.z);
+      this.scene.add(board);
+    });
+  }
+
   /**
    * Torches in iron brackets on the walls.
    *
@@ -279,19 +309,39 @@ export class MansionEngine {
   }
 
   private buildHideSpots() {
-    const geo = new THREE.BoxGeometry(CELL * 0.7, 2.3, CELL * 0.5);
-    const mat = new THREE.MeshLambertMaterial({ color: '#5b3a24' });
+    const wardrobeGeo = new THREE.BoxGeometry(CELL * 0.7, 2.3, CELL * 0.5);
     const handleGeo = new THREE.BoxGeometry(0.08, 0.4, 0.08);
+    const bedGeo = new THREE.BoxGeometry(CELL * 0.62, 0.34, CELL * 0.92);
+    const legGeo = new THREE.BoxGeometry(0.12, 0.4, 0.12);
+    const sheetGeo = new THREE.BoxGeometry(CELL * 0.58, 0.14, CELL * 0.5);
+    const wood = new THREE.MeshLambertMaterial({ map: pixelTexture('#5b3a24', '#3a2415', 'planks') });
     const handleMat = new THREE.MeshLambertMaterial({ color: '#d8c08a' });
-    this.disposables.push(geo, mat, handleGeo, handleMat);
+    const sheetMat = new THREE.MeshLambertMaterial({ color: '#9a8f9e' });
+    this.disposables.push(wardrobeGeo, handleGeo, bedGeo, legGeo, sheetGeo, wood, handleMat, sheetMat);
+
     hideSpots.forEach((at) => {
       const world = worldOf(at.col, at.row);
-      const wardrobe = new THREE.Mesh(geo, mat);
-      wardrobe.position.set(world.x, 1.15, world.z);
-      const handle = new THREE.Mesh(handleGeo, handleMat);
-      handle.position.set(world.x + 0.1, 1.15, world.z + CELL * 0.26);
-      this.scene.add(wardrobe, handle);
-      this.hideMeshes.push({ mesh: wardrobe, at });
+      if (at.kind === 'wardrobe') {
+        const wardrobe = new THREE.Mesh(wardrobeGeo, wood);
+        wardrobe.position.set(world.x, 1.15, world.z);
+        const handle = new THREE.Mesh(handleGeo, handleMat);
+        handle.position.set(world.x + 0.1, 1.15, world.z + CELL * 0.26);
+        this.scene.add(wardrobe, handle);
+        this.hideMeshes.push({ mesh: wardrobe, at, kind: 'wardrobe' });
+        return;
+      }
+      // A bed on legs, with a gap underneath to slide into.
+      const frame = new THREE.Mesh(bedGeo, wood);
+      frame.position.set(world.x, 0.62, world.z);
+      const sheet = new THREE.Mesh(sheetGeo, sheetMat);
+      sheet.position.set(world.x, 0.85, world.z);
+      this.scene.add(frame, sheet);
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
+        const leg = new THREE.Mesh(legGeo, wood);
+        leg.position.set(world.x + sx * CELL * 0.26, 0.2, world.z + sz * CELL * 0.4);
+        this.scene.add(leg);
+      });
+      this.hideMeshes.push({ mesh: frame, at, kind: 'bed' });
     });
   }
 
@@ -355,13 +405,13 @@ export class MansionEngine {
   }
 
   private nearestHide() {
-    let best: { at: Cell; distance: number } | null = null;
+    let best: { at: Cell; distance: number; kind: HideKind; world: { x: number; z: number } } | null = null;
     this.hideMeshes.forEach((spot) => {
       const world = worldOf(spot.at.col, spot.at.row);
       const distance = Math.hypot(world.x - this.position.x, world.z - this.position.z);
-      if (!best || distance < best.distance) best = { at: spot.at, distance };
+      if (!best || distance < best.distance) best = { at: spot.at, distance, kind: spot.kind, world };
     });
-    return best as { at: Cell; distance: number } | null;
+    return best as { at: Cell; distance: number; kind: HideKind; world: { x: number; z: number } } | null;
   }
 
   private atDoor() {
@@ -372,11 +422,16 @@ export class MansionEngine {
   /** Space does the obvious thing: hide, come out, or open the door. */
   private useSpace() {
     if (this.status !== 'playing') return;
-    if (this.hidden) { this.hidden = false; this.say('You slip back out.', 1.4); return; }
+    if (this.hidden) { this.hidden = false; this.hideKind = null; this.busted = false; this.say('You slip back out.', 1.4); return; }
     const hide = this.nearestHide();
     if (hide && hide.distance < HIDE_DISTANCE) {
+      // If she watched you climb in, hiding will not save you — she comes to look.
+      this.busted = this.canSee();
       this.hidden = true;
-      this.say('🤫 Hidden. Stay still…', 2);
+      this.hideKind = hide.kind;
+      this.hideAt.set(hide.world.x, 0, hide.world.z);
+      if (this.busted) this.say('😱 She saw you get in!', 2.4);
+      else this.say(hide.kind === 'bed' ? '🛏️ Under the bed. Stay still…' : '🚪 In the wardrobe. Stay still…', 2);
       return;
     }
     if (this.atDoor()) {
@@ -416,6 +471,18 @@ export class MansionEngine {
     // Slide along walls rather than sticking to them.
     if (!this.blocked(this.position.x + dx, this.position.z)) this.position.x += dx;
     if (!this.blocked(this.position.x, this.position.z + dz)) this.position.z += dz;
+
+    // Creaky floorboards. Sneaking over one is fine; running over it is not.
+    const here = `${colOf(this.position.x)},${rowOf(this.position.z)}`;
+    if (cellAt(colOf(this.position.x), rowOf(this.position.z)) === 'C') {
+      if (!sneaking && this.creakedAt !== here) {
+        this.creakedAt = here;
+        this.creaked = true;
+        this.say('🪵 CREAK! The floorboard groans…', 1.8);
+      }
+    } else if (this.creakedAt === here) {
+      this.creakedAt = '';
+    }
   }
 
   /** Can she see you from where she is standing? */
@@ -462,7 +529,8 @@ export class MansionEngine {
   private moveKeeper(dt: number) {
     const here = { col: colOf(this.keeperPos.x), row: rowOf(this.keeperPos.z) };
     const seen = this.canSee();
-    const heard = this.canHear();
+    const heard = this.canHear() || this.creaked;
+    this.creaked = false;
 
     if (seen || heard) {
       if (this.keeperState !== 'chase') this.say(seen ? '👀 She has seen you — run!' : '👂 She heard you!', 1.8);
@@ -503,10 +571,59 @@ export class MansionEngine {
       this.stepAlongPath(dt, KEEPER_PATROL_SPEED);
     }
 
-    if (!this.hidden && this.keeperPos.distanceTo(this.position) < KEEPER_REACH) {
-      this.status = 'caught';
-      this.say('🖐️ She caught you!', 6);
+    // Hiding only works if she did not watch you do it. If she did, she comes
+    // straight to the wardrobe and opens it.
+    if (this.hidden && this.busted) {
+      if (this.repath <= 0 || !this.path.length) {
+        this.path = findPath(here, { col: colOf(this.hideAt.x), row: rowOf(this.hideAt.z) });
+        this.repath = 0.5;
+      }
+      this.stepAlongPath(dt, KEEPER_CHASE_SPEED * 0.8);
+      this.keeperState = 'search';
+      this.alarm = 1;
+      if (this.keeperPos.distanceTo(this.hideAt) < SEARCH_HIDE_DISTANCE) {
+        this.caught('🚪 She opened it. She knew you were in there.');
+        return;
+      }
     }
+
+    if (!this.hidden && this.keeperPos.distanceTo(this.position) < KEEPER_REACH) {
+      this.caught('🖐️ She caught you!');
+    }
+  }
+
+  /**
+   * Being caught costs you a night, not the whole game — the way Granny does
+   * it. Keys you already found stay found.
+   */
+  private caught(why: string) {
+    this.day += 1;
+    this.hidden = false;
+    this.hideKind = null;
+    this.busted = false;
+    if (this.day > DAYS) {
+      this.status = 'lost';
+      this.say(why, 6);
+      return;
+    }
+    this.status = 'caught';
+    this.say(why, 6);
+  }
+
+  /** A new night: back to your bedroom, she goes back to her rounds. */
+  wakeUp() {
+    if (this.status !== 'caught') return;
+    const start = worldOf(startSpot.col, startSpot.row);
+    this.position.set(start.x, 0, start.z);
+    this.yaw = Math.PI;
+    const first = this.patrolPoints[0];
+    const at = worldOf(first.col, first.row);
+    this.keeperPos.set(at.x, 0, at.z);
+    this.keeperState = 'patrol';
+    this.path = [];
+    this.alarm = 0;
+    this.status = 'playing';
+    this.say(`🌙 Night ${this.day}. She is walking again…`, 3);
   }
 
   private collectKeys() {
@@ -524,7 +641,9 @@ export class MansionEngine {
     const hide = this.nearestHide();
     return {
       keys: this.collected, totalKeys: KEYS_TO_ESCAPE,
-      hidden: this.hidden, alarm: this.alarm, keeperState: this.keeperState,
+      day: this.day, totalDays: DAYS,
+      hidden: this.hidden, hideKind: this.hideKind, busted: this.busted,
+      alarm: this.alarm, keeperState: this.keeperState,
       nearHide: !!hide && hide.distance < HIDE_DISTANCE,
       nearDoor: this.atDoor(),
       status: this.status,
@@ -569,7 +688,7 @@ export class MansionEngine {
     });
 
     // Hiding drops you down inside the wardrobe and kills your torch.
-    const eye = this.hidden ? 1.05 : PLAYER_EYE;
+    const eye = !this.hidden ? PLAYER_EYE : this.hideKind === 'bed' ? 0.45 : 1.05;
     this.camera.position.set(this.position.x, eye, this.position.z);
     const look = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).negate();
     this.camera.lookAt(this.camera.position.clone().add(look));

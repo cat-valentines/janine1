@@ -1,26 +1,27 @@
 /**
  * The housekeeper's house, drawn as a grid.
  *
- * #  wall          .  floor
- * K  a key         H  a hiding place (a wardrobe)
+ * #  wall              .  floor
+ * K  a key             H  a wardrobe to hide in
+ * B  a bed to hide under   C  a creaky floorboard
  * D  the front door — the way out
- * P  where you wake up
+ * P  the bedroom you wake up in
  */
 export const LAYOUT = [
   '####################',
   '#........#.........#',
   '#..H.....#....K....#',
-  '#........#.........#',
+  '#........#....C....#',
   '#....#####....#....#',
-  '#....#........#....#',
+  '#..B.#........#..B.#',
   '#....#....H...#....#',
-  '#.........#####....#',
+  '#....C....#####....#',
   '#####.#............#',
   '#.....#....K...#####',
-  '#..K..#........#...#',
+  '#..K..#...C....#...#',
   '#.....#....H...#.P.#',
   '#.....##########...#',
-  '#..................#',
+  '#....B.............#',
   '#########D##########',
 ];
 
@@ -53,8 +54,17 @@ function find(mark: string): Spot[] {
   return spots;
 }
 
+export type HideKind = 'wardrobe' | 'bed';
+export interface HideSpot extends Spot { kind: HideKind }
+
 export const keySpots = find('K');
-export const hideSpots = find('H');
+/** Wardrobes to climb into, and beds to slide under. */
+export const hideSpots: HideSpot[] = [
+  ...find('H').map((spot) => ({ ...spot, kind: 'wardrobe' as const })),
+  ...find('B').map((spot) => ({ ...spot, kind: 'bed' as const })),
+];
+/** Floorboards that groan. Tread on one at a run and she comes looking. */
+export const creakySpots = find('C');
 export const doorSpot = find('D')[0];
 export const startSpot = find('P')[0];
 
@@ -82,3 +92,8 @@ export const KEEPER_SEARCH_SECONDS = 8;
 /** Running is loud: she hears it from this far, even without seeing you. */
 export const KEEPER_HEARING = 7;
 export const HIDE_DISTANCE = 1.6;
+
+/** Nights you get. She catches you, you wake up — until you run out. */
+export const DAYS = 5;
+/** How close she has to get to a hiding place she saw you use. */
+export const SEARCH_HIDE_DISTANCE = 1.9;
