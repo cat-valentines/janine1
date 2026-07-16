@@ -29,8 +29,8 @@ const palette: Record<number, [string, string]> = {
 export const colourFor = (value: number): [string, string] => palette[value] ?? ['#2f3542', '#ffffff'];
 
 /** The dark board the bright blocks sit on, and the empty-slot colour. */
-export const BOARD_BG = '#241f3a';
-export const SLOT_BG = '#332d52';
+export const BOARD_BG = '#b7a06f';
+export const SLOT_BG = '#c9b78c';
 
 export interface Cell { c: number; r: number }
 

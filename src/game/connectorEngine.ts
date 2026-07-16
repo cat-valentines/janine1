@@ -10,6 +10,7 @@ export interface ConnectorSnapshot {
   chain: number;
   chainSum: number;
   chainResult: number;
+  canUndo: boolean;
   status: 'playing' | 'over';
 }
 
@@ -34,6 +35,8 @@ export class ConnectorEngine {
   private score = 0;
   private best = 0;
   private status: 'playing' | 'over' = 'playing';
+  /** Snapshots taken before each merge, so a move can be undone. */
+  private history: Array<{ grid: number[][]; score: number }> = [];
 
   private running = true;
   private last = 0;
@@ -136,6 +139,9 @@ export class ConnectorEngine {
 
   private commit() {
     if (this.chain.length < 2) { this.chain = []; return; }
+    // Remember the board before the merge, so it can be undone.
+    this.history.push({ grid: this.grid.map((row) => [...row]), score: this.score });
+    if (this.history.length > 12) this.history.shift();
     const sum = this.chain.reduce((total, cell) => total + this.grid[cell.r][cell.c], 0);
     const result = this.required * 2;
     this.score += sum;
@@ -148,6 +154,26 @@ export class ConnectorEngine {
     this.applyGravity();
     this.best = Math.max(this.best, this.score);
     if (!hasMove(this.grid)) this.status = 'over';
+  }
+
+  /** Step back one merge. */
+  undo() {
+    const last = this.history.pop();
+    if (!last) return;
+    this.grid = last.grid.map((row) => [...row]);
+    this.score = last.score;
+    this.chain = [];
+    this.status = 'playing';
+    for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) this.fall[r][c] = 0;
+  }
+
+  /** Fresh board, keeping the best score. */
+  newGame() {
+    this.newBoard();
+    this.score = 0;
+    this.status = 'playing';
+    this.history = [];
+    this.chain = [];
   }
 
   /** Everything falls; empty spaces refill from the top. */
@@ -206,20 +232,32 @@ export class ConnectorEngine {
         const y = this.cellY(r) + this.fall[r][c];
         const [bg, fg] = colourFor(value);
         const lit = this.inChain({ c, r });
+        // Body.
         ctx.fillStyle = bg;
-        this.roundRect(x, y, CELL, CELL, 9);
+        this.roundRect(x, y, CELL, CELL, 7);
+        ctx.fill();
+        // A chunky bottom edge and a top highlight — the cute pixel-block look.
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        this.roundRect(x, y + CELL - 9, CELL, 9, 7);
+        ctx.fill();
+        ctx.fillStyle = bg;
+        this.roundRect(x, y, CELL, CELL - 6, 7);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.28)';
+        this.roundRect(x + 5, y + 5, CELL - 10, 11, 5);
         ctx.fill();
         if (lit) {
           ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 4;
-          this.roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 8);
+          ctx.lineWidth = 5;
+          this.roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 6);
           ctx.stroke();
         }
+        // Numbers in a chunky pixel font.
         ctx.fillStyle = fg;
-        ctx.font = `700 ${value >= 1000 ? 22 : value >= 100 ? 26 : 30}px Inter, system-ui, sans-serif`;
+        ctx.font = `800 ${value >= 1000 ? 20 : value >= 100 ? 24 : 30}px "Courier New", ui-monospace, monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(String(value), x + CELL / 2, y + CELL / 2 + 1);
+        ctx.fillText(String(value), x + CELL / 2, y + CELL / 2 - 1);
       }
     }
 
@@ -245,6 +283,7 @@ export class ConnectorEngine {
       chain: this.chain.length,
       chainSum: sum,
       chainResult: this.chain.length >= 2 ? this.required * 2 : 0,
+      canUndo: this.history.length > 0,
       status: this.status,
     };
   }

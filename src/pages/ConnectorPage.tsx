@@ -7,10 +7,10 @@ interface ConnectorPageProps {
 }
 
 export function ConnectorPage({ onScore, onBack }: ConnectorPageProps) {
-  const [round, setRound] = useState(1);
   const [best, setBest] = useState(0);
   const [snapshot, setSnapshot] = useState<ConnectorSnapshot | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const engine = useRef<ConnectorEngine | null>(null);
   const score = useRef(onScore);
   score.current = onScore;
 
@@ -21,9 +21,10 @@ export function ConnectorPage({ onScore, onBack }: ConnectorPageProps) {
       onUpdate: setSnapshot,
       onScore: (points) => score.current(points),
     });
-    return () => created.dispose();
+    engine.current = created;
+    return () => { created.dispose(); engine.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [round]);
+  }, []);
 
   useEffect(() => {
     if (snapshot && snapshot.best > best) setBest(snapshot.best);
@@ -33,18 +34,19 @@ export function ConnectorPage({ onScore, onBack }: ConnectorPageProps) {
   const linking = (snapshot?.chain ?? 0) >= 2;
 
   return <main className="connector-page">
-    <div className="quest-top-row">
-      <button onClick={onBack}>← Back</button>
-      <span>🔢 Connector</span>
-    </div>
-
-    <div className="connector-hud">
-      <div className="connector-score"><small>Score</small><b>{snapshot?.score ?? 0}</b></div>
-      <div className="connector-chip"><small>Best</small><b>{Math.max(best, snapshot?.best ?? 0)}</b></div>
-      <div className={`connector-live ${linking ? 'on' : ''}`}>
-        {linking ? <><b>+{snapshot?.chainSum}</b><span>makes {snapshot?.chainResult}</span></> : <span>Swipe to connect →</span>}
+    <header className="connector-header">
+      <button className="connector-back" onClick={onBack}>←</button>
+      <h1>Connector</h1>
+      <div className="connector-pills">
+        <div className="connector-pill"><small>Score</small><b>{snapshot?.score ?? 0}</b></div>
+        <div className="connector-pill"><small>Best</small><b>{Math.max(best, snapshot?.best ?? 0)}</b></div>
       </div>
-    </div>
+      <button className="connector-new" onClick={() => engine.current?.newGame()}>New Game</button>
+    </header>
+
+    <p className={`connector-live ${linking ? 'on' : ''}`}>
+      {linking ? <span><b>+{snapshot?.chainSum}</b> makes <b>{snapshot?.chainResult}</b></span> : <span>Swipe across blocks with the same number to connect them</span>}
+    </p>
 
     <div className="connector-stage">
       <canvas className="connector-canvas" ref={canvas} />
@@ -52,12 +54,17 @@ export function ConnectorPage({ onScore, onBack }: ConnectorPageProps) {
         <div className="quest-over-card">
           <h2>🔢 No moves left!</h2>
           <p>You scored <strong>{snapshot.score}</strong>. Your best is <strong>{Math.max(best, snapshot.best)}</strong>.</p>
-          <button onClick={() => { setSnapshot(null); setRound((n) => n + 1); }}>Play again</button>
+          <button onClick={() => engine.current?.newGame()}>New Game</button>
           <button className="ghost" onClick={onBack}>Leave</button>
         </div>
       </div>}
     </div>
 
-    <p className="connector-help">Swipe across blocks in any direction — up, down, sideways or diagonal — to connect two or more with the <b>same</b> number. They merge into the next number up.</p>
+    <div className="connector-tools">
+      <button onClick={() => engine.current?.undo()} disabled={!snapshot?.canUndo} title="Undo the last move">↩ Undo</button>
+      <button onClick={() => engine.current?.newGame()} title="Start a fresh board">🔄 New Game</button>
+    </div>
+
+    <p className="connector-help">Connect two or more of the <b>same</b> number — up, down, sideways or diagonal. They merge into the next number up, and your score is the sum of every block you connect.</p>
   </main>;
 }
