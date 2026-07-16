@@ -10,6 +10,7 @@ import type { CharacterId, GameSelection, SettingId } from '../game/types';
 import { FriendsPanel } from '../components/FriendsPanel';
 import { Auth } from '../components/Auth';
 import { loadLocalProfile, saveLocalProfile } from '../lib/localProfile';
+import { navigate, paramOf, useRoute } from '../lib/router';
 import { updateProfileSelection } from '../lib/gameData';
 import type { ShopItem } from '../shop/catalog';
 import { YourHousePage } from './YourHousePage';
@@ -43,6 +44,27 @@ import { AccountSetupPage } from './AccountSetupPage';
 import { loadAccountState } from '../lib/players';
 
 export function SelectionPage({ onStart }: { onStart: (selection: GameSelection) => void }) {
+  const path = useRoute();
+  const marketOpen = path === '/market';
+  const houseOpen = path === '/house';
+  const mapOpen = path === '/map';
+  const riddleOpen = path === '/play/riddles';
+  const pongOpen = path === '/play/pong';
+  const gruitsOpen = path === '/play/fruit';
+  const escapeOpen = path === '/play/housekeeper';
+  const moreOpen = path === '/games';
+  const profileOpen = path === '/profile';
+  const royalOpen = path === '/royal';
+  const streakOpen = path === '/streak';
+  const builderOpen = path === '/house/build';
+  const worldOpen = path === '/house/world';
+  const hungerOpen = path === '/play/hunger';
+  const driveOpen = path === '/play/truck';
+  const houseMarketOpen = path === '/house/market';
+  const medicineIsland = paramOf(path, '/play/medicine');
+  const runnerIsland = paramOf(path, '/play/runner');
+  const home = () => navigate('/');
+
   const [savedProfile] = useState(loadLocalProfile);
   const [character, setCharacter] = useState<CharacterId>(savedProfile.character);
   const [setting, setSetting] = useState<SettingId>(savedProfile.setting);
@@ -51,32 +73,14 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const [menuOpen, setMenuOpen] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup' | null>(null);
-  const [marketOpen, setMarketOpen] = useState(false);
-  const [houseOpen, setHouseOpen] = useState(false);
-  const [mapOpen, setMapOpen] = useState(false);
   const [characterChosen, setCharacterChosen] = useState(savedProfile.characterChosen);
   const [supplies, setSupplies] = useState(savedProfile.supplies);
   const [riddleLevel, setRiddleLevel] = useState(savedProfile.riddleLevel);
-  const [riddleOpen, setRiddleOpen] = useState(false);
-  const [pongOpen, setPongOpen] = useState(false);
-  const [gruitsOpen, setGruitsOpen] = useState(false);
-  const [escapeOpen, setEscapeOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [royalOpen, setRoyalOpen] = useState(false);
-  const [streakOpen, setStreakOpen] = useState(false);
   const [streak, setStreak] = useState(savedProfile.streak);
   const [daysPlayed, setDaysPlayed] = useState(savedProfile.daysPlayed);
   const [lastPlayed, setLastPlayed] = useState(savedProfile.lastPlayed);
   const [signedIn, setSignedIn] = useState(false);
-  const [builderOpen, setBuilderOpen] = useState(false);
-  const [worldOpen, setWorldOpen] = useState(false);
-  const [hungerOpen, setHungerOpen] = useState(false);
-  const [medicineIsland, setMedicineIsland] = useState('');
-  const [runnerIsland, setRunnerIsland] = useState('');
-  const [driveOpen, setDriveOpen] = useState(false);
   const [worldMode, setWorldMode] = useState<'build' | 'walk'>('build');
-  const [houseMarketOpen, setHouseMarketOpen] = useState(false);
   const [foodBalance] = useState(savedProfile.foodBalance);
   const [shopCoins, setShopCoins] = useState(savedProfile.shopCoins);
   const [ownedItems, setOwnedItems] = useState<string[]>(savedProfile.ownedItems);
@@ -212,63 +216,63 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     onGather={setSupplies}
     onEat={(id) => setSupplies((pack) => ({ ...pack, [id]: Math.max(0, (pack[id] ?? 0) - 1) }))}
     onBuy={buyItem}
-    onOpenHouseMarket={() => { setMarketOpen(false); setHouseMarketOpen(true); }}
-    onBack={() => setMarketOpen(false)} /></Suspense>;
+    onOpenHouseMarket={() => { home(); navigate('/house/market'); }}
+    onBack={() => home()} /></Suspense>;
   const openGame = (id: GameId) => {
-    setMoreOpen(false);
+    home();
     if (id === 'tower') { onStart(selection); return; }
-    if (id === 'hunger') setHungerOpen(true);
-    if (id === 'medicine') setMedicineIsland('Mosslight 1');
-    if (id === 'runner') setRunnerIsland('Mosslight 1');
-    if (id === 'drive') setDriveOpen(true);
-    if (id === 'riddle') setRiddleOpen(true);
-    if (id === 'pong') setPongOpen(true);
-    if (id === 'fruit') setGruitsOpen(true);
-    if (id === 'escape') setEscapeOpen(true);
+    if (id === 'hunger') navigate('/play/hunger');
+    if (id === 'medicine') navigate('/play/medicine/' + encodeURIComponent('Mosslight 1'));
+    if (id === 'runner') navigate('/play/runner/' + encodeURIComponent('Mosslight 1'));
+    if (id === 'drive') navigate('/play/truck');
+    if (id === 'riddle') navigate('/play/riddles');
+    if (id === 'pong') navigate('/play/pong');
+    if (id === 'fruit') navigate('/play/fruit');
+    if (id === 'escape') navigate('/play/housekeeper');
   };
 
-  if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => setMoreOpen(false)} />;
-  if (escapeOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Opening the front door…</p></main>}><EscapePage character={character} onEscape={(coins) => setShopCoins((total) => total + coins)} onBack={() => setEscapeOpen(false)} /></Suspense>;
-  if (gruitsOpen) return <GruitsPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 10)))} onBack={() => setGruitsOpen(false)} />;
-  if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => setPongOpen(false)} />;
+  if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => home()} />;
+  if (escapeOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Opening the front door…</p></main>}><EscapePage character={character} onEscape={(coins) => setShopCoins((total) => total + coins)} onBack={() => home()} /></Suspense>;
+  if (gruitsOpen) return <GruitsPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
+  if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;
   if (riddleOpen) return <RiddlePage startLevel={riddleLevel}
     onSolved={(level, coins) => { setRiddleLevel((n) => Math.max(n, level + 1)); if (coins) setShopCoins((total) => total + coins); }}
-    onBack={() => setRiddleOpen(false)} />;
-  if (driveOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the track…</p></main>}><DriveMadPage onCoin={() => setShopCoins((total) => total + 1)} onBack={() => setDriveOpen(false)} /></Suspense>;
-  if (runnerIsland) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the course…</p></main>}><RunnerUpPage character={character} islandName={runnerIsland} onCoin={() => setShopCoins((total) => total + 1)} onBack={() => setRunnerIsland('')} /></Suspense>;
-  if (medicineIsland) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the herb forest…</p></main>}><MedicineMissionPage islandName={medicineIsland} onWin={(coins) => setShopCoins((total) => total + coins)} onBack={() => setMedicineIsland('')} /></Suspense>;
-  if (hungerOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the forest…</p></main>}><HungerQuestPage character={character} onWin={(coins) => setShopCoins((total) => total + coins)} onBack={() => setHungerOpen(false)} /></Suspense>;
+    onBack={() => home()} />;
+  if (driveOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the track…</p></main>}><DriveMadPage onCoin={() => setShopCoins((total) => total + 1)} onBack={() => home()} /></Suspense>;
+  if (runnerIsland) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the course…</p></main>}><RunnerUpPage character={character} islandName={runnerIsland} onCoin={() => setShopCoins((total) => total + 1)} onBack={() => home()} /></Suspense>;
+  if (medicineIsland) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the herb forest…</p></main>}><MedicineMissionPage islandName={medicineIsland} onWin={(coins) => setShopCoins((total) => total + coins)} onBack={() => home()} /></Suspense>;
+  if (hungerOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the forest…</p></main>}><HungerQuestPage character={character} onWin={(coins) => setShopCoins((total) => total + coins)} onBack={() => home()} /></Suspense>;
   if (worldOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading your 3D house…</p></main>}><HouseWorldPage character={character} initialMode={worldMode} season={houseSeason || currentSeason()} seed={houseSeed} onChangeSeason={setHouseSeason} houseName={houseName} houseWorld={houseWorld} furniture={houseFurniture} ownedItems={ownedItems}
     onChangeWorld={(update) => { setHouseWorld((previous) => update(previous || emptyWorld())); setOwnsHouse(true); if (!houseSource) setHouseSource('built'); }}
     onChangeFurniture={setHouseFurniture}
     onRename={setHouseName}
-    onBack={() => { setWorldOpen(false); setHouseOpen(true); }} /></Suspense>;
+    onBack={() => { navigate('/house'); navigate('/house'); }} /></Suspense>;
   if (builderOpen) return <HouseBuilderPage coins={shopCoins} garden={garden} animals={animals}
     onChangeGarden={setGarden} onChangeAnimals={setAnimals}
     onEarn={(amount) => setShopCoins((total) => total + amount)}
     onSpend={(price) => { if (shopCoins < price) return false; setShopCoins((total) => total - price); return true; }}
-    onBack={() => { setBuilderOpen(false); setHouseOpen(true); }} />;
+    onBack={() => { navigate('/house'); navigate('/house'); }} />;
   if (houseMarketOpen) return <HouseMarketPage coins={shopCoins} myGrid={houseWorld} myHouseName={houseName}
-    onBack={() => { setHouseMarketOpen(false); setHouseOpen(true); }}
+    onBack={() => { navigate('/house'); navigate('/house'); }}
     onBought={(house) => {
       setShopCoins((total) => total - house.price);
       setHouseWorld(house.grid); setHouseName(house.name); setHouseSource('bought'); setOwnsHouse(true);
-      setHouseMarketOpen(false); setHouseOpen(true);
+      navigate('/house'); navigate('/house');
     }} />;
   if (houseOpen) return <YourHousePage coins={shopCoins} ownsHouse={ownsHouse}
     houseWorld={houseWorld} houseName={houseName} houseSource={houseSource}
-    onBuildOwn={() => { if (!houseWorld) setHouseWorld(emptyWorld()); setWorldMode('build'); setHouseOpen(false); setWorldOpen(true); }}
-    onGoInside={() => { setWorldMode('walk'); setHouseOpen(false); setWorldOpen(true); }}
-    onOpenGarden={() => { setHouseOpen(false); setBuilderOpen(true); }}
-    onOpenMarket={() => { setHouseOpen(false); setHouseMarketOpen(true); }}
-    onInvite={createFriendChallenge} onClose={() => setHouseOpen(false)} />;
-  if (mapOpen) return <MapPage streak={streak} completedQuests={savedProfile.completedQuests} isMember={isMember} onBack={() => setMapOpen(false)} onInvite={createFriendChallenge} onJoinMembership={() => { setMapOpen(false); setRoyalOpen(true); }} onPlay={() => onStart(selection)} onPlayGame={(gameId, islandName) => { setMapOpen(false); if (gameId === 'medicine') setMedicineIsland(islandName); else if (gameId === 'runner') setRunnerIsland(islandName); }} />;
+    onBuildOwn={() => { if (!houseWorld) setHouseWorld(emptyWorld()); setWorldMode('build'); home(); navigate('/house/world'); }}
+    onGoInside={() => { setWorldMode('walk'); home(); navigate('/house/world'); }}
+    onOpenGarden={() => { home(); navigate('/house/build'); }}
+    onOpenMarket={() => { home(); navigate('/house/market'); }}
+    onInvite={createFriendChallenge} onClose={() => home()} />;
+  if (mapOpen) return <MapPage streak={streak} completedQuests={savedProfile.completedQuests} isMember={isMember} onBack={() => home()} onInvite={createFriendChallenge} onJoinMembership={() => { home(); navigate('/royal'); }} onPlay={() => onStart(selection)} onPlayGame={(gameId, islandName) => { home(); if (gameId === 'medicine') navigate('/play/medicine/' + encodeURIComponent(islandName)); else if (gameId === 'runner') navigate('/play/runner/' + encodeURIComponent(islandName)); }} />;
   if (streakOpen) return <StreakPage
     streak={streak} daysPlayed={daysPlayed} completedQuests={savedProfile.completedQuests}
     isMember={isMember} signedIn={signedIn}
-    onGetMembership={() => { setStreakOpen(false); setRoyalOpen(true); }}
-    onBack={() => setStreakOpen(false)} />;
-  if (royalOpen) return <RoyalMemberPage isMember={isMember} onJoin={() => { setIsMember(true); setRoyalOpen(false); }} onLeave={() => setIsMember(false)} onBack={() => setRoyalOpen(false)} />;
+    onGetMembership={() => { home(); navigate('/royal'); }}
+    onBack={() => home()} />;
+  if (royalOpen) return <RoyalMemberPage isMember={isMember} onJoin={() => { setIsMember(true); home(); }} onLeave={() => setIsMember(false)} onBack={() => home()} />;
   if (setup) return <AccountSetupPage
     userId={setup.userId}
     email={setup.email}
@@ -276,34 +280,34 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     character={character}
     onChangeCharacter={setCharacter}
     onDone={(name) => { setUsername(name); setCharacterChosen(true); setSetup(null); }} />;
-  if (profileOpen || !characterChosen) return <ProfilePage character={character} setting={setting} firstTime={!characterChosen} ownedItems={ownedItems} onChangeCharacter={setCharacter} onChangeSetting={setSetting} onChangeAccessory={setAccessory} onBuyAccessory={(id, price) => { if (shopCoins < price) return; setShopCoins((total) => total - price); setOwnedItems((items) => [...items, id]); setAccessory(id); }} onChosen={() => { setCharacterChosen(true); setProfileOpen(false); }} coins={shopCoins} foodBalance={foodBalance} completedQuests={savedProfile.completedQuests} isMember={isMember} accessory={accessory} realName={realName} birthday={birthday} country={country} onSavePrivate={(fields) => { setRealName(fields.realName); setBirthday(fields.birthday); setCountry(fields.country); }} onBack={() => setProfileOpen(false)} />;
+  if (profileOpen || !characterChosen) return <ProfilePage character={character} setting={setting} firstTime={!characterChosen} ownedItems={ownedItems} onChangeCharacter={setCharacter} onChangeSetting={setSetting} onChangeAccessory={setAccessory} onBuyAccessory={(id, price) => { if (shopCoins < price) return; setShopCoins((total) => total - price); setOwnedItems((items) => [...items, id]); setAccessory(id); }} onChosen={() => { setCharacterChosen(true); home(); }} coins={shopCoins} foodBalance={foodBalance} completedQuests={savedProfile.completedQuests} isMember={isMember} accessory={accessory} realName={realName} birthday={birthday} country={country} onSavePrivate={(fields) => { setRealName(fields.realName); setBirthday(fields.birthday); setCountry(fields.country); }} onBack={() => home()} />;
   return (
     <main className="selection-page page-shell">
       <button className="menu-button" onClick={() => setMenuOpen(true)}>☰ Menu</button>
       <button className="friends-button" onClick={() => setFriendsOpen(true)}>Friends ☺</button>
-      <button className="profile-button" onClick={() => setProfileOpen(true)} title="My profile" aria-label="My profile"><img src={characterAssets[character]} alt="" /></button>
-      <button className={`crown-button ${isMember ? 'is-member' : ''}`} onClick={() => setRoyalOpen(true)} title="Royal Membership" aria-label="Royal Membership">♛</button>
-      <button className={`streak-button ${streak > 0 ? 'burning' : ''}`} onClick={() => setStreakOpen(true)} title="Your daily streak" aria-label="Your daily streak"><span>🔥</span><b>{streak}</b></button>
+      <button className="profile-button" onClick={() => navigate('/profile')} title="My profile" aria-label="My profile"><img src={characterAssets[character]} alt="" /></button>
+      <button className={`crown-button ${isMember ? 'is-member' : ''}`} onClick={() => navigate('/royal')} title="Royal Membership" aria-label="Royal Membership">♛</button>
+      <button className={`streak-button ${streak > 0 ? 'burning' : ''}`} onClick={() => navigate('/streak')} title="Your daily streak" aria-label="Your daily streak"><span>🔥</span><b>{streak}</b></button>
       {username ? <><span className="signed-in-name">☺ {username}</span><button className="auth-button login-button" onClick={() => supabase.auth.signOut()}>Log out</button></> : <><button className="auth-button login-button" onClick={() => setAuthMode('signin')}>Log in</button><button className="auth-button signup-button" onClick={() => setAuthMode('signup')}>Sign up</button></>}
       <header className="royal-header"><p className="eyebrow">A 30-island adventure</p><h1><span>♛</span> Magical Islands <span>♛</span></h1><p>Climb cozy towers, finish quests, and unlock a magical kingdom—alone or together with friends.</p></header>
       <ProfileTab character={character} setting={setting} accessory={accessory} coins={shopCoins} foodBalance={foodBalance}
         collectibleAsset={collectible.asset} collectibleName={collectible.plural}
         completedQuests={savedProfile.completedQuests} isMember={isMember} ownsHouse={ownsHouse} houseName={houseName}
-        onOpenProfile={() => setProfileOpen(true)} />
+        onOpenProfile={() => navigate('/profile')} />
       <p className="games-sign">Games</p>
       <button className="power-button" onClick={() => onStart(selection)}>🏰 Tower Royal <span>→</span></button>
-      <button className="hunger-button" onClick={() => setHungerOpen(true)}>🏹 Hunger Quests <span>→</span></button>
-      <button className="medicine-button" onClick={() => setMedicineIsland(islands[0].name)}>🌿 Medicine Mission <span>→</span></button>
-      <button className="runner-button" onClick={() => setRunnerIsland(islands[0].name)}>🏃 Runner Up <span>→</span></button>
-      <button className="drive-button" onClick={() => setDriveOpen(true)}>🚚 Truck Trouble <span>→</span></button>
-      <button className="riddle-button" onClick={() => setRiddleOpen(true)}>🧩 Riddle Rooms <span>→</span></button>
-      <button className="pong-button" onClick={() => setPongOpen(true)}>🏓 Ping Pong <span>→</span></button>
-      <button className="gruits-button" onClick={() => setGruitsOpen(true)}>🍓 Fruit <span>→</span></button>
-      <button className="escape-button" onClick={() => setEscapeOpen(true)}>🔦 The Housekeeper <span>→</span></button>
-      <button className="more-button" onClick={() => setMoreOpen(true)}>⊞ See all games <span>→</span></button>
+      <button className="hunger-button" onClick={() => navigate('/play/hunger')}>🏹 Hunger Quests <span>→</span></button>
+      <button className="medicine-button" onClick={() => navigate('/play/medicine/' + encodeURIComponent(islands[0].name))}>🌿 Medicine Mission <span>→</span></button>
+      <button className="runner-button" onClick={() => navigate('/play/runner/' + encodeURIComponent(islands[0].name))}>🏃 Runner Up <span>→</span></button>
+      <button className="drive-button" onClick={() => navigate('/play/truck')}>🚚 Truck Trouble <span>→</span></button>
+      <button className="riddle-button" onClick={() => navigate('/play/riddles')}>🧩 Riddle Rooms <span>→</span></button>
+      <button className="pong-button" onClick={() => navigate('/play/pong')}>🏓 Ping Pong <span>→</span></button>
+      <button className="gruits-button" onClick={() => navigate('/play/fruit')}>🍓 Fruit <span>→</span></button>
+      <button className="escape-button" onClick={() => navigate('/play/housekeeper')}>🔦 The Housekeeper <span>→</span></button>
+      <button className="more-button" onClick={() => navigate('/games')}>⊞ See all games <span>→</span></button>
       <Leaderboard />
       <ChallengeRoom onChallenge={createFriendChallenge} inviteLink={inviteLink} message={challengeMessage} />
-      {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); setMarketOpen(true); }} onOpenHouse={() => { setMenuOpen(false); setHouseOpen(true); }} onOpenMap={() => { setMenuOpen(false); setMapOpen(true); }} />}
+      {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); navigate('/market'); }} onOpenHouse={() => { setMenuOpen(false); navigate('/house'); }} onOpenMap={() => { setMenuOpen(false); navigate('/map'); }} />}
       {friendsOpen && <FriendsPanel onClose={() => setFriendsOpen(false)} onShare={() => { createFriendChallenge(); setFriendsOpen(false); }} />}
       {authMode && <div className="auth-backdrop" onClick={() => setAuthMode(null)}><div className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="auth-close" onClick={() => setAuthMode(null)}>×</button><Auth key={authMode} initialMode={authMode} /></div></div>}
     </main>
