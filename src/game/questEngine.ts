@@ -80,8 +80,8 @@ interface EngineOptions {
   seed: number;
   weapon: Weapon;
   characterAsset: string;
-  /** Usernames of real signed-up players, to name the rivals after. */
-  rivalNames: string[];
+  /** A pool of recently-active real players, to draw this match's rivals from. */
+  rivalPool: string[];
   /** Your own username, floating over your head. */
   myName: string;
   onUpdate: (snapshot: QuestSnapshot) => void;
@@ -259,12 +259,26 @@ export class QuestEngine {
     return sprite;
   }
 
+  /**
+   * A fresh lineup every match: some real players who are around right now, the
+   * rest bots. Hunger Quests is a live survival test, so nobody stays in the
+   * forest after their game — each round shuffles the pool and re-draws.
+   */
   private spawnRivals() {
+    const pool = [...this.options.rivalPool];
+    for (let i = pool.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    // How many of this match's rivals are real players vs bots — varies, so it
+    // never feels like the same fixed crowd.
+    const reals = Math.min(pool.length, Math.max(0, RIVAL_COUNT - 1 - Math.floor(Math.random() * 2)));
+    let bot = 1;
     for (let i = 0; i < RIVAL_COUNT; i += 1) {
       const mob = this.addMob(mobTypes.rival, spawnRing(i + 1, RIVAL_COUNT + 1, this.seed));
-      // Real players if any have signed up; otherwise plain numbered rivals.
-      const real = this.options.rivalNames[i];
-      const tag = this.nameTag(real ?? `Player ${i + 1}`, real ? '#f2c94c' : '#b9c6d8');
+      const real = i < reals ? pool[i] : undefined;
+      const tag = this.nameTag(real ? `@${real}` : `🤖 Bot ${bot}`, real ? '#f2c94c' : '#ff9b6a');
+      if (!real) bot += 1;
       tag.position.y = mobTypes.rival.height + 0.75;
       if (mob) mob.group.add(tag);
     }

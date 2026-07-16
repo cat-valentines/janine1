@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { QuestEngine, type QuestSnapshot } from '../game/questEngine';
 import { MAX_MAGIC, RIVAL_COUNT, WIN_PRIZE, challengeForDay, pickupTypes, powers, survivalKit, weapons, type Weapon } from '../game/hunger';
 import { characterAssets } from '../game/characters';
-import { loadRivalNames } from '../lib/gameData';
+import { loadAllPlayers } from '../lib/players';
 import { supabase } from '../lib/supabase';
-import { RIVAL_COUNT as RIVALS } from '../game/hunger';
 import type { CharacterId } from '../game/types';
 
 interface HungerQuestPageProps {
@@ -19,7 +18,7 @@ export function HungerQuestPage({ character, onWin, onBack }: HungerQuestPagePro
   const [snapshot, setSnapshot] = useState<QuestSnapshot | null>(null);
   const mount = useRef<HTMLDivElement>(null);
   const engine = useRef<QuestEngine | null>(null);
-  const [rivalNames, setRivalNames] = useState<string[]>([]);
+  const [rivalPool, setRivalPool] = useState<string[]>([]);
   const [myName, setMyName] = useState('');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
 
@@ -28,7 +27,7 @@ export function HungerQuestPage({ character, onWin, onBack }: HungerQuestPagePro
       setSignedIn(!!data.user);
       setMyName((data.user?.user_metadata.display_name as string | undefined) ?? '');
     });
-    loadRivalNames(RIVALS).then(setRivalNames).catch(() => setRivalNames([]));
+    loadAllPlayers().then((players) => setRivalPool(players.map((player) => player.name))).catch(() => setRivalPool([]));
   }, []);
   const paid = useRef(false);
   const update = useRef<(s: QuestSnapshot) => void>(() => undefined);
@@ -43,7 +42,7 @@ export function HungerQuestPage({ character, onWin, onBack }: HungerQuestPagePro
       seed: 1000 + round * 7,
       weapon,
       characterAsset: characterAssets[character],
-      rivalNames,
+      rivalPool,
       myName,
       onUpdate: (next) => update.current(next),
     });
@@ -51,7 +50,7 @@ export function HungerQuestPage({ character, onWin, onBack }: HungerQuestPagePro
     const resize = () => created.resize();
     window.addEventListener('resize', resize);
     return () => { window.removeEventListener('resize', resize); created.dispose(); engine.current = null; };
-  }, [weapon, round, character, rivalNames, myName]);
+  }, [weapon, round, character, rivalPool, myName]);
 
   const playAgain = () => { paid.current = false; setSnapshot(null); setRound((n) => n + 1); };
   const goFullscreen = () => {
@@ -74,8 +73,8 @@ export function HungerQuestPage({ character, onWin, onBack }: HungerQuestPagePro
         <h2>Choose your weapon</h2>
         <p>You will be dropped into the forest with {RIVAL_COUNT} other players. Survive the night, fight off the monsters, and be the last one standing to win <strong>+{WIN_PRIZE} gold coins</strong>.</p>
         {signedIn === false && <p className="quest-guest-note">👤 You are playing as a <strong>guest</strong>, so you will not show up to other players. You can still play everything! <strong>Log in</strong> from the front page to appear in the forest with your username.</p>}
-        {signedIn === true && rivalNames.length > 0 && <p className="quest-real-note">🌟 The rivals in the forest are named after real signed-up players — {myName ? `and so are you, @${myName}` : 'and so are you'}.</p>}
-        {signedIn === true && rivalNames.length === 0 && <p className="quest-real-note">🌟 You are signed in! Once more players sign up, they will appear here as your rivals.</p>}
+        {signedIn === true && rivalPool.length > 0 && <p className="quest-real-note">🌟 A live survival test! The forest fills with real signed-up players who are around right now, plus a few 🤖 bots — a fresh mix every round.</p>}
+        {signedIn === true && rivalPool.length === 0 && <p className="quest-real-note">🌟 You are signed in! Right now the forest is filled with 🤖 bots — once more players sign up, they will show up here too.</p>}
         <div className="weapon-grid">
           {weapons.map((item) => <button className="weapon-card" key={item.id} onClick={() => setWeapon(item)}>
             <span>{item.icon}</span>

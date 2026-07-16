@@ -21,6 +21,13 @@ export async function searchPlayers(query: string) {
   return (data ?? []) as FoundPlayer[];
 }
 
+/** Every signed-up player, most recently active first, for the browse list. */
+export async function loadAllPlayers() {
+  const { data, error } = await supabase.rpc('all_players');
+  if (error) throw error;
+  return (data ?? []) as FoundPlayer[];
+}
+
 export async function loadMyFriends() {
   const { data, error } = await supabase.rpc('my_friends');
   if (error) throw error;
