@@ -128,7 +128,7 @@ export class MansionEngine {
   private bots: Array<Roamer & { flash: number }> = [];
   private floorCells: Cell[] = [];
 
-  private keyMeshes: Array<{ mesh: THREE.Object3D; taken: boolean; at: Cell }> = [];
+  private keyMeshes: Array<{ mesh: THREE.Object3D; taken: boolean; at: Cell; cooldown: number }> = [];
   private hideMeshes: Array<{ mesh: THREE.Object3D; at: Cell; kind: HideKind }> = [];
   private collected = 0;
   private day = 1;
@@ -390,7 +390,7 @@ export class MansionEngine {
       const world = worldOf(at.col, at.row);
       group.position.set(world.x, 1.1, world.z);
       this.scene.add(group);
-      this.keyMeshes.push({ mesh: group, taken: false, at });
+      this.keyMeshes.push({ mesh: group, taken: false, at, cooldown: 0 });
     });
   }
 
@@ -811,12 +811,27 @@ export class MansionEngine {
         if (bot.repath <= 0 || !bot.path.length) { bot.path = findPath(here, this.randomCell()); bot.repath = 0.7; }
         this.advance(bot, dt, KEEPER_PATROL_SPEED * 1.35);
       } else if (keys.length) {
-        // Race for a key — bots spread across the different keys, then move on
-        // to the next once they reach one, so they keep hunting.
-        const target = keys[i % keys.length].at;
+        // Race for a key — bots spread across the different keys.
+        const key = keys[i % keys.length];
+        const target = key.at;
         if (bot.repath <= 0 || !bot.path.length) { bot.path = findPath(here, target); bot.repath = 1.4; }
         this.advance(bot, dt, KEEPER_PATROL_SPEED * 1.05);
-        if (here.col === target.col && here.row === target.row) bot.path = [];
+        // First come, first served: a bot that gets there first snatches it. To
+        // keep the game winnable it does not vanish — the bot grabs it and drops
+        // it somewhere new as it runs, so you have to find it again.
+        if (bot.pos.distanceTo(key.mesh.position) < 1.4 && key.cooldown <= 0) {
+          const playerFar = this.position.distanceTo(key.mesh.position) > 3.5;
+          if (playerFar) {
+            const cell = this.randomCell();
+            const w = worldOf(cell.col, cell.row);
+            key.at = cell;
+            key.mesh.position.set(w.x, 1.1, w.z);
+            key.cooldown = 6;
+            bot.path = [];
+            bot.repath = 1.6;
+            this.say('🏃 A player grabbed a key — it is somewhere else now!', 2.2);
+          }
+        }
       } else {
         // All keys found — just roam.
         if (!bot.path.length) bot.path = findPath(here, this.randomCell());
@@ -986,6 +1001,7 @@ export class MansionEngine {
 
   private collectKeys() {
     this.keyMeshes.forEach((key) => {
+      if (key.cooldown > 0) key.cooldown -= 1 / 60;
       if (key.taken) return;
       if (key.mesh.position.distanceTo(this.position) > 1.5) return;
       key.taken = true;
