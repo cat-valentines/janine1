@@ -1082,3 +1082,20 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
   .connector-header { grid-template-columns: auto 1fr; grid-template-areas: "back title" "pills new"; }
   .connector-header h1 { font-size: 1.6rem; }
 }
+
+/* The Housekeeper — play alone / invite friends */
+.escape-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.escape-mode button { padding: 12px; border: 3px solid #5b3a6b; background: #f3eef6; color: #4a3358; font-weight: 800; cursor: pointer; }
+.escape-mode button.on { background: #3a2b46; border-color: #3a2b46; color: #f0e6f5; }
+.escape-invite { margin-bottom: 14px; padding: 12px; background: #f3eef6; border: 3px solid #5b3a6b; }
+.escape-invite-note { color: #5f5268; font-size: .78rem; line-height: 1.5; }
+.escape-friend-picks { display: grid; gap: 6px; margin: 9px 0; max-height: 180px; overflow-y: auto; }
+.escape-friend-picks label { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #fff; border: 2px solid #cdbfd8; cursor: pointer; font-weight: 700; color: #4a3358; }
+.escape-friend-picks label.on { border-color: #7a4a9e; background: #efe4f7; }
+.escape-friend-picks label span { font-size: 1.2rem; }
+.escape-when { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.escape-when label { display: grid; gap: 3px; font-size: .74rem; font-weight: 700; color: #4a3358; }
+.escape-when input { padding: 7px; border: 2px solid #b79fce; background: #fff; }
+.escape-invite-send { width: 100%; margin-top: 10px; padding: 11px; border: 0; border-radius: 8px; background: #7a4a9e; color: #fff; font-weight: 850; cursor: pointer; }
+.escape-invite-send:disabled { opacity: .5; }
+.escape-invite-ok { margin-top: 8px; padding: 7px 9px; background: #eafaf0; border: 2px solid #8fc09a; color: #2f6b45; font-size: .78rem; font-weight: 700; }

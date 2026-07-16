@@ -182,6 +182,8 @@ export class MansionEngine {
 
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
+    // Dev-only: lets the headless test look straight at the housekeeper.
+    if (import.meta.env.DEV) (window as unknown as { __MANSION: MansionEngine }).__MANSION = this;
     this.loop();
   }
 
@@ -408,6 +410,27 @@ export class MansionEngine {
     const head = new THREE.Mesh(headGeo, skin);
     head.position.y = 1.78;
     this.keeper.add(torso, head);
+
+    // An outstretched arm holding an axe, so you can tell what she is carrying.
+    const armGeo = new THREE.BoxGeometry(0.16, 0.16, 0.7);
+    const arm = new THREE.Mesh(armGeo, skin);
+    arm.position.set(0.34, 1.15, 0.3);
+    this.keeper.add(arm);
+
+    // The axe: a wooden haft and a metal head, held out in front of her.
+    const axe = new THREE.Group();
+    const haftGeo = new THREE.BoxGeometry(0.07, 0.07, 1.0);
+    const haftMat = new THREE.MeshLambertMaterial({ color: '#5b3a22' });
+    const bladeGeo = new THREE.BoxGeometry(0.09, 0.46, 0.34);
+    const bladeMat = new THREE.MeshLambertMaterial({ color: '#c7ccd4', emissive: '#20242b' });
+    this.disposables.push(armGeo, haftGeo, haftMat, bladeGeo, bladeMat);
+    const haft = new THREE.Mesh(haftGeo, haftMat);
+    const blade = new THREE.Mesh(bladeGeo, bladeMat);
+    blade.position.set(0, 0.05, 0.5);
+    axe.add(haft, blade);
+    axe.position.set(0.4, 1.05, 0.55);
+    this.keeper.add(axe);
+
     // Her lamp — if you can see it coming, you still have time.
     const lamp = new THREE.PointLight('#ff9f6e', 7, 9, 2);
     lamp.position.set(0, 1.5, 0.4);

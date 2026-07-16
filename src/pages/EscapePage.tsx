@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { MansionEngine, type MansionSnapshot } from '../game/mansionEngine';
 import { DAYS, KEYS_TO_ESCAPE, STONES_PER_NIGHT } from '../game/mansion';
 import { characterAssets } from '../game/characters';
+import { loadMyFriends, type FriendRow } from '../lib/players';
+import { sendFriendMessage } from '../lib/friends';
+import { supabase } from '../lib/supabase';
 import type { CharacterId } from '../game/types';
 
 interface EscapePageProps {
@@ -11,11 +14,50 @@ interface EscapePageProps {
 }
 
 const ESCAPE_PRIZE = 40;
+const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶' };
 
 export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
   const [started, setStarted] = useState(false);
   const [round, setRound] = useState(1);
   const [snapshot, setSnapshot] = useState<MansionSnapshot | null>(null);
+  // Start-screen: play alone, or invite friends to a scheduled game.
+  const [party, setParty] = useState(false);
+  const [userId, setUserId] = useState('');
+  const [myName, setMyName] = useState('a friend');
+  const [friends, setFriends] = useState<FriendRow[]>([]);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [inviteDate, setInviteDate] = useState('');
+  const [inviteTime, setInviteTime] = useState('');
+  const [inviteNote, setInviteNote] = useState('');
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return;
+      setUserId(data.user.id);
+      setMyName((data.user.user_metadata.display_name as string | undefined) ?? 'a friend');
+      loadMyFriends().then((rows) => setFriends(rows.filter((row) => row.status === 'accepted'))).catch(() => undefined);
+    });
+  }, []);
+
+  const togglePick = (id: string) => setPicked((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const sendInvites = async () => {
+    if (!picked.size) return;
+    const link = `${window.location.origin}/play/housekeeper`;
+    let when = '';
+    if (inviteDate && inviteTime) {
+      when = ` on ${new Date(`${inviteDate}T${inviteTime}`).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
+    }
+    try {
+      await Promise.all([...picked].map((id) => sendFriendMessage(userId, id, `🔦 @${myName} invited you to play The Housekeeper${when}! Can you both escape? ${link}`)));
+      setInviteNote(`Invite sent to ${picked.size} ${picked.size === 1 ? 'friend' : 'friends'}!`);
+      setPicked(new Set());
+    } catch { setInviteNote('Could not send the invites.'); }
+  };
   const mount = useRef<HTMLDivElement>(null);
   const engine = useRef<MansionEngine | null>(null);
   const paid = useRef(false);
@@ -54,6 +96,32 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
         <p>You are locked in her house. She is already walking the halls.</p>
       </header>
       <section className="quest-pick-card">
+        <div className="escape-mode">
+          <button className={!party ? 'on' : ''} onClick={() => setParty(false)}>🎮 Play alone</button>
+          <button className={party ? 'on' : ''} onClick={() => setParty(true)}>👫 Invite friends</button>
+        </div>
+
+        {party && <div className="escape-invite">
+          {!userId
+            ? <p className="escape-invite-note">🔐 Log in from the front page to invite your friends. You can still play alone right now.</p>
+            : <>
+              <p className="escape-invite-note">Pick one or more friends and set a day and time — they will get an invite to play too.</p>
+              <div className="escape-friend-picks">
+                {friends.map((friend) => <label key={friend.id} className={picked.has(friend.id) ? 'on' : ''}>
+                  <input type="checkbox" checked={picked.has(friend.id)} onChange={() => togglePick(friend.id)} />
+                  <span>{icons[friend.character_id] ?? '🙂'}</span> @{friend.name}
+                </label>)}
+                {!friends.length && <p className="escape-invite-note">No friends yet — add some with the Friends button first.</p>}
+              </div>
+              <div className="escape-when">
+                <label>Day<input type="date" value={inviteDate} min={new Date().toISOString().slice(0, 10)} onChange={(event) => setInviteDate(event.target.value)} /></label>
+                <label>Time<input type="time" value={inviteTime} onChange={(event) => setInviteTime(event.target.value)} /></label>
+              </div>
+              <button className="escape-invite-send" onClick={sendInvites} disabled={!picked.size}>📨 Send invite{picked.size > 1 ? `s (${picked.size})` : ''}</button>
+              {inviteNote && <p className="escape-invite-ok">{inviteNote}</p>}
+            </>}
+        </div>}
+
         <p className="card-kicker">How to get out</p>
         <h2>Find {KEYS_TO_ESCAPE} keys and reach the door — you have {DAYS} nights.</h2>
         <div className="escape-rules">
