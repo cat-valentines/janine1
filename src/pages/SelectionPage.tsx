@@ -37,6 +37,8 @@ const EscapePage = lazy(() => import('./EscapePage').then((m) => ({ default: m.E
 import { RiddlePage } from './RiddlePage';
 import { PingPongPage } from './PingPongPage';
 import { GruitsPage } from './GruitsPage';
+import { MoreGamesPage } from './MoreGamesPage';
+import type { GameId } from '../game/gameList';
 import { AccountSetupPage } from './AccountSetupPage';
 import { loadAccountState } from '../lib/players';
 
@@ -59,6 +61,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const [pongOpen, setPongOpen] = useState(false);
   const [gruitsOpen, setGruitsOpen] = useState(false);
   const [escapeOpen, setEscapeOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [royalOpen, setRoyalOpen] = useState(false);
   const [streakOpen, setStreakOpen] = useState(false);
@@ -211,6 +214,20 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     onBuy={buyItem}
     onOpenHouseMarket={() => { setMarketOpen(false); setHouseMarketOpen(true); }}
     onBack={() => setMarketOpen(false)} /></Suspense>;
+  const openGame = (id: GameId) => {
+    setMoreOpen(false);
+    if (id === 'tower') { onStart(selection); return; }
+    if (id === 'hunger') setHungerOpen(true);
+    if (id === 'medicine') setMedicineIsland('Mosslight 1');
+    if (id === 'runner') setRunnerIsland('Mosslight 1');
+    if (id === 'drive') setDriveOpen(true);
+    if (id === 'riddle') setRiddleOpen(true);
+    if (id === 'pong') setPongOpen(true);
+    if (id === 'fruit') setGruitsOpen(true);
+    if (id === 'escape') setEscapeOpen(true);
+  };
+
+  if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => setMoreOpen(false)} />;
   if (escapeOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Opening the front door…</p></main>}><EscapePage character={character} onEscape={(coins) => setShopCoins((total) => total + coins)} onBack={() => setEscapeOpen(false)} /></Suspense>;
   if (gruitsOpen) return <GruitsPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 10)))} onBack={() => setGruitsOpen(false)} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => setPongOpen(false)} />;
@@ -283,6 +300,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <button className="pong-button" onClick={() => setPongOpen(true)}>🏓 Ping Pong <span>→</span></button>
       <button className="gruits-button" onClick={() => setGruitsOpen(true)}>🍓 Fruit <span>→</span></button>
       <button className="escape-button" onClick={() => setEscapeOpen(true)}>🔦 The Housekeeper <span>→</span></button>
+      <button className="more-button" onClick={() => setMoreOpen(true)}>⊞ See all games <span>→</span></button>
       <Leaderboard />
       <ChallengeRoom onChallenge={createFriendChallenge} inviteLink={inviteLink} message={challengeMessage} />
       {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); setMarketOpen(true); }} onOpenHouse={() => { setMenuOpen(false); setHouseOpen(true); }} onOpenMap={() => { setMenuOpen(false); setMapOpen(true); }} />}
