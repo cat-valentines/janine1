@@ -33,8 +33,10 @@ const MedicineMissionPage = lazy(() => import('./MedicineMissionPage').then((m) 
 const RunnerUpPage = lazy(() => import('./RunnerUpPage').then((m) => ({ default: m.RunnerUpPage })));
 const DriveMadPage = lazy(() => import('./DriveMadPage').then((m) => ({ default: m.DriveMadPage })));
 const TownMarketPage = lazy(() => import('./TownMarketPage').then((m) => ({ default: m.TownMarketPage })));
+const EscapePage = lazy(() => import('./EscapePage').then((m) => ({ default: m.EscapePage })));
 import { RiddlePage } from './RiddlePage';
 import { PingPongPage } from './PingPongPage';
+import { GruitsPage } from './GruitsPage';
 import { AccountSetupPage } from './AccountSetupPage';
 import { loadAccountState } from '../lib/players';
 
@@ -55,6 +57,8 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const [riddleLevel, setRiddleLevel] = useState(savedProfile.riddleLevel);
   const [riddleOpen, setRiddleOpen] = useState(false);
   const [pongOpen, setPongOpen] = useState(false);
+  const [gruitsOpen, setGruitsOpen] = useState(false);
+  const [escapeOpen, setEscapeOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [royalOpen, setRoyalOpen] = useState(false);
   const [streakOpen, setStreakOpen] = useState(false);
@@ -207,6 +211,8 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     onBuy={buyItem}
     onOpenHouseMarket={() => { setMarketOpen(false); setHouseMarketOpen(true); }}
     onBack={() => setMarketOpen(false)} /></Suspense>;
+  if (escapeOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Opening the front door…</p></main>}><EscapePage character={character} onEscape={(coins) => setShopCoins((total) => total + coins)} onBack={() => setEscapeOpen(false)} /></Suspense>;
+  if (gruitsOpen) return <GruitsPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 10)))} onBack={() => setGruitsOpen(false)} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => setPongOpen(false)} />;
   if (riddleOpen) return <RiddlePage startLevel={riddleLevel}
     onSolved={(level, coins) => { setRiddleLevel((n) => Math.max(n, level + 1)); if (coins) setShopCoins((total) => total + coins); }}
@@ -275,6 +281,8 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <button className="drive-button" onClick={() => setDriveOpen(true)}>🚚 Truck Trouble <span>→</span></button>
       <button className="riddle-button" onClick={() => setRiddleOpen(true)}>🧩 Riddle Rooms <span>→</span></button>
       <button className="pong-button" onClick={() => setPongOpen(true)}>🏓 Ping Pong <span>→</span></button>
+      <button className="gruits-button" onClick={() => setGruitsOpen(true)}>🍓 Fruit <span>→</span></button>
+      <button className="escape-button" onClick={() => setEscapeOpen(true)}>🔦 The Housekeeper <span>→</span></button>
       <Leaderboard />
       <ChallengeRoom onChallenge={createFriendChallenge} inviteLink={inviteLink} message={challengeMessage} />
       {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); setMarketOpen(true); }} onOpenHouse={() => { setMenuOpen(false); setHouseOpen(true); }} onOpenMap={() => { setMenuOpen(false); setMapOpen(true); }} />}

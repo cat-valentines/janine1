@@ -325,15 +325,17 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .games-sign { width: fit-content; margin: 6px auto 0; padding: 3px 14px; background: #fffaf0e8; border: 3px solid #6c5c4f; box-shadow: 3px 3px 0 #423b3566; color: #4f4054; font-family: "Courier New", monospace; font-size: .8rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
 
 /* The game shelf: one pill per game, same size, stacked, deepest green first. */
-.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
+.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
 .power-button { margin-top: 18px; background: #27543a; box-shadow: 0 7px 0 #18382596; }
 .hunger-button { background: #3f6b4a; box-shadow: 0 7px 0 #2d4d35; }
 .medicine-button { background: #5b9a6b; box-shadow: 0 7px 0 #427451; }
 .runner-button { background: #3f6b8a; box-shadow: 0 7px 0 #2c4c63; }
 .drive-button { background: #7c5a86; box-shadow: 0 7px 0 #573d5f; }
 .riddle-button { background: #b0763f; box-shadow: 0 7px 0 #7d5228; }
-.pong-button { background: #2f6b45; box-shadow: 0 7px 0 #1f4a2f; margin-bottom: 38px; }
-.power-button span, .hunger-button span, .medicine-button span, .runner-button span, .drive-button span, .riddle-button span, .pong-button span { margin: 0; }
+.pong-button { background: #2f6b45; box-shadow: 0 7px 0 #1f4a2f; }
+.gruits-button { background: #c0452f; box-shadow: 0 7px 0 #8b2c1c; }
+.escape-button { background: #3a2b46; box-shadow: 0 7px 0 #241a2c; margin-bottom: 38px; }
+.power-button span, .hunger-button span, .medicine-button span, .runner-button span, .drive-button span, .riddle-button span, .pong-button span, .gruits-button span, .escape-button span { margin: 0; }
 .quest-pick { min-height: 100vh; padding: 16px; background: linear-gradient(#1c2a1e99, #1c2a1e99), url('/assets/pixel-magical-forest.png') center / cover fixed; }
 .quest-top-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 900px; margin: 0 auto 14px; }
 .quest-top-row button { padding: 9px 14px; border: 3px solid #233a29; background: #f4c765; font-weight: 850; cursor: pointer; }
@@ -920,3 +922,54 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .ladder-row span { font-size: .72rem; font-weight: 800; color: #6d5c47; }
 .ladder-row.open span { color: #2f6b45; }
 .streak-note { margin-top: 10px; color: #7b6a55; font-size: .72rem; font-style: italic; line-height: 1.5; }
+
+/* Gruits — the merge game */
+.gruits-page { min-height: 100vh; padding: 14px 14px 40px; background: linear-gradient(#7a3a1c99, #7a3a1c99), url('/assets/pixel-countryside.png') center / cover fixed; }
+.gruits-page .quest-top-row { max-width: 640px; margin: 0 auto 12px; }
+.gruits-page .quest-top-row span { background: #5a2a12d0; border-color: #d99a5e; color: #ffe9d1; }
+.gruits-layout { display: flex; justify-content: center; align-items: flex-start; gap: 12px; }
+.gruits-side { display: grid; gap: 9px; width: 108px; }
+.gruits-score, .gruits-next, .gruits-danger { display: grid; justify-items: center; gap: 2px; padding: 9px 6px; background: #fff7ea; border: 3px solid #8d5a2b; box-shadow: 3px 4px 0 #5a3316; }
+.gruits-score small, .gruits-next small, .gruits-danger small { color: #8d5a2b; font-size: .6rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.gruits-score b { font-size: 1.5rem; color: #3d3226; line-height: 1.1; }
+.gruits-score i { color: #8b7a63; font-size: .64rem; font-style: normal; }
+.gruits-next span { font-size: 1.9rem; line-height: 1.1; }
+.gruits-next i { color: #6d5c47; font-size: .62rem; font-style: normal; }
+.gruits-danger > div { width: 26px; height: 74px; background: #efe2cd; border: 2px solid #b98a5e; display: flex; align-items: flex-end; }
+.gruits-danger i { display: block; width: 100%; background: linear-gradient(#e0452f, #f2a24c); transition: height .16s linear; }
+.gruits-stage { position: relative; border: 5px solid #5a3316; box-shadow: 8px 9px 0 #2e1a0b; }
+.gruits-canvas { display: block; width: 100%; max-width: 460px; height: auto; touch-action: none; cursor: pointer; }
+.gruits-message { position: absolute; top: 14px; left: 50%; translate: -50% 0; padding: 6px 13px; background: #3d1f0ee0; border: 2px solid #f2c94c; color: #ffeaa0; font-size: .8rem; font-weight: 800; white-space: nowrap; pointer-events: none; }
+.gruits-help { max-width: 640px; margin: 12px auto 0; padding: 8px; text-align: center; background: #fffaf0e0; border: 3px solid #8d5a2b; color: #4c3b28; font-size: .78rem; }
+.gruits-ladder { max-width: 640px; margin: 10px auto 0; padding: 10px; text-align: center; background: #fffaf0e0; border: 3px solid #8d5a2b; }
+.ladder-strip { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px; margin-top: 6px; }
+.ladder-strip span { display: flex; align-items: center; gap: 2px; font-size: 1.15rem; filter: grayscale(1) opacity(.4); }
+.ladder-strip span.got { filter: none; }
+.ladder-strip i { color: #b98a5e; font-size: .7rem; font-style: normal; }
+@media (max-width: 640px) { .gruits-layout { flex-direction: column-reverse; align-items: center; } .gruits-side { display: flex; width: min(100%, 460px); } .gruits-score, .gruits-next, .gruits-danger { flex: 1; } .gruits-danger > div { width: 100%; height: 14px; } .gruits-danger i { width: 0; height: 100%; } }
+
+/* The Housekeeper — escape game */
+.escape-pick { background: linear-gradient(#0a0710cc, #0a0710cc), url('/assets/pixel-magical-forest.png') center / cover fixed; }
+.quest-header.escape-header { background: #17111f; border-color: #5b3a6b; }
+.quest-header.escape-header h1 { color: #e8d5f0; text-shadow: 3px 3px 0 #3a2148; }
+.quest-header.escape-header .eyebrow { color: #b98fd0; }
+.quest-header.escape-header p { color: #b3a4bf; }
+.escape-rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 9px; margin: 14px 0; }
+.escape-rules > div { display: grid; justify-items: center; gap: 3px; padding: 12px 9px; text-align: center; background: #f3eef6; border: 3px solid #5b3a6b; }
+.escape-rules span { font-size: 1.8rem; }
+.escape-rules strong { font-family: "Courier New", monospace; font-size: .84rem; }
+.escape-rules small { color: #5f5268; font-size: .7rem; line-height: 1.4; }
+.escape-start { width: 100%; margin-top: 8px; padding: 14px; border: 0; border-radius: 999px; background: #3a2b46; box-shadow: 0 7px 0 #1d1424; color: #f0e6f5; font-size: 1.05rem; font-weight: 850; cursor: pointer; }
+.escape-page { min-height: 100vh; padding: 12px; background: #05060a; }
+.escape-stage { position: relative; width: min(100%, 1000px); height: min(74vh, 660px); margin: 0 auto; overflow: hidden; border: 5px solid #2b2033; box-shadow: 0 0 60px #000 inset; }
+.escape-stage.chased { border-color: #8b1f2f; box-shadow: 0 0 90px #8b1f2f88 inset; }
+.escape-canvas { width: 100%; height: 100%; }
+.escape-hud { position: absolute; top: 10px; left: 10px; display: flex; gap: 8px; pointer-events: none; }
+.escape-keys, .escape-state { padding: 7px 11px; background: #0b0810d0; border: 2px solid #5b3a6b; color: #e8d5f0; }
+.escape-keys b { font-size: 1.1rem; filter: grayscale(1) opacity(.35); }
+.escape-keys b.got { filter: none; }
+.escape-state strong { display: block; font-size: .78rem; white-space: nowrap; }
+.escape-alarm { display: block; width: 110px; height: 5px; margin-top: 4px; background: #241a2c; border: 1px solid #5b3a6b; }
+.escape-alarm s { display: block; height: 100%; background: linear-gradient(90deg, #f2c94c, #d13b3b); transition: width .16s linear; }
+.escape-message { position: absolute; top: 68px; left: 50%; translate: -50% 0; padding: 7px 15px; background: #0b0810e8; border: 2px solid #d13b3b; color: #ffd9cf; font-weight: 800; white-space: nowrap; pointer-events: none; }
+.escape-help { position: absolute; bottom: 10px; left: 50%; translate: -50% 0; padding: 7px 13px; background: #0b0810d0; border: 2px solid #5b3a6b; color: #cbb8d6; font-size: .74rem; white-space: nowrap; pointer-events: none; }
