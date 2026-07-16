@@ -11,6 +11,7 @@ import { FriendsPanel } from '../components/FriendsPanel';
 import { Auth } from '../components/Auth';
 import { loadLocalProfile, saveLocalProfile } from '../lib/localProfile';
 import { navigate, paramOf, useRoute } from '../lib/router';
+import { ensureGuestAccount, isAnonymous } from '../lib/players';
 import { updateProfileSelection } from '../lib/gameData';
 import type { ShopItem } from '../shop/catalog';
 import { YourHousePage } from './YourHousePage';
@@ -102,7 +103,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const [animals, setAnimals] = useState(savedProfile.animals);
   const [username, setUsername] = useState('');
   /** Set once a signed-in player still has the setup screen to fill in. */
-  const [setup, setSetup] = useState<{ userId: string; email: string; needsPassword: boolean } | null>(null);
+  const [setup, setSetup] = useState<{ userId: string; email: string; needsPassword: boolean; isGuest: boolean } | null>(null);
   const selection = { character, setting, equippedItem };
   const collectible = characterCollectibles[character];
   useEffect(() => {
@@ -142,24 +143,36 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     return () => clearTimeout(timer);
   }, [houseWorld, houseFurniture, houseName, houseSeason, houseSeed]);
 
+  // Give a returning guest a lightweight account so they show up like everyone
+  // else. A brand-new visitor gets theirs when they finish the character screen
+  // (see makeGuestReal), so a passing bot that only loads the page makes no row.
+  useEffect(() => {
+    if (characterChosen) ensureGuestAccount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // A player who has signed in but never finished the setup screen has no real
   // username yet, so nobody can find them. Send them to it once.
   useEffect(() => {
-    const check = async (user: { id: string; email?: string; app_metadata?: { provider?: string } } | undefined) => {
+    const check = async (user: { id: string; email?: string; app_metadata?: { provider?: string }; is_anonymous?: boolean } | undefined) => {
       if (!user) { setSetup(null); return; }
       const account = await loadAccountState(user.id);
       // null means we could not tell — never trap someone on a form over that.
       if (!account || account.onboarded) { setSetup(null); return; }
+      const guest = isAnonymous(user);
       setSetup({
         userId: user.id,
         email: user.email ?? '',
-        needsPassword: (user.app_metadata?.provider ?? 'email') !== 'email',
+        needsPassword: !guest && (user.app_metadata?.provider ?? 'email') !== 'email',
+        isGuest: guest,
       });
     };
     supabase.auth.getUser().then(({ data }) => check(data.user ?? undefined));
     const { data } = supabase.auth.onAuthStateChange((_event, session) => check(session?.user ?? undefined));
     return () => data.subscription.unsubscribe();
   }, []);
+
+  const makeGuestReal = () => { ensureGuestAccount(); };
 
   useEffect(() => {
     const local = countTodayAsPlayed({ lastPlayed, streak, daysPlayed });
@@ -277,10 +290,11 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     userId={setup.userId}
     email={setup.email}
     needsPassword={setup.needsPassword}
+    isGuest={setup.isGuest}
     character={character}
     onChangeCharacter={setCharacter}
     onDone={(name) => { setUsername(name); setCharacterChosen(true); setSetup(null); }} />;
-  if (profileOpen || !characterChosen) return <ProfilePage character={character} setting={setting} firstTime={!characterChosen} ownedItems={ownedItems} onChangeCharacter={setCharacter} onChangeSetting={setSetting} onChangeAccessory={setAccessory} onBuyAccessory={(id, price) => { if (shopCoins < price) return; setShopCoins((total) => total - price); setOwnedItems((items) => [...items, id]); setAccessory(id); }} onChosen={() => { setCharacterChosen(true); home(); }} coins={shopCoins} foodBalance={foodBalance} completedQuests={savedProfile.completedQuests} isMember={isMember} accessory={accessory} realName={realName} birthday={birthday} country={country} onSavePrivate={(fields) => { setRealName(fields.realName); setBirthday(fields.birthday); setCountry(fields.country); }} onBack={() => home()} />;
+  if (profileOpen || !characterChosen) return <ProfilePage character={character} setting={setting} firstTime={!characterChosen} ownedItems={ownedItems} onChangeCharacter={setCharacter} onChangeSetting={setSetting} onChangeAccessory={setAccessory} onBuyAccessory={(id, price) => { if (shopCoins < price) return; setShopCoins((total) => total - price); setOwnedItems((items) => [...items, id]); setAccessory(id); }} onChosen={() => { setCharacterChosen(true); makeGuestReal(); home(); }} coins={shopCoins} foodBalance={foodBalance} completedQuests={savedProfile.completedQuests} isMember={isMember} accessory={accessory} realName={realName} birthday={birthday} country={country} onSavePrivate={(fields) => { setRealName(fields.realName); setBirthday(fields.birthday); setCountry(fields.country); }} onBack={() => home()} />;
   return (
     <main className="selection-page page-shell">
       <button className="menu-button" onClick={() => setMenuOpen(true)}>☰ Menu</button>

@@ -49,6 +49,31 @@ export async function removeFriend(myId: string, otherId: string) {
 export const USERNAME_RULE = /^[A-Za-z0-9_]{3,24}$/;
 
 /**
+ * Makes sure the player has at least a lightweight anonymous account, so a
+ * guest can appear on the leaderboard and in friend search like everyone else.
+ *
+ * Returns 'ready' if they now have an account, 'guest' if anonymous sign-in is
+ * turned off (they stay a device-only guest and the game still plays), and
+ * 'signed-in' if they already had a real account. Never throws — a guest must
+ * always be able to play.
+ */
+export async function ensureGuestAccount(): Promise<'signed-in' | 'ready' | 'guest'> {
+  try {
+    const { data } = await supabase.auth.getUser();
+    if (data.user) return 'signed-in';
+    const { error } = await supabase.auth.signInAnonymously();
+    // A disabled toggle, offline, etc. — fall back to a local-only guest.
+    return error ? 'guest' : 'ready';
+  } catch {
+    return 'guest';
+  }
+}
+
+/** True for an email-less anonymous account (a guest who became real). */
+export const isAnonymous = (user: { app_metadata?: { provider?: string }; is_anonymous?: boolean } | null | undefined) =>
+  !!user && (user.is_anonymous === true || user.app_metadata?.provider === 'anonymous');
+
+/**
  * True when nobody else is using this username, false when it is taken, and
  * null when we could not check — the database's unique index is the real
  * guard, so a failed check just means "let the save decide".

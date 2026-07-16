@@ -19,12 +19,14 @@ interface AccountSetupPageProps {
   email: string;
   /** True when they came in through Google and have no game password yet. */
   needsPassword: boolean;
+  /** True for a guest who became a lightweight anonymous account. */
+  isGuest: boolean;
   character: CharacterId;
   onChangeCharacter: (character: CharacterId) => void;
   onDone: (username: string) => void;
 }
 
-export function AccountSetupPage({ userId, email, needsPassword, character, onChangeCharacter, onDone }: AccountSetupPageProps) {
+export function AccountSetupPage({ userId, email, needsPassword, isGuest, character, onChangeCharacter, onDone }: AccountSetupPageProps) {
   const [username, setUsername] = useState('');
   const [birthday, setBirthday] = useState('');
   const [password, setPassword] = useState('');
@@ -39,7 +41,7 @@ export function AccountSetupPage({ userId, email, needsPassword, character, onCh
       setError('Usernames are 3–24 letters, numbers or underscores — no spaces.');
       return;
     }
-    if (!birthday) { setError('Please add your birthday.'); return; }
+    if (!isGuest && !birthday) { setError('Please add your birthday.'); return; }
     if (needsPassword && password && password.length < 6) {
       setError('A password needs at least 6 letters or numbers.');
       return;
@@ -66,8 +68,10 @@ export function AccountSetupPage({ userId, email, needsPassword, character, onCh
   return <main className="setup-page">
     <header className="setup-header">
       <p className="eyebrow">Almost there</p>
-      <h1>Set up your account</h1>
-      <p>You are signed in as <strong>{email}</strong>. Fill this in once and other players can find you.</p>
+      <h1>{isGuest ? 'Pick your player name' : 'Set up your account'}</h1>
+      {isGuest
+        ? <p>Choose a name and you will show up on the leaderboard and in your friends' searches, just like everyone else.</p>
+        : <p>You are signed in as <strong>{email}</strong>. Fill this in once and other players can find you.</p>}
     </header>
 
     <form className="setup-card" onSubmit={save}>
@@ -91,10 +95,12 @@ export function AccountSetupPage({ userId, email, needsPassword, character, onCh
       </label>
 
       <label className="setup-field">
-        <span>Birthday</span>
+        <span>Birthday {isGuest && <i className="setup-optional">optional</i>}</span>
         <small>🔒 Only you can see this. It never shows on your profile, in search, or on the leaderboard.</small>
-        <input type="date" value={birthday} onChange={(event) => setBirthday(event.target.value)} max={new Date().toISOString().slice(0, 10)} required />
+        <input type="date" value={birthday} onChange={(event) => setBirthday(event.target.value)} max={new Date().toISOString().slice(0, 10)} required={!isGuest} />
       </label>
+
+      {isGuest && <p className="setup-guest-note">👤 This is a <strong>guest account</strong> — it lives in this browser, so it can be lost if you clear it. To keep it forever, make a full account from the front page later.</p>}
 
       {needsPassword && <label className="setup-field">
         <span>Password <i className="setup-optional">optional</i></span>
@@ -122,7 +128,7 @@ export function AccountSetupPage({ userId, email, needsPassword, character, onCh
       </div>
 
       {error && <p className="setup-error">{error}</p>}
-      <button className="setup-save" type="submit" disabled={busy}>{busy ? 'Saving…' : `Start playing as ${names[character]} →`}</button>
+      <button className="setup-save" type="submit" disabled={busy}>{busy ? 'Saving…' : isGuest ? `Play as @${username.trim() || '…'} →` : `Start playing as ${names[character]} →`}</button>
     </form>
   </main>;
 }
