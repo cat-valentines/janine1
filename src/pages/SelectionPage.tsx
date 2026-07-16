@@ -36,6 +36,7 @@ const RunnerUpPage = lazy(() => import('./RunnerUpPage').then((m) => ({ default:
 const DriveMadPage = lazy(() => import('./DriveMadPage').then((m) => ({ default: m.DriveMadPage })));
 const TownMarketPage = lazy(() => import('./TownMarketPage').then((m) => ({ default: m.TownMarketPage })));
 const EscapePage = lazy(() => import('./EscapePage').then((m) => ({ default: m.EscapePage })));
+const DriftPage = lazy(() => import('./DriftPage').then((m) => ({ default: m.DriftPage })));
 import { RiddlePage } from './RiddlePage';
 import { PingPongPage } from './PingPongPage';
 import { GruitsPage } from './GruitsPage';
@@ -62,6 +63,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const hungerOpen = path === '/play/hunger';
   const driveOpen = path === '/play/truck';
   const houseMarketOpen = path === '/house/market';
+  const driftOpen = path === '/play/drift';
   const medicineIsland = paramOf(path, '/play/medicine');
   const runnerIsland = paramOf(path, '/play/runner');
   const home = () => navigate('/');
@@ -245,6 +247,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   };
 
   if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => home()} />;
+  if (driftOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Warming up the engine…</p></main>}><DriftPage onCoin={() => setShopCoins((total) => total + 1)} onBack={() => home()} /></Suspense>;
   if (escapeOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Opening the front door…</p></main>}><EscapePage character={character} onEscape={(coins) => setShopCoins((total) => total + coins)} onBack={() => home()} /></Suspense>;
   if (gruitsOpen) return <GruitsPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;

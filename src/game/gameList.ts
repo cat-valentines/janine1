@@ -1,6 +1,6 @@
 export type GameId =
   | 'tower' | 'hunger' | 'medicine' | 'runner' | 'drive'
-  | 'riddle' | 'pong' | 'fruit' | 'escape';
+  | 'riddle' | 'pong' | 'fruit' | 'escape' | 'drift';
 
 export interface GameCard {
   id: GameId;
@@ -27,6 +27,7 @@ export const gameList: GameCard[] = [
   { id: 'pong', name: 'Ping Pong', icon: '🏓', kind: 'Arcade', blurb: 'Keep it up on your own, beat the bot, or play a friend on one keyboard.' },
   { id: 'fruit', name: 'Fruit', icon: '🍓', kind: 'Puzzle', blurb: 'Drop fruit in a cup. Two of the same merge. Do not let it overflow.' },
   { id: 'escape', name: 'The Housekeeper', icon: '🔦', kind: 'Scary', blurb: 'Find three keys and escape her house. Hide before she sees you.' },
+  { id: 'drift', name: 'Drift Rush', icon: '🏎️', kind: 'Racing', blurb: 'Drift a neon car round a synthwave track. Hold the handbrake and grab coins.' },
 ];
 
 export const gameById = (id: GameId) => gameList.find((game) => game.id === id);
