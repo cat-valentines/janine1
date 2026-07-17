@@ -325,7 +325,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .games-sign { width: fit-content; margin: 6px auto 0; padding: 3px 14px; background: #fffaf0e8; border: 3px solid #6c5c4f; box-shadow: 3px 3px 0 #423b3566; color: #4f4054; font-family: "Courier New", monospace; font-size: .8rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
 
 /* The game shelf: one pill per game, same size, stacked, deepest green first. */
-.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .blockup-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
+.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .blockup-button, .truthdare-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
 .power-button { margin-top: 18px; background: #27543a; box-shadow: 0 7px 0 #18382596; }
 .hunger-button { background: #3f6b4a; box-shadow: 0 7px 0 #2d4d35; }
 .medicine-button { background: #5b9a6b; box-shadow: 0 7px 0 #427451; }
@@ -338,6 +338,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .connector-button { background: #d19a2b; box-shadow: 0 7px 0 #a2741a; }
 .underwater-button { background: linear-gradient(120deg, #1789c4, #0e5f9c); box-shadow: 0 7px 0 #0a4574; }
 .blockup-button { background: linear-gradient(120deg, #9d6bff, #7a3ff0); box-shadow: 0 7px 0 #5a29b4; }
+.truthdare-button { background: linear-gradient(120deg, #ff7eb3, #ff5d73); box-shadow: 0 7px 0 #c83a5a; }
 .more-button { background: transparent; border: 3px solid #4f4054; box-shadow: 0 5px 0 #4f405433; color: #4f4054; margin-bottom: 38px; }
 .power-button span, .hunger-button span, .medicine-button span, .runner-button span, .drive-button span, .riddle-button span, .pong-button span, .gruits-button span, .escape-button span, .connector-button span, .underwater-button span, .more-button span { margin: 0; }
 .quest-pick { min-height: 100vh; padding: 16px; background: linear-gradient(#1c2a1e99, #1c2a1e99), url('/assets/pixel-magical-forest.png') center / cover fixed; }
@@ -1238,3 +1239,59 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .blockup-help { width: min(100%, 480px); margin: 12px auto 0; padding: 8px 14px; text-align: center; background: #ffffffcc; border-radius: 14px; color: #6b5a8f; font-size: .82rem; }
 .blockup-help b { color: #7a3ff0; }
 .blockup-stage .quest-over { position: absolute; inset: 0; display: grid; place-items: center; }
+
+/* ---- Truth or Dare (pass-and-play party game) ---- */
+.tod-page { min-height: 100vh; min-height: 100dvh; padding: 16px; color: #3a2b46; background: linear-gradient(160deg, #ffe3ee 0%, #ffd9c9 50%, #e7d9ff 100%); }
+.tod-top { display: flex; align-items: center; justify-content: space-between; max-width: 640px; margin: 0 auto 6px; }
+.tod-top button { background: #ffffffcc; color: #7a3ff0; border: 0; border-radius: 999px; padding: 8px 16px; font-weight: 800; cursor: pointer; }
+.tod-top span { font-size: 20px; }
+.tod-header { text-align: center; max-width: 640px; margin: 0 auto 16px; }
+.tod-header .eyebrow { color: #d5476f; }
+.tod-header h1 { font-size: clamp(28px, 7vw, 44px); margin: 0 0 8px; color: #7a3ff0; }
+.tod-header p { margin: 0; color: #6b5570; }
+.tod-setup { max-width: 640px; margin: 0 auto; padding: 20px; background: #fffef9; border: 3px solid #ffb3c9; border-radius: 22px; box-shadow: 0 8px 0 #ffd0dd; }
+.tod-add { display: flex; gap: 8px; margin: 8px 0 14px; }
+.tod-add input { flex: 1; min-width: 0; padding: 12px 14px; border: 2px solid #ffb3c9; border-radius: 14px; font-weight: 600; }
+.tod-add button { border: 0; border-radius: 14px; padding: 0 18px; background: #ff5d73; color: #fff; font-weight: 800; cursor: pointer; }
+.tod-add button:disabled { background: #ffc3cd; cursor: not-allowed; }
+.tod-players { display: flex; flex-wrap: wrap; gap: 8px; min-height: 40px; margin-bottom: 16px; }
+.tod-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 8px 7px 14px; border-radius: 999px; color: #3a2b46; font-weight: 800; box-shadow: inset 0 -3px 0 #00000018; }
+.tod-chip button { display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 50%; background: #ffffffaa; color: #3a2b46; font-size: 16px; line-height: 1; cursor: pointer; }
+.tod-empty { color: #a58bb0; font-weight: 600; }
+.tod-start { display: block; width: 100%; padding: 15px; border: 0; border-radius: 999px; font-size: 18px; font-weight: 900; color: #fff; cursor: pointer; background: linear-gradient(120deg, #ff7eb3, #ff5d73); box-shadow: 0 6px 0 #c83a5a; }
+.tod-start:disabled { background: #ffc3cd; box-shadow: 0 6px 0 #eaa9b5; cursor: not-allowed; }
+.tod-note { margin: 12px 0 0; text-align: center; color: #a07fae; font-size: 13px; }
+
+/* play area */
+.tod-page.playing { display: flex; flex-direction: column; }
+.tod-wheel-stage, .tod-card-stage, .tod-reveal-stage { max-width: 640px; margin: 0 auto; width: 100%; text-align: center; }
+.tod-wheel-stage h2 { color: #7a3ff0; margin: 6px 0 14px; font-size: clamp(20px, 5vw, 28px); }
+.tod-wheel-wrap { position: relative; width: min(88vw, 360px); margin: 0 auto 18px; }
+.tod-wheel { display: block; width: 100%; height: auto; border-radius: 50%; box-shadow: 0 10px 30px #7a3ff033, inset 0 0 0 6px #ffffffcc; }
+.tod-pointer { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); z-index: 2; width: 0; height: 0; border-left: 16px solid transparent; border-right: 16px solid transparent; border-top: 26px solid #7a3ff0; filter: drop-shadow(0 2px 2px #0003); }
+.tod-spin { border: 0; border-radius: 999px; padding: 16px 40px; font-size: 20px; font-weight: 900; letter-spacing: 1px; color: #fff; cursor: pointer; background: linear-gradient(120deg, #9d6bff, #7a3ff0); box-shadow: 0 7px 0 #5a29b4; }
+.tod-spin:disabled { opacity: .8; cursor: default; }
+
+/* choose a mystery card */
+.tod-turn { font-size: clamp(20px, 5vw, 28px); font-weight: 800; margin: 10px 0 4px; }
+.tod-choose { color: #6b5570; margin: 0 0 18px; }
+.tod-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 460px; margin: 0 auto; }
+@media (max-width: 420px) { .tod-cards { grid-template-columns: 1fr; } }
+.tod-mystery { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 26px 14px; border: 0; border-radius: 22px; color: #fff; cursor: pointer; box-shadow: 0 8px 0 #00000022; transition: transform .12s; }
+.tod-mystery:hover { transform: translateY(-4px); }
+.tod-mystery.truth { background: linear-gradient(150deg, #5aa9ff, #2f7bef); }
+.tod-mystery.dare { background: linear-gradient(150deg, #ff9f45, #ff5d73); }
+.tod-mystery-q { display: grid; place-items: center; width: 66px; height: 66px; margin-bottom: 6px; border-radius: 50%; background: #ffffff33; border: 3px dashed #ffffffaa; font-size: 34px; font-weight: 900; }
+.tod-mystery b { font-size: 22px; }
+.tod-mystery small { opacity: .9; }
+
+/* the reveal */
+.tod-reveal-stage { display: flex; flex-direction: column; align-items: center; }
+.tod-reveal { width: min(92vw, 460px); margin: 12px auto 20px; padding: 28px 22px; border-radius: 26px; color: #fff; box-shadow: 0 12px 0 #00000022; animation: tod-pop .35s ease; }
+@keyframes tod-pop { from { transform: scale(.8) rotate(-3deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+.tod-reveal.truth { background: linear-gradient(150deg, #5aa9ff, #2f7bef); }
+.tod-reveal.dare { background: linear-gradient(150deg, #ff9f45, #ff5d73); }
+.tod-reveal-who { font-size: 20px; font-weight: 800; margin: 0 0 4px; opacity: .95; }
+.tod-reveal-kind { font-size: 15px; font-weight: 900; letter-spacing: 2px; margin: 0 0 12px; opacity: .9; }
+.tod-reveal-text { font-size: clamp(22px, 5vw, 30px); font-weight: 800; line-height: 1.35; margin: 0; }
+.tod-next { border: 0; border-radius: 999px; padding: 15px 32px; font-size: 18px; font-weight: 900; color: #fff; cursor: pointer; background: linear-gradient(120deg, #69db7c, #3fa34d); box-shadow: 0 6px 0 #2c7a38; }
