@@ -1204,3 +1204,16 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .reef-bubble-btn { background: linear-gradient(120deg, #37c0e6, #1f8fd0) !important; color: #04263f !important; font-weight: 900 !important; box-shadow: 0 4px 0 #0d6a9a; }
 .reef-bubble-btn.active { background: linear-gradient(120deg, #a6ecff, #6fd0ff) !important; animation: reef-pulse .9s ease-in-out infinite; }
 .reef-bubble-btn:disabled { background: #2a5372 !important; color: #7fb0cc !important; box-shadow: 0 4px 0 #1c3c54; opacity: .8; }
+
+/* ---- Players directory (home page) ---- */
+.players-directory { margin-top: 16px; }
+.players-count { font-size: .8rem; font-weight: 700; color: var(--ink-soft, #6b6470); }
+.players-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 8px; }
+.player-card { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; padding: 12px 10px; border-radius: 16px; background: #ffffff; border: 2px solid #eadff0; box-shadow: 0 3px 0 #eadff055; }
+.player-card .player-emoji { font-size: 30px; line-height: 1.2; }
+.player-card strong { font-size: .95rem; word-break: break-word; }
+.player-card small { color: var(--ink-soft, #6b6470); font-size: .78rem; }
+.player-add { margin-top: 6px; border: 0; border-radius: 999px; padding: 6px 16px; font-weight: 800; cursor: pointer; background: #5b9a6b; color: #fff; box-shadow: 0 3px 0 #427451; }
+.player-add:hover { filter: brightness(1.05); }
+.player-friend { margin-top: 6px; font-size: .8rem; font-weight: 800; color: #c99a2b; font-style: normal; }
+.linklike { background: none; border: 0; padding: 0; color: #3f6b8a; font-weight: 700; cursor: pointer; text-decoration: underline; font: inherit; }
