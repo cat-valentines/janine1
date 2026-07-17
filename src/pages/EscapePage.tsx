@@ -78,18 +78,28 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
       onUpdate: (next) => update.current(next),
     });
     engine.current = created;
+    created.setPlayerNames(botNames);
     const resize = () => created.resize();
     window.addEventListener('resize', resize);
     return () => { window.removeEventListener('resize', resize); created.dispose(); engine.current = null; };
-  }, [started, round, character, mode, botNames]);
+    // botNames is intentionally excluded: name changes are pushed live via
+    // setPlayerNames below, not by tearing down and rebuilding the whole game.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started, round, character, mode]);
 
   // Party mode uses the same live-presence as Hunger Quests: real players in a
-  // Housekeeper match right now become named bots; the rest are AI.
+  // Housekeeper match right now wear their @username above their head; the
+  // filler bots stay nameless. We poll every few seconds and label them live.
   useEffect(() => {
     if (!started || mode !== 'everybody') return;
-    playersInGame('housekeeper').then((players) => setBotNames(players.map((p) => p.name))).catch(() => undefined);
+    const sync = () => playersInGame('housekeeper').then((players) => {
+      const names = players.map((p) => p.name);
+      setBotNames(names);
+      engine.current?.setPlayerNames(names);
+    }).catch(() => undefined);
+    sync();
     heartbeat('housekeeper');
-    const id = setInterval(() => heartbeat('housekeeper'), 5000);
+    const id = setInterval(() => { heartbeat('housekeeper'); sync(); }, 5000);
     return () => { clearInterval(id); leaveGame(); };
   }, [started, mode]);
 

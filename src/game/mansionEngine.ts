@@ -125,7 +125,7 @@ export class MansionEngine {
   private level = 1;
   private speedMul = 1;
   private keeper2: Roamer | null = null;
-  private bots: Array<Roamer & { flash: number }> = [];
+  private bots: Array<Roamer & { flash: number; label: string }> = [];
   private floorCells: Cell[] = [];
 
   private keyMeshes: Array<{ mesh: THREE.Object3D; taken: boolean; at: Cell; cooldown: number }> = [];
@@ -209,7 +209,8 @@ export class MansionEngine {
     }
     if (options.party) {
       this.party = true;
-      this.buildParty(options.botNames ?? []);
+      this.buildParty();
+      this.setPlayerNames(options.botNames ?? []);
     }
 
     window.addEventListener('keydown', this.onKeyDown);
@@ -544,7 +545,7 @@ export class MansionEngine {
   }
 
   /** Build the second keeper and the roaming bot players. */
-  private buildParty(names: string[]) {
+  private buildParty() {
     const mid = Math.floor(this.patrolPoints.length / 2);
     const spot = this.patrolPoints[mid];
     const w = worldOf(spot.col, spot.row);
@@ -559,17 +560,32 @@ export class MansionEngine {
     // see the whole crowd at the drop, then they scatter to hunt keys.
     const spots = this.cellsNearStart(8);
     for (let i = 0; i < 5; i += 1) {
-      const real = names[i];
       const cell = spots[(i + 1) % spots.length];
       const world = worldOf(cell.col, cell.row);
       const ox = (Math.random() - 0.5) * 1.2;
       const oz = (Math.random() - 0.5) * 1.2;
-      // Real players float their @username above them; bots stay nameless.
-      const figure = this.buildFigure(colours[i % colours.length],
-        real ? `@${real}` : '',
-        '#f2c94c', '#c9a02e', false);
-      this.bots.push({ group: figure, pos: new THREE.Vector3(world.x + ox, 0, world.z + oz), yaw: 0, path: [], repath: 0, patrolAt: 0, flash: 0 });
+      // Built nameless. setPlayerNames() then labels the real players and leaves
+      // the filler bots blank — and keeps them in sync as people come and go.
+      const figure = this.buildFigure(colours[i % colours.length], '', '#f2c94c', '#c9a02e', false);
+      this.bots.push({ group: figure, pos: new THREE.Vector3(world.x + ox, 0, world.z + oz), yaw: 0, path: [], repath: 0, patrolAt: 0, flash: 0, label: '' });
     }
+  }
+
+  /**
+   * Live label update: each real player in the match wears their @username;
+   * every filler bot stays blank. Only touches a bot whose label actually
+   * changed, so it is cheap to call on the presence timer.
+   */
+  setPlayerNames(names: string[]) {
+    this.bots.forEach((bot, i) => {
+      const label = names[i] ? `@${names[i]}` : '';
+      if (label === bot.label) return;
+      bot.label = label;
+      bot.group.children
+        .filter((child) => (child as THREE.Sprite).isSprite)
+        .forEach((sprite) => bot.group.remove(sprite));
+      if (label) bot.group.add(this.nameSprite(label, '#f2c94c', '#c9a02e'));
+    });
   }
 
   private randomCell(): Cell {
