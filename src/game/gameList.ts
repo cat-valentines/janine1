@@ -1,6 +1,6 @@
 export type GameId =
   | 'tower' | 'hunger' | 'medicine' | 'runner' | 'drive'
-  | 'riddle' | 'pong' | 'fruit' | 'escape' | 'connector' | 'underwater';
+  | 'riddle' | 'pong' | 'fruit' | 'escape' | 'connector' | 'underwater' | 'blockup';
 
 export interface GameCard {
   id: GameId;
@@ -29,6 +29,7 @@ export const gameList: GameCard[] = [
   { id: 'escape', name: 'The Housekeeper', icon: '🔦', kind: 'Scary', blurb: 'Find three keys and escape her house. Hide before she sees you.' },
   { id: 'connector', name: 'Connector', icon: '🔢', kind: 'Puzzle', blurb: 'Swipe to connect blocks with the same number. They merge and multiply — how high can you go?' },
   { id: 'underwater', name: 'Underwater Maze', icon: '🐠', kind: 'Adventure', blurb: 'Swim a 3-D coral reef as a clownfish or blue tang. Find 10 keys and dodge sharks, eels and big fish.' },
+  { id: 'blockup', name: 'Block Up', icon: '🧱', kind: 'Puzzle', blurb: 'Drop colorful blocks on the grid and clear rows and columns. How high can you score before you run out of room?' },
 ];
 
 export const gameById = (id: GameId) => gameList.find((game) => game.id === id);

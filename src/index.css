@@ -325,7 +325,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .games-sign { width: fit-content; margin: 6px auto 0; padding: 3px 14px; background: #fffaf0e8; border: 3px solid #6c5c4f; box-shadow: 3px 3px 0 #423b3566; color: #4f4054; font-family: "Courier New", monospace; font-size: .8rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
 
 /* The game shelf: one pill per game, same size, stacked, deepest green first. */
-.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
+.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .blockup-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
 .power-button { margin-top: 18px; background: #27543a; box-shadow: 0 7px 0 #18382596; }
 .hunger-button { background: #3f6b4a; box-shadow: 0 7px 0 #2d4d35; }
 .medicine-button { background: #5b9a6b; box-shadow: 0 7px 0 #427451; }
@@ -337,6 +337,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .escape-button { background: #3a2b46; box-shadow: 0 7px 0 #241a2c; }
 .connector-button { background: #d19a2b; box-shadow: 0 7px 0 #a2741a; }
 .underwater-button { background: linear-gradient(120deg, #1789c4, #0e5f9c); box-shadow: 0 7px 0 #0a4574; }
+.blockup-button { background: linear-gradient(120deg, #9d6bff, #7a3ff0); box-shadow: 0 7px 0 #5a29b4; }
 .more-button { background: transparent; border: 3px solid #4f4054; box-shadow: 0 5px 0 #4f405433; color: #4f4054; margin-bottom: 38px; }
 .power-button span, .hunger-button span, .medicine-button span, .runner-button span, .drive-button span, .riddle-button span, .pong-button span, .gruits-button span, .escape-button span, .connector-button span, .underwater-button span, .more-button span { margin: 0; }
 .quest-pick { min-height: 100vh; padding: 16px; background: linear-gradient(#1c2a1e99, #1c2a1e99), url('/assets/pixel-magical-forest.png') center / cover fixed; }
@@ -1217,3 +1218,23 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .player-add:hover { filter: brightness(1.05); }
 .player-friend { margin-top: 6px; font-size: .8rem; font-weight: 800; color: #c99a2b; font-style: normal; }
 .linklike { background: none; border: 0; padding: 0; color: #3f6b8a; font-weight: 700; cursor: pointer; text-decoration: underline; font: inherit; }
+
+/* ---- Block Up (block-blast) ---- */
+.blockup-page { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; padding: 12px; background: linear-gradient(#efe7fb, #d9c8f5); }
+.blockup-header { display: flex; align-items: center; gap: 10px; width: min(100%, 480px); margin: 4px auto 6px; }
+.blockup-header h1 { font-family: "Courier New", ui-monospace, monospace; font-size: clamp(1.4rem, 5vw, 2rem); color: #5a2ca6; margin: 0; }
+.blockup-back { border: 0; border-radius: 12px; padding: 8px 14px; background: #7a3ff0; color: #fff; font-weight: 800; cursor: pointer; }
+.blockup-pills { display: flex; gap: 8px; margin-left: auto; }
+.blockup-pill { display: flex; flex-direction: column; align-items: center; min-width: 62px; padding: 5px 10px; background: #fff; border-radius: 14px; box-shadow: 0 3px 0 #c9b6ec; }
+.blockup-pill small { font-size: .68rem; color: #8a7caa; text-transform: uppercase; letter-spacing: .5px; font-weight: 800; }
+.blockup-pill b { font-size: 1.1rem; color: #4b2b8f; }
+.blockup-new { border: 0; border-radius: 12px; padding: 8px 14px; background: #5a2ca6; color: #fff; font-weight: 800; cursor: pointer; }
+.blockup-live { width: min(100%, 480px); margin: 0 auto 8px; padding: 9px 14px; text-align: center; background: #fff; border-radius: 14px; color: #6b5a8f; font-weight: 700; box-shadow: 0 3px 0 #c9b6ec; }
+.blockup-live.on { background: #fff2c6; color: #9a6a00; }
+.blockup-live b { color: #7a3ff0; }
+.blockup-live.on b { color: #d98a00; }
+.blockup-stage { position: relative; width: min(100%, 480px); }
+.blockup-canvas { display: block; width: 100%; height: auto; touch-action: none; cursor: pointer; }
+.blockup-help { width: min(100%, 480px); margin: 12px auto 0; padding: 8px 14px; text-align: center; background: #ffffffcc; border-radius: 14px; color: #6b5a8f; font-size: .82rem; }
+.blockup-help b { color: #7a3ff0; }
+.blockup-stage .quest-over { position: absolute; inset: 0; display: grid; place-items: center; }
