@@ -9,10 +9,6 @@ export interface LivePlayer {
   z: number;
   yaw: number;
   level: number;
-  /** Scavenger co-op: the seed that decides where the one key is hidden. */
-  seed?: number;
-  /** Scavenger co-op: this player has found the key. */
-  found?: boolean;
 }
 
 export interface LiveGame {

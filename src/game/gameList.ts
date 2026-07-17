@@ -1,6 +1,6 @@
 export type GameId =
   | 'tower' | 'hunger' | 'medicine' | 'runner' | 'drive'
-  | 'riddle' | 'pong' | 'fruit' | 'escape' | 'connector' | 'underwater' | 'blockup' | 'truthdare' | 'pi' | 'scavenger';
+  | 'riddle' | 'pong' | 'fruit' | 'escape' | 'connector' | 'underwater' | 'blockup' | 'truthdare' | 'pi';
 
 export interface GameCard {
   id: GameId;
@@ -34,7 +34,6 @@ export const gameList: GameCard[] = [
   { id: 'blockup', name: 'Block Up', icon: '🧱', kind: 'Puzzle', blurb: 'Drop colorful blocks on the grid and clear rows and columns. How high can you score before you run out of room?' },
   { id: 'truthdare', name: 'Truth or Dare', icon: '🌀', kind: 'Arcade', blurb: 'Pass-and-play with friends in one place. Spin the wheel, pick a mystery Truth or Dare card, and take your turn!' },
   { id: 'pi', name: 'Pi', icon: 'π', kind: 'Puzzle', blurb: 'The calculator flashes the digits of π — 3, 1, 4, 1, 5, 9… — one at a time. Watch the pattern, then copy it back. It grows every round!', learn: 'The digits of π and how to spot and remember number patterns.' },
-  { id: 'scavenger', name: 'Scavenger', icon: '🔑', kind: 'Adventure', blurb: 'Invite your friends to a cozy house and hunt together for the one key that opens the locked door. Search cabinets, chests and wardrobes — before the clock runs out!' },
 ];
 
 export const gameById = (id: GameId) => gameList.find((game) => game.id === id);

@@ -325,7 +325,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .games-sign { width: fit-content; margin: 6px auto 0; padding: 3px 14px; background: #fffaf0e8; border: 3px solid #6c5c4f; box-shadow: 3px 3px 0 #423b3566; color: #4f4054; font-family: "Courier New", monospace; font-size: .8rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
 
 /* The game shelf: one pill per game, same size, stacked, deepest green first. */
-.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .blockup-button, .truthdare-button, .pi-button, .scavenger-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
+.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .blockup-button, .truthdare-button, .pi-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
 .power-button { margin-top: 18px; background: #27543a; box-shadow: 0 7px 0 #18382596; }
 .hunger-button { background: #3f6b4a; box-shadow: 0 7px 0 #2d4d35; }
 .medicine-button { background: #5b9a6b; box-shadow: 0 7px 0 #427451; }
@@ -341,8 +341,6 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .truthdare-button { background: linear-gradient(120deg, #ff7eb3, #ff5d73); box-shadow: 0 7px 0 #c83a5a; }
 .pi-button { background: linear-gradient(120deg, #2bb5a6, #12897e); box-shadow: 0 7px 0 #0c625a; }
 .pi-button span { margin: 0; }
-.scavenger-button { background: linear-gradient(120deg, #d8863f, #b25f24); box-shadow: 0 7px 0 #834516; }
-.scavenger-button span { margin: 0; }
 .more-button { background: transparent; border: 3px solid #4f4054; box-shadow: 0 5px 0 #4f405433; color: #4f4054; margin-bottom: 38px; }
 .power-button span, .hunger-button span, .medicine-button span, .runner-button span, .drive-button span, .riddle-button span, .pong-button span, .gruits-button span, .escape-button span, .connector-button span, .underwater-button span, .more-button span { margin: 0; }
 .quest-pick { min-height: 100vh; padding: 16px; background: linear-gradient(#1c2a1e99, #1c2a1e99), url('/assets/pixel-magical-forest.png') center / cover fixed; }
@@ -997,21 +995,6 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .escape-alarm s { display: block; height: 100%; background: linear-gradient(90deg, #f2c94c, #d13b3b); transition: width .16s linear; }
 .escape-message { position: absolute; top: 68px; left: 50%; translate: -50% 0; padding: 7px 15px; background: #0b0810e8; border: 2px solid #d13b3b; color: #ffd9cf; font-weight: 800; white-space: nowrap; pointer-events: none; }
 .escape-help { position: absolute; bottom: 10px; left: 50%; translate: -50% 0; padding: 7px 13px; background: #0b0810d0; border: 2px solid #5b3a6b; color: #cbb8d6; font-size: .74rem; white-space: nowrap; pointer-events: none; }
-
-/* Scavenger — cozy top-down key hunt */
-.scav-page { min-height: 100vh; min-height: 100dvh; padding: 12px; background: linear-gradient(160deg, #3a2a20, #241a17); }
-.scav-stage { position: relative; width: min(100%, 1000px); height: min(76vh, 680px); margin: 0 auto; overflow: hidden; border-radius: 18px; border: 5px solid #6b4a36; box-shadow: 0 14px 40px #0008; }
-.scav-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-.scav-canvas canvas { display: block; }
-.scav-hud { position: absolute; top: 10px; left: 10px; display: flex; gap: 10px; pointer-events: none; }
-.scav-timer { padding: 6px 12px; border-radius: 12px; background: #2a1c14e8; border: 2px solid #d8a05f; color: #ffe9c9; font-weight: 900; }
-.scav-timer.low { border-color: #ff6a6a; color: #ffd2d2; animation: scav-pulse .8s infinite; }
-@keyframes scav-pulse { 50% { background: #5a1e1ee8; } }
-.scav-progress { display: flex; align-items: baseline; gap: 6px; padding: 6px 12px; border-radius: 12px; background: #2a1c14e8; border: 2px solid #b98a55; color: #ffe9c9; font-weight: 800; }
-.scav-progress small { font-size: .68rem; color: #d9bE95; }
-.scav-message { position: absolute; top: 62px; left: 50%; translate: -50% 0; padding: 8px 16px; border-radius: 12px; background: #2a1c14f2; border: 2px solid #f2c94c; color: #ffe9a8; font-weight: 800; white-space: nowrap; pointer-events: none; }
-.scav-help { position: absolute; bottom: 10px; left: 50%; translate: -50% 0; padding: 7px 13px; border-radius: 12px; background: #2a1c14d8; border: 2px solid #8a6a45; color: #f0dcc0; font-size: .74rem; white-space: nowrap; pointer-events: none; }
-.scav-page .quest-over { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 18px; background: #1a120db3; }
 
 /* Sign-in failures Google hands back in the URL */
 .auth-error-banner { position: fixed; top: 84px; left: 50%; z-index: 12; translate: -50% 0; display: flex; align-items: center; gap: 10px; width: min(92vw, 460px); padding: 11px 13px; background: #fdeee8; border: 3px solid #c0755f; box-shadow: 4px 5px 0 #8b3f28; }

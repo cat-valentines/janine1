@@ -19,12 +19,14 @@ export function Leaderboard() {
     const readName = (name?: string) => setMe(name ?? '');
     supabase.auth.getUser().then(({ data }) => readName(data.user?.user_metadata.display_name as string | undefined));
     refresh();
-    // A new sign-up creates a profile row, so re-read the board when auth changes.
+    // Re-read the board on a timer so a friend's new score shows up without a
+    // page reload, and whenever auth changes (a sign-up adds a profile row).
+    const timer = setInterval(refresh, 20000);
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       readName(session?.user?.user_metadata.display_name as string | undefined);
       refresh();
     });
-    return () => data.subscription.unsubscribe();
+    return () => { clearInterval(timer); data.subscription.unsubscribe(); };
   }, []);
 
   const leader = rows[0];
