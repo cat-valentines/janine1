@@ -4,7 +4,8 @@ import { DAYS, KEYS_TO_ESCAPE, STONES_PER_NIGHT } from '../game/mansion';
 import { characterAssets } from '../game/characters';
 import { loadMyFriends, type FriendRow } from '../lib/players';
 import { sendFriendMessage } from '../lib/friends';
-import { heartbeat, leaveGame, playersInGame } from '../lib/presence';
+import { heartbeat, leaveGame } from '../lib/presence';
+import { joinLiveGame } from '../lib/liveGame';
 import { supabase } from '../lib/supabase';
 import type { CharacterId } from '../game/types';
 
@@ -23,7 +24,6 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
   const [snapshot, setSnapshot] = useState<MansionSnapshot | null>(null);
   // Start-screen: play alone, or invite friends to a scheduled game.
   const [mode, setMode] = useState<'alone' | 'friends' | 'everybody'>('alone');
-  const [botNames, setBotNames] = useState<string[]>([]);
   const [userId, setUserId] = useState('');
   const [myName, setMyName] = useState('a friend');
   const [friends, setFriends] = useState<FriendRow[]>([]);
@@ -74,34 +74,29 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
     const created = new MansionEngine(mount.current, {
       characterAsset: characterAssets[character],
       party: mode === 'everybody',
-      botNames,
       onUpdate: (next) => update.current(next),
     });
     engine.current = created;
-    created.setPlayerNames(botNames);
     const resize = () => created.resize();
     window.addEventListener('resize', resize);
     return () => { window.removeEventListener('resize', resize); created.dispose(); engine.current = null; };
-    // botNames is intentionally excluded: name changes are pushed live via
-    // setPlayerNames below, not by tearing down and rebuilding the whole game.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started, round, character, mode]);
 
-  // Party mode uses the same live-presence as Hunger Quests: real players in a
-  // Housekeeper match right now wear their @username above their head; the
-  // filler bots stay nameless. We poll every few seconds and label them live.
+  // Real multiplayer: in "everybody" mode we shout our own position several
+  // times a second and draw every other real player exactly where they are.
+  // The AI bots stay bots — real players come in over this live channel, so a
+  // friend standing in a corner shows up standing in that corner, not roaming.
   useEffect(() => {
-    if (!started || mode !== 'everybody') return;
-    const sync = () => playersInGame('housekeeper').then((players) => {
-      const names = players.map((p) => p.name);
-      setBotNames(names);
-      engine.current?.setPlayerNames(names);
-    }).catch(() => undefined);
-    sync();
+    if (!started || mode !== 'everybody' || !userId) return;
+    const live = joinLiveGame('housekeeper', userId, (peers) => engine.current?.setLivePlayers(peers));
     heartbeat('housekeeper');
-    const id = setInterval(() => { heartbeat('housekeeper'); sync(); }, 5000);
-    return () => { clearInterval(id); leaveGame(); };
-  }, [started, mode]);
+    const beat = setInterval(() => heartbeat('housekeeper'), 5000);
+    const shout = setInterval(() => {
+      const state = engine.current?.getSelfState();
+      if (state) live.send({ name: myName, ...state });
+    }, 120);
+    return () => { clearInterval(beat); clearInterval(shout); live.leave(); leaveGame(); };
+  }, [started, mode, userId, myName]);
 
   const again = () => { paid.current = false; setSnapshot(null); setRound((n) => n + 1); };
   const goFullscreen = () => {
@@ -127,7 +122,7 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
         </div>
 
         {mode === 'everybody' && <div className="escape-invite">
-          <p className="escape-invite-note">🌍 A house full of players! <strong>Two housekeepers</strong> patrol, and everyone races to find the keys without getting caught. Escape and you unlock a deeper, harder level — the others follow you down. Real players in a match right now join in; 🤖 bots fill the rest.</p>
+          <p className="escape-invite-note">🌍 A house full of players! <strong>Two housekeepers</strong> patrol, and everyone races to find the keys without getting caught. Escape and you unlock a deeper, harder level. You'll see <strong>other real players live</strong> — wearing their @name, exactly where they really are — and 🤖 bots fill out the house.</p>
         </div>}
 
         {mode === 'friends' && <div className="escape-invite">

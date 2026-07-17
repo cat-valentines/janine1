@@ -36,9 +36,12 @@ export async function loadNotifications(userId: string): Promise<NotificationIte
   });
 
   (msgs.data ?? []).forEach((row) => {
-    const msg = row as { id: string; message: string; created_at: string };
-    items.push({ id: msg.id, kind: looksLikeInvite(msg.message) ? 'invite' : 'message',
-      at: msg.created_at, text: msg.message });
+    const msg = row as { id: string; sender_id: string; message: string; created_at: string };
+    const invite = looksLikeInvite(msg.message);
+    // Invites already name the sender inside the message; a plain text does not,
+    // so say who it is from — "💬 @lily texted you: hi".
+    items.push({ id: msg.id, kind: invite ? 'invite' : 'message', at: msg.created_at,
+      text: invite ? msg.message : `💬 @${nameOf(msg.sender_id)} texted you: ${msg.message}` });
   });
 
   return items.sort((a, b) => (a.at < b.at ? 1 : -1));

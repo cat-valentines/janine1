@@ -18,6 +18,8 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
   const [message, setMessage] = useState('');
   const [note, setNote] = useState('');
   const [calling, setCalling] = useState(false);
+  /** The chat opens only when you tap 💬 Text on a friend's profile. */
+  const [showChat, setShowChat] = useState(false);
   /** Which invite tray is open: none, "invite now", or "plan a play date". */
   const [tray, setTray] = useState<'none' | 'now' | 'plan'>('none');
   const [planGame, setPlanGame] = useState(gameTargets[0].id);
@@ -40,6 +42,7 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
 
   useEffect(() => {
     setTray('none');
+    setShowChat(false);
     if (!selected || selected.status !== 'accepted') { setChat([]); return; }
     openChat(selected.id);
   }, [selected]);
@@ -138,6 +141,7 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
 
         {selected.status === 'accepted' && <>
           <div className="friend-actions">
+            <button className={showChat ? 'on' : ''} onClick={() => { const next = !showChat; setShowChat(next); if (next) openChat(selected.id); }}>💬 Text</button>
             <button className={tray === 'now' ? 'on' : ''} onClick={() => openTray('now')}>🎮 Invite to Play</button>
             <button className={tray === 'plan' ? 'on' : ''} onClick={() => openTray('plan')}>📅 Plan a Play Date</button>
             <button onClick={() => setCalling((active) => !active)}>🎙️ {calling ? 'End Call' : 'Live Talk'}</button>
@@ -181,7 +185,7 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
             <button className="invite-send" onClick={sendPlan}>📅 Send to {inviteFriends.size || 'no'} {inviteFriends.size === 1 ? 'friend' : 'friends'}</button>
           </div>}
 
-          <div className="chat-box"><h3>Chat with {selected.name}</h3>{chat.map((item) => <p className={item.sender_id === userId ? 'chat-mine' : ''} key={item.id}>{item.message}</p>)}<div><input value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && send()} placeholder="Write a message…" maxLength={500} /><button onClick={send}>Send</button></div></div>
+          {showChat && <div className="chat-box"><h3>Chat with {selected.name}</h3>{chat.map((item) => <p className={item.sender_id === userId ? 'chat-mine' : ''} key={item.id}>{item.message}</p>)}{!chat.length && <p className="friend-empty">Say hi! @{selected.name} gets a 🔔 when you text.</p>}<div><input value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && send()} placeholder="Write a message…" maxLength={500} autoFocus /><button onClick={send}>Send</button></div></div>}
         </>}
       </>}{note && <p className="friend-note">{note}</p>}
     </>}

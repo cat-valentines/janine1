@@ -39,6 +39,7 @@ const RunnerUpPage = lazy(() => import('./RunnerUpPage').then((m) => ({ default:
 const DriveMadPage = lazy(() => import('./DriveMadPage').then((m) => ({ default: m.DriveMadPage })));
 const TownMarketPage = lazy(() => import('./TownMarketPage').then((m) => ({ default: m.TownMarketPage })));
 const EscapePage = lazy(() => import('./EscapePage').then((m) => ({ default: m.EscapePage })));
+const ScavengerPage = lazy(() => import('./ScavengerPage').then((m) => ({ default: m.ScavengerPage })));
 const UnderwaterMazePage = lazy(() => import('./UnderwaterMazePage').then((m) => ({ default: m.UnderwaterMazePage })));
 import { RiddlePage } from './RiddlePage';
 import { PingPongPage } from './PingPongPage';
@@ -75,6 +76,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const blockUpOpen = path === '/play/blockup';
   const truthDareOpen = path === '/play/truthdare';
   const piOpen = path === '/play/pi';
+  const scavengerOpen = path === '/play/scavenger';
   const medicineIsland = paramOf(path, '/play/medicine');
   const runnerIsland = paramOf(path, '/play/runner');
   const home = () => navigate('/');
@@ -193,10 +195,15 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   useEffect(() => {
     // Dev-only: lets the headless test push real-shaped notifications in.
     if (import.meta.env.DEV) (window as unknown as { __notifTest: unknown }).__notifTest = { setNotifs, setSignedIn };
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) return;
-      loadNotifications(data.user.id).then(setNotifs).catch(() => undefined);
+    let stop = false;
+    // Refresh on a timer so a friend's text lights up the 🔔 without a reload.
+    const pull = () => supabase.auth.getUser().then(({ data }) => {
+      if (!data.user || stop) return;
+      loadNotifications(data.user.id).then((items) => { if (!stop) setNotifs(items); }).catch(() => undefined);
     });
+    pull();
+    const id = setInterval(pull, 20000);
+    return () => { stop = true; clearInterval(id); };
   }, []);
 
   useEffect(() => {
@@ -272,6 +279,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     if (id === 'blockup') navigate('/play/blockup');
     if (id === 'truthdare') navigate('/play/truthdare');
     if (id === 'pi') navigate('/play/pi');
+    if (id === 'scavenger') navigate('/play/scavenger');
   };
 
   if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => home()} />;
@@ -281,6 +289,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   if (blockUpOpen) return <BlockUpPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 40)))} onBack={() => home()} />;
   if (truthDareOpen) return <TruthOrDarePage onBack={() => home()} />;
   if (piOpen) return <PiPage onScore={(digits) => setShopCoins((total) => total + Math.max(1, Math.round(digits / 4)))} onBack={() => home()} />;
+  if (scavengerOpen) return <Suspense fallback={<main className="scav-page"><p className="world-loading">Unlocking the house…</p></main>}><ScavengerPage onScore={(coins) => setShopCoins((total) => total + coins)} onBack={() => home()} /></Suspense>;
   if (gruitsOpen) return <GruitsPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;
   if (riddleOpen) return <RiddlePage startLevel={riddleLevel}
@@ -359,6 +368,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <button className="blockup-button" onClick={() => navigate('/play/blockup')}>🧱 Block Up <span>→</span></button>
       <button className="truthdare-button" onClick={() => navigate('/play/truthdare')}>🌀 Truth or Dare <span>→</span></button>
       <button className="pi-button" onClick={() => navigate('/play/pi')}>π Pi <span>→</span></button>
+      <button className="scavenger-button" onClick={() => navigate('/play/scavenger')}>🔑 Scavenger <span>→</span></button>
       <button className="more-button" onClick={() => navigate('/games')}>⊞ See all games <span>→</span></button>
       <Leaderboard />
       <PlayersDirectory onOpenFriends={() => setFriendsOpen(true)} />

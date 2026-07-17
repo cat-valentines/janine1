@@ -36,9 +36,17 @@ interface EngineOptions {
   characterAsset: string;
   /** "Play with everybody": a second housekeeper and a house full of bots. */
   party?: boolean;
-  /** Names for the bot players — real players in a match now, then filler. */
-  botNames?: string[];
   onUpdate: (snapshot: MansionSnapshot) => void;
+}
+
+/** A real player somewhere else in the world, drawn where they actually are. */
+interface LiveFigure {
+  group: THREE.Group;
+  pos: THREE.Vector3;
+  target: THREE.Vector3;
+  yaw: number;
+  targetYaw: number;
+  level: number;
 }
 
 /** A second keeper and the bots share this lighter state. */
@@ -52,6 +60,13 @@ interface Roamer {
 }
 
 interface Cell { col: number; row: number }
+
+/** A stable colour hue for a player id, so each real player has their own tint. */
+function hashHue(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) % 360;
+  return h;
+}
 
 /**
  * Shortest way through the house, square by square.
@@ -125,7 +140,9 @@ export class MansionEngine {
   private level = 1;
   private speedMul = 1;
   private keeper2: Roamer | null = null;
-  private bots: Array<Roamer & { flash: number; label: string }> = [];
+  private bots: Array<Roamer & { flash: number }> = [];
+  /** Real players in the match right now, keyed by their user id. */
+  private livePlayers = new Map<string, LiveFigure>();
   private floorCells: Cell[] = [];
 
   private keyMeshes: Array<{ mesh: THREE.Object3D; taken: boolean; at: Cell; cooldown: number }> = [];
@@ -210,7 +227,6 @@ export class MansionEngine {
     if (options.party) {
       this.party = true;
       this.buildParty();
-      this.setPlayerNames(options.botNames ?? []);
     }
 
     window.addEventListener('keydown', this.onKeyDown);
@@ -540,6 +556,9 @@ export class MansionEngine {
       group.add(axe);
     }
     if (tag) group.add(this.nameSprite(tag, tagColour, border));
+    // Keep the body material to hand so real players can be given a soft glow
+    // (see setLivePlayers).
+    group.userData.bodyMat = body;
     this.scene.add(group);
     return group;
   }
@@ -564,27 +583,50 @@ export class MansionEngine {
       const world = worldOf(cell.col, cell.row);
       const ox = (Math.random() - 0.5) * 1.2;
       const oz = (Math.random() - 0.5) * 1.2;
-      // Built nameless. setPlayerNames() then labels the real players and leaves
-      // the filler bots blank — and keeps them in sync as people come and go.
+      // Filler bots: AI-driven and nameless, forever. They are never dressed up
+      // as real players — the real ones come in over the network (setLivePlayers).
       const figure = this.buildFigure(colours[i % colours.length], '', '#f2c94c', '#c9a02e', false);
-      this.bots.push({ group: figure, pos: new THREE.Vector3(world.x + ox, 0, world.z + oz), yaw: 0, path: [], repath: 0, patrolAt: 0, flash: 0, label: '' });
+      this.bots.push({ group: figure, pos: new THREE.Vector3(world.x + ox, 0, world.z + oz), yaw: 0, path: [], repath: 0, patrolAt: 0, flash: 0 });
     }
   }
 
+  /** My position, for broadcasting to the other real players in the match. */
+  getSelfState() {
+    return { x: this.position.x, z: this.position.z, yaw: this.yaw, level: this.level };
+  }
+
   /**
-   * Live label update: each real player in the match wears their @username;
-   * every filler bot stays blank. Only touches a bot whose label actually
-   * changed, so it is cheap to call on the presence timer.
+   * Draw the *real* players at the positions they just sent us. Only players on
+   * my level show (a deeper level is its own separate house). Each wears their
+   * @name and a soft blue glow, and is driven entirely by the network — never
+   * AI — so what you see is genuinely where they are. Anyone who left is removed.
    */
-  setPlayerNames(names: string[]) {
-    this.bots.forEach((bot, i) => {
-      const label = names[i] ? `@${names[i]}` : '';
-      if (label === bot.label) return;
-      bot.label = label;
-      bot.group.children
-        .filter((child) => (child as THREE.Sprite).isSprite)
-        .forEach((sprite) => bot.group.remove(sprite));
-      if (label) bot.group.add(this.nameSprite(label, '#f2c94c', '#c9a02e'));
+  setLivePlayers(players: Array<{ id: string; name: string; x: number; z: number; yaw: number; level: number }>) {
+    const here = new Set<string>();
+    players.forEach((player) => {
+      if (player.level !== this.level) return;
+      here.add(player.id);
+      let live = this.livePlayers.get(player.id);
+      if (!live) {
+        const hue = hashHue(player.id);
+        const group = this.buildFigure(`hsl(${hue}, 62%, 56%)`, `@${player.name}`, '#d6ecff', '#2f6fb0', false);
+        const bodyMat = group.userData.bodyMat as THREE.MeshLambertMaterial | undefined;
+        bodyMat?.emissive.set('#14385c'); // a friendly glow so you spot them in the dark
+        live = {
+          group,
+          pos: new THREE.Vector3(player.x, 0, player.z),
+          target: new THREE.Vector3(player.x, 0, player.z),
+          yaw: player.yaw, targetYaw: player.yaw, level: player.level,
+        };
+        this.livePlayers.set(player.id, live);
+      }
+      live.target.set(player.x, 0, player.z);
+      live.targetYaw = player.yaw;
+    });
+    this.livePlayers.forEach((live, id) => {
+      if (here.has(id)) return;
+      this.scene.remove(live.group);
+      this.livePlayers.delete(id);
     });
   }
 
@@ -1097,6 +1139,19 @@ export class MansionEngine {
     this.keeper.rotation.y = this.keeperYaw;
     if (this.keeper2) { this.keeper2.group.position.copy(this.keeper2.pos); this.keeper2.group.rotation.y = this.keeper2.yaw; }
     this.bots.forEach((bot) => { bot.group.position.copy(bot.pos); bot.group.rotation.y = bot.yaw; });
+    // Real players glide smoothly toward the latest position they sent us.
+    if (this.livePlayers.size) {
+      const ease = Math.min(1, dt * 10);
+      this.livePlayers.forEach((live) => {
+        live.pos.lerp(live.target, ease);
+        live.group.position.copy(live.pos);
+        let dy = live.targetYaw - live.yaw;
+        while (dy > Math.PI) dy -= Math.PI * 2;
+        while (dy < -Math.PI) dy += Math.PI * 2;
+        live.yaw += dy * ease;
+        live.group.rotation.y = live.yaw;
+      });
+    }
     this.keyMeshes.forEach((key) => { key.mesh.rotation.y = this.time * 1.6; });
 
     this.thrown = this.thrown.filter((stone) => {
