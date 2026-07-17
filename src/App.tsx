@@ -6,6 +6,7 @@ import { AuthErrorBanner } from './components/AuthErrorBanner';
 import { navigate, useRoute } from './lib/router';
 import { loadLocalProfile } from './lib/localProfile';
 import type { GameSelection } from './game/types';
+import { AppAssistant } from './components/AppAssistant';
 
 export default function App() {
   const path = useRoute();
@@ -13,10 +14,10 @@ export default function App() {
   const [inviteCode, setInviteCode] = useState(() => new URLSearchParams(window.location.search).get('challenge'));
 
   if (inviteCode) {
-    return <InvitePage code={inviteCode} onJoined={() => {
+    return <><InvitePage code={inviteCode} onJoined={() => {
       window.history.replaceState({}, '', window.location.pathname);
       setInviteCode(null);
-    }} />;
+    }} /><AppAssistant /></>;
   }
 
   // Tower Royal has its own URL, so it can be linked to and the back button
@@ -29,6 +30,7 @@ export default function App() {
       <>
         <AuthErrorBanner />
         <GamePage selection={playing} onExit={() => { setSelection(null); navigate('/'); }} />
+        <AppAssistant />
       </>
     );
   }
@@ -37,6 +39,7 @@ export default function App() {
     <>
       <AuthErrorBanner />
       <SelectionPage onStart={(next) => { setSelection(next); navigate('/play/tower'); }} />
+      <AppAssistant />
     </>
   );
 }

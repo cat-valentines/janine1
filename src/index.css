@@ -325,7 +325,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .games-sign { width: fit-content; margin: 6px auto 0; padding: 3px 14px; background: #fffaf0e8; border: 3px solid #6c5c4f; box-shadow: 3px 3px 0 #423b3566; color: #4f4054; font-family: "Courier New", monospace; font-size: .8rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
 
 /* The game shelf: one pill per game, same size, stacked, deepest green first. */
-.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .blockup-button, .truthdare-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
+.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .blockup-button, .truthdare-button, .pi-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
 .power-button { margin-top: 18px; background: #27543a; box-shadow: 0 7px 0 #18382596; }
 .hunger-button { background: #3f6b4a; box-shadow: 0 7px 0 #2d4d35; }
 .medicine-button { background: #5b9a6b; box-shadow: 0 7px 0 #427451; }
@@ -339,6 +339,8 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .underwater-button { background: linear-gradient(120deg, #1789c4, #0e5f9c); box-shadow: 0 7px 0 #0a4574; }
 .blockup-button { background: linear-gradient(120deg, #9d6bff, #7a3ff0); box-shadow: 0 7px 0 #5a29b4; }
 .truthdare-button { background: linear-gradient(120deg, #ff7eb3, #ff5d73); box-shadow: 0 7px 0 #c83a5a; }
+.pi-button { background: linear-gradient(120deg, #2bb5a6, #12897e); box-shadow: 0 7px 0 #0c625a; }
+.pi-button span { margin: 0; }
 .more-button { background: transparent; border: 3px solid #4f4054; box-shadow: 0 5px 0 #4f405433; color: #4f4054; margin-bottom: 38px; }
 .power-button span, .hunger-button span, .medicine-button span, .runner-button span, .drive-button span, .riddle-button span, .pong-button span, .gruits-button span, .escape-button span, .connector-button span, .underwater-button span, .more-button span { margin: 0; }
 .quest-pick { min-height: 100vh; padding: 16px; background: linear-gradient(#1c2a1e99, #1c2a1e99), url('/assets/pixel-magical-forest.png') center / cover fixed; }
@@ -1295,3 +1297,69 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .tod-reveal-kind { font-size: 15px; font-weight: 900; letter-spacing: 2px; margin: 0 0 12px; opacity: .9; }
 .tod-reveal-text { font-size: clamp(22px, 5vw, 30px); font-weight: 800; line-height: 1.35; margin: 0; }
 .tod-next { border: 0; border-radius: 999px; padding: 15px 32px; font-size: 18px; font-weight: 900; color: #fff; cursor: pointer; background: linear-gradient(120deg, #69db7c, #3fa34d); box-shadow: 0 6px 0 #2c7a38; }
+
+/* ---- Pi (digit memory / calculator) ---- */
+.pi-page { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; padding: 14px; color: #0d3b36; background: linear-gradient(160deg, #d6f5ef 0%, #bfeee6 55%, #a9e6dd 100%); }
+.pi-page.shake .pi-calc { animation: pi-shake .42s; }
+@keyframes pi-shake { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-9px);} 40%{transform:translateX(8px);} 60%{transform:translateX(-6px);} 80%{transform:translateX(4px);} }
+.pi-header { display: flex; align-items: center; gap: 10px; width: min(100%, 420px); }
+.pi-header h1 { flex: 1; text-align: center; margin: 0; font-size: 1.7rem; color: #0c625a; }
+.pi-sym { font-family: "Times New Roman", serif; font-style: italic; font-size: 1.5em; }
+.pi-back { border: 0; border-radius: 12px; padding: 8px 14px; background: #12897e; color: #fff; font-weight: 800; cursor: pointer; }
+.pi-best { display: flex; flex-direction: column; align-items: center; min-width: 54px; padding: 5px 10px; background: #fff; border-radius: 12px; box-shadow: 0 3px 0 #9fd7cd; }
+.pi-best small { font-size: .62rem; color: #4c9a90; text-transform: uppercase; letter-spacing: .5px; font-weight: 800; }
+.pi-best b { font-size: 1.1rem; color: #0c625a; }
+.pi-tagline { width: min(100%, 420px); margin: 8px auto; text-align: center; color: #256; }
+.pi-tagline b { color: #0c827a; letter-spacing: 2px; }
+.pi-stats { display: flex; align-items: center; justify-content: space-between; width: min(100%, 420px); margin-bottom: 8px; }
+.pi-lives { font-size: 1.2rem; letter-spacing: 2px; }
+.pi-count { display: flex; align-items: baseline; gap: 6px; }
+.pi-count b { font-size: 1.6rem; color: #0c625a; }
+.pi-count small { color: #4c9a90; font-weight: 700; }
+.pi-calc { width: min(100%, 420px); padding: 16px; background: #0d3b36; border-radius: 24px; box-shadow: 0 10px 0 #072722, inset 0 0 0 3px #1c5b53; }
+.pi-lcd { display: flex; align-items: center; gap: 2px; overflow-x: auto; padding: 16px 14px; background: #d7f7c2; border-radius: 14px; box-shadow: inset 0 3px 8px #0004; font-family: "Courier New", ui-monospace, monospace; font-size: 1.9rem; font-weight: 800; color: #143a1a; white-space: nowrap; scrollbar-width: none; }
+.pi-lcd::-webkit-scrollbar { display: none; }
+.pi-typed { letter-spacing: 2px; }
+.pi-cursor { display: inline-block; width: 3px; height: 1.6rem; background: #2b8a3e; animation: pi-blink 1s steps(1) infinite; }
+@keyframes pi-blink { 50% { opacity: 0; } }
+.pi-feedback { margin: 10px 0 4px; min-height: 1.3em; text-align: center; font-weight: 800; color: #bfe9c9; }
+.pi-feedback.ok { color: #8dffb0; }
+.pi-feedback.bad { color: #ff9a9a; }
+.pi-feedback.watch { color: #ffe58a; }
+.pi-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 6px; }
+.pi-key { padding: 18px 0; border: 0; border-radius: 14px; background: #eafff6; color: #0d3b36; font-size: 1.6rem; font-weight: 800; cursor: pointer; box-shadow: 0 5px 0 #9fd7cd; transition: transform .06s, box-shadow .06s; }
+.pi-key:active { transform: translateY(4px); box-shadow: 0 1px 0 #9fd7cd; }
+.pi-key:disabled { opacity: .55; cursor: default; }
+/* the calculator is flashing this digit at you — copy it */
+.pi-key.lit { background: #ffe58a; color: #0d3b36; opacity: 1; box-shadow: 0 5px 0 #d9b83f, 0 0 26px #ffe58a; transform: translateY(-2px); }
+/* the player just tapped this digit */
+.pi-key.hit { background: #8dffb0; box-shadow: 0 2px 0 #4caf6e; transform: translateY(3px); }
+.pi-lcd.watching { box-shadow: inset 0 3px 8px #0004, 0 0 0 3px #ffe58a; }
+.pi-tools { display: flex; gap: 10px; width: min(100%, 420px); margin-top: 14px; }
+.pi-tools button { flex: 1; padding: 12px; border: 0; border-radius: 14px; background: #ffffffcc; color: #0c625a; font-weight: 800; cursor: pointer; box-shadow: 0 4px 0 #9fd7cd; }
+.pi-milestone { position: fixed; top: 24%; left: 50%; transform: translateX(-50%); z-index: 8; padding: 14px 26px; background: #12897e; color: #fff; font-size: 1.3rem; font-weight: 900; border-radius: 16px; box-shadow: 0 8px 24px #0004; animation: pi-pop .4s ease; }
+@keyframes pi-pop { from { transform: translateX(-50%) scale(.6); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+.pi-page .quest-over { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 18px; background: #06282488; }
+
+/* Gemini guide: always reachable without covering the game's controls. */
+.app-assistant { position: fixed; right: 18px; bottom: 18px; z-index: 30; display: grid; justify-items: end; gap: 10px; }
+.assistant-launcher { display: flex; align-items: center; gap: 8px; padding: 12px 17px; border: 3px solid #4e443e; border-radius: 999px; background: #fff3cd; color: #403744; box-shadow: 5px 6px 0 #40373070; font-weight: 900; cursor: pointer; }
+.assistant-launcher > span { font-size: .84rem; }
+.assistant-panel { display: grid; grid-template-rows: auto minmax(180px, 1fr) auto; width: min(390px, calc(100vw - 28px)); height: min(560px, calc(100dvh - 100px)); overflow: hidden; background: #fffaf0; border: 4px solid #4e443e; border-radius: 22px; box-shadow: 9px 10px 0 #30292370; }
+.assistant-panel header { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px; background: #dfe8d8; border-bottom: 3px solid #4e443e; }
+.assistant-panel header > div { display: flex; align-items: center; gap: 9px; }
+.assistant-panel header span { font-size: 1.5rem; }
+.assistant-panel header strong, .assistant-panel header small { display: block; }
+.assistant-panel header small { color: #66646b; font-size: .68rem; }
+.assistant-panel header button { width: 33px; height: 33px; border: 0; border-radius: 50%; background: #fffaf0; color: #403744; font-size: 1.4rem; cursor: pointer; }
+.assistant-messages { overflow-y: auto; padding: 14px; background: #f7f1e8; }
+.assistant-messages p { width: fit-content; max-width: 86%; margin-bottom: 9px; padding: 9px 11px; border-radius: 14px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .86rem; }
+.assistant-messages .assistant { background: white; border: 1px solid #ded5ca; border-bottom-left-radius: 4px; }
+.assistant-messages .user { margin-left: auto; background: #3e6e60; color: white; border-bottom-right-radius: 4px; }
+.assistant-messages .thinking { color: #777078; font-style: italic; }
+.assistant-panel form { display: flex; gap: 8px; padding: 11px; border-top: 2px solid #ded5ca; background: white; }
+.assistant-panel input { min-width: 0; flex: 1; padding: 10px 12px; border: 2px solid #aaa096; border-radius: 12px; outline: none; }
+.assistant-panel input:focus { border-color: #3e6e60; }
+.assistant-panel form button { width: 42px; border: 0; border-radius: 12px; background: #3e6e60; color: white; font-weight: 900; cursor: pointer; }
+.assistant-panel form button:disabled { opacity: .45; cursor: default; }
+@media (max-width: 520px) { .app-assistant { right: 10px; bottom: 10px; } .assistant-panel { height: min(520px, calc(100dvh - 84px)); } .assistant-launcher > span { display: none; } .assistant-launcher { width: 50px; height: 50px; justify-content: center; padding: 0; font-size: 1.15rem; } }

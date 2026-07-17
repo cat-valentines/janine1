@@ -46,6 +46,7 @@ import { GruitsPage } from './GruitsPage';
 import { ConnectorPage } from './ConnectorPage';
 import { BlockUpPage } from './BlockUpPage';
 import { TruthOrDarePage } from './TruthOrDarePage';
+import { PiPage } from './PiPage';
 import { MoreGamesPage } from './MoreGamesPage';
 import type { GameId } from '../game/gameList';
 import { AccountSetupPage } from './AccountSetupPage';
@@ -73,6 +74,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const underwaterOpen = path === '/play/underwater';
   const blockUpOpen = path === '/play/blockup';
   const truthDareOpen = path === '/play/truthdare';
+  const piOpen = path === '/play/pi';
   const medicineIsland = paramOf(path, '/play/medicine');
   const runnerIsland = paramOf(path, '/play/runner');
   const home = () => navigate('/');
@@ -269,6 +271,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     if (id === 'underwater') navigate('/play/underwater');
     if (id === 'blockup') navigate('/play/blockup');
     if (id === 'truthdare') navigate('/play/truthdare');
+    if (id === 'pi') navigate('/play/pi');
   };
 
   if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => home()} />;
@@ -277,6 +280,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   if (underwaterOpen) return <Suspense fallback={<main className="reef-page"><p className="world-loading">Diving into the reef…</p></main>}><UnderwaterMazePage onCoins={(gained) => setShopCoins((total) => total + gained)} onBack={() => home()} /></Suspense>;
   if (blockUpOpen) return <BlockUpPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 40)))} onBack={() => home()} />;
   if (truthDareOpen) return <TruthOrDarePage onBack={() => home()} />;
+  if (piOpen) return <PiPage onScore={(digits) => setShopCoins((total) => total + Math.max(1, Math.round(digits / 4)))} onBack={() => home()} />;
   if (gruitsOpen) return <GruitsPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;
   if (riddleOpen) return <RiddlePage startLevel={riddleLevel}
@@ -354,6 +358,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <button className="underwater-button" onClick={() => navigate('/play/underwater')}>🐠 Underwater Maze <span>→</span></button>
       <button className="blockup-button" onClick={() => navigate('/play/blockup')}>🧱 Block Up <span>→</span></button>
       <button className="truthdare-button" onClick={() => navigate('/play/truthdare')}>🌀 Truth or Dare <span>→</span></button>
+      <button className="pi-button" onClick={() => navigate('/play/pi')}>π Pi <span>→</span></button>
       <button className="more-button" onClick={() => navigate('/games')}>⊞ See all games <span>→</span></button>
       <Leaderboard />
       <PlayersDirectory onOpenFriends={() => setFriendsOpen(true)} />
