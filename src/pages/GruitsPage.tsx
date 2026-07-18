@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { GruitsEngine, type GruitsSnapshot } from '../game/gruitsEngine';
+import { KeyPad } from '../components/KeyPad';
 import { BIGGEST, gruits } from '../game/gruits';
 
 interface GruitsPageProps {
@@ -87,5 +88,6 @@ export function GruitsPage({ onScore, onBack }: GruitsPageProps) {
         </span>)}
       </div>
     </section>
+    {!over && <KeyPad dirs={['left', 'right']} actions={[{ codes: ['Space'], label: '⬇ Drop', wide: true }]} />}
   </main>;
 }

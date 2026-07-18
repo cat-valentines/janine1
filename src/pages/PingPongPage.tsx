@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { PongEngine, type PongSnapshot } from '../game/pongEngine';
+import { KeyPad } from '../components/KeyPad';
 import { WIN_SCORE, modeById, pongModes, type PongMode } from '../game/pong';
 import { characterAssets } from '../game/characters';
 import { supabase } from '../lib/supabase';
@@ -100,5 +101,7 @@ export function PingPongPage({ character, onInvite, inviteLink, onBack }: PingPo
       <button onClick={onInvite}>🔗 Make an invite link</button>
       {inviteLink && <input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} />}
     </div>}
+
+    {!over && mode !== 'friend' && <KeyPad dirs={['left', 'right']} actions={[{ codes: ['Space'], label: '🏓 Hit' }]} />}
   </main>;
 }

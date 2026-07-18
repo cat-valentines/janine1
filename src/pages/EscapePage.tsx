@@ -6,6 +6,7 @@ import { loadMyFriends, type FriendRow } from '../lib/players';
 import { sendFriendMessage } from '../lib/friends';
 import { heartbeat, leaveGame } from '../lib/presence';
 import { joinLiveGame } from '../lib/liveGame';
+import { KeyPad } from '../components/KeyPad';
 import { supabase } from '../lib/supabase';
 import type { CharacterId } from '../game/types';
 
@@ -189,6 +190,11 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
       <button className="quest-leave" onClick={onBack}>← Leave</button>
 
       {snapshot?.message && <p className="escape-message">{snapshot.message}</p>}
+      {snapshot?.status === 'playing' && <KeyPad actions={[
+        { codes: ['Space'], label: '✋' },
+        { codes: ['KeyE'], label: '🪨' },
+        { codes: ['ShiftLeft'], label: '🤫' },
+      ]} />}
       {snapshot?.status === 'playing' && <p className="escape-help">
         <b>↑ ↓</b> walk · <b>← →</b> turn · <b>Shift</b> sneak · <b>E</b> throw a stone · <b>Space</b> {snapshot.hidden ? 'come back out' : snapshot.nearHide ? 'hide here' : snapshot.nearDoor ? 'open the door' : 'hide / open doors'}
       </p>}

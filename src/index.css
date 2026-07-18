@@ -724,6 +724,23 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .touch-controls { display: flex; justify-content: center; align-items: center; gap: 10px; }
 .touch-controls div { display: grid; gap: 4px; }
 .touch-controls button { width: 50px; height: 42px; border: 0; border-radius: 12px; background: #67584d; color: white; font-size: 1.25rem; }
+
+/* On-screen D-pad + action buttons — only appear on touch devices (iPad/phone). */
+.keypad { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .keypad { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; justify-content: space-between; align-items: flex-end; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); pointer-events: none; }
+}
+.keypad-dpad { display: grid; grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(3, 54px); gap: 6px; pointer-events: auto; }
+.keypad-dpad .kp-up { grid-column: 2; grid-row: 1; }
+.keypad-dpad .kp-left { grid-column: 1; grid-row: 2; }
+.keypad-dpad .kp-right { grid-column: 3; grid-row: 2; }
+.keypad-dpad .kp-down { grid-column: 2; grid-row: 3; }
+.keypad-actions { display: flex; flex-wrap: wrap-reverse; gap: 10px; align-items: flex-end; justify-content: flex-end; max-width: 46%; pointer-events: auto; }
+.keypad button { width: 54px; height: 54px; border: 0; border-radius: 16px; background: #1c1c2edd; color: #fff; font-size: 1.35rem; font-weight: 800; touch-action: none; -webkit-user-select: none; user-select: none; box-shadow: 0 3px 0 #00000055; -webkit-tap-highlight-color: transparent; }
+.keypad button:active { transform: translateY(2px); background: #3a3a5eee; box-shadow: 0 1px 0 #00000055; }
+.keypad .kp-action { width: auto; min-width: 64px; height: 58px; padding: 0 16px; font-size: 1.1rem; background: #b45f55ee; box-shadow: 0 3px 0 #7d3a34; }
+.keypad .kp-action:active { box-shadow: 0 1px 0 #7d3a34; }
+.keypad .kp-wide { min-width: 128px; }
 .result-overlay { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 20px; background: #25211db3; }
 .result-card { width: min(100%, 380px); padding: 28px; text-align: center; background: #fffaf1; border-radius: 22px; }
 .result-card p { color: #69635b; line-height: 1.5; }

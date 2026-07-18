@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { MedicineEngine, type MedicineSnapshot } from '../game/medicineEngine';
+import { KeyPad } from '../components/KeyPad';
 import { HEAL_PRIZE, MISSION_SECONDS, herbById, herbs, rivalHealers } from '../game/medicine';
 
 interface MedicineMissionPageProps {
@@ -88,7 +89,8 @@ export function MedicineMissionPage({ islandName, onWin, onBack }: MedicineMissi
 
       {snapshot?.atCamp && !done && <p className="camp-banner">⛑️ You are at camp</p>}
       {snapshot?.message && <p className="quest-message">{snapshot.message}</p>}
-      {!done && <p className="quest-help">Click the forest to look around · <b>W A S D</b> move · <b>Space</b> jump · walk over a herb to pick it · <b>F</b> first person</p>}
+      {!done && <KeyPad actions={[{ codes: ['Space'], label: '⤴' }]} />}
+      {!done && <p className="quest-help">Drag the forest to look around · <b>W A S D</b> move · <b>Space</b> jump · walk over a herb to pick it · <b>F</b> first person</p>}
 
       {done && <div className="quest-over">
         <div className={`quest-over-card ${snapshot.won ? 'win' : ''}`}>
