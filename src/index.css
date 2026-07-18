@@ -7,7 +7,46 @@ button:hover { transform: translateY(-2px); }
 .page-shell { width: min(100% - 28px, 1080px); margin: 0 auto; padding: 28px 0 64px; }
 .selection-page header { text-align: center; max-width: 720px; margin: 22px auto 42px; }
 .selection-page { min-height: 100vh; }
-.selection-page > section, .selection-page > .info-card, .selection-page > .panel { padding: 24px; background: #fffaf0e8; border: 3px solid #6c5c4f; border-radius: 20px; box-shadow: 7px 8px 0 #423b3566; backdrop-filter: blur(2px); }
+.selection-page > section, .selection-page > .info-card, .selection-page > .panel { padding: 24px; background: #fffaf0e8; border: 3px solid #6c5c4f; border-radius: 20px; box-shadow: 7px 8px 0 #423b3566; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+
+/* Crash fallback — a readable message instead of a blank background. */
+.crash-screen { position: fixed; inset: 0; display: grid; place-items: center; padding: 20px; background: #a7b8a1; }
+.crash-card { max-width: 420px; padding: 26px; text-align: center; background: #fffaf0; border: 3px solid #6c5c4f; border-radius: 20px; box-shadow: 7px 8px 0 #423b3566; }
+.crash-card h1 { margin: 0 0 10px; color: #4f4054; }
+.crash-card p { margin: 8px 0; color: #5a5560; }
+.crash-detail { font-family: "Courier New", monospace; font-size: .8rem; color: #b04a3a; word-break: break-word; }
+.crash-card button { margin: 14px auto 6px; padding: 12px 26px; border: 0; border-radius: 999px; background: #b45f55; color: #fff; font-weight: 800; cursor: pointer; box-shadow: 0 6px 0 #8a463e; }
+.crash-tip { font-size: .8rem; color: #8a8590; }
+
+/* Tongue Twister */
+.tt-page { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; padding: 14px; color: #4a2338; background: linear-gradient(160deg, #ffe3ee 0%, #ffd0e2 55%, #ffc0d6 100%); }
+.tt-header { display: flex; align-items: center; gap: 10px; width: min(100%, 460px); }
+.tt-header h1 { flex: 1; text-align: center; margin: 0; font-size: 1.5rem; color: #b83668; }
+.tt-back { border: 0; border-radius: 12px; padding: 8px 14px; background: #e94f8a; color: #fff; font-weight: 800; cursor: pointer; }
+.tt-best { display: flex; flex-direction: column; align-items: center; min-width: 54px; padding: 5px 10px; background: #fff; border-radius: 12px; box-shadow: 0 3px 0 #f2a9c6; }
+.tt-best small { font-size: .6rem; color: #c76d92; text-transform: uppercase; letter-spacing: .5px; font-weight: 800; }
+.tt-best b { font-size: 1rem; color: #b83668; }
+.tt-tag { width: min(100%, 460px); margin: 8px auto; text-align: center; color: #8a4462; font-size: .92rem; }
+.tt-tag b { color: #d83f78; }
+.tt-card { width: min(100%, 460px); margin-top: 8px; padding: 22px 18px; background: #fff; border-radius: 22px; box-shadow: 0 10px 0 #f3a9c6; text-align: center; }
+.tt-kicker { margin: 0; font-size: .68rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #c76d92; }
+.tt-phrase { margin: 8px 0 16px; font-size: 1.7rem; line-height: 1.3; font-weight: 800; color: #3a1f2e; }
+.tt-stats { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.tt-timer b { font-size: 1.3rem; color: #b83668; }
+.tt-timer.low b { color: #e01e1e; }
+.tt-reps { display: flex; gap: 6px; font-size: 1.3rem; }
+.tt-bar { height: 10px; border-radius: 999px; background: #ffe0ec; overflow: hidden; }
+.tt-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ff7eb3, #e94f8a); transition: width 1s linear; }
+.tt-record { margin-top: 18px; width: 100%; padding: 18px; border: 0; border-radius: 16px; background: linear-gradient(120deg, #ff7eb3, #e94f8a); color: #fff; font-size: 1.2rem; font-weight: 900; cursor: pointer; box-shadow: 0 6px 0 #b83668; }
+.tt-record:active { transform: translateY(3px); box-shadow: 0 3px 0 #b83668; }
+.tt-record.live { background: linear-gradient(120deg, #ff5d6c, #e01e3c); box-shadow: 0 6px 0 #a3122a; animation: tt-pulse 1s infinite; }
+.tt-record.said { background: linear-gradient(120deg, #4fce7a, #2fa85c); box-shadow: 0 6px 0 #1f7a41; }
+.tt-record.practice { background: linear-gradient(120deg, #8aa0ff, #5b73e8); box-shadow: 0 6px 0 #3f52c4; }
+@keyframes tt-pulse { 50% { filter: brightness(1.12); } }
+.tt-heard { margin: 14px 0 0; min-height: 1.4em; padding: 10px 12px; background: #fff3f8; border-radius: 12px; color: #7a4560; font-style: italic; }
+.tt-note { margin: 12px 0 0; font-size: .82rem; color: #8a4462; }
+.tt-error { margin: 12px 0 0; padding: 8px 12px; background: #ffe0e0; border-radius: 10px; color: #c0392b; font-weight: 700; }
+.tt-page .quest-over { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 18px; background: #4a233866; }
 .royal-header { padding: 28px; background: #fffaf0e8; border: 4px solid #68574d; box-shadow: 8px 9px 0 #40373070; }
 /* Sized to keep the crowns on the same line as the name at any width. */
 .royal-header h1 { font-family: "Courier New", monospace; font-size: clamp(1.5rem, 5vw, 3.1rem); white-space: nowrap; color: #4f4054; letter-spacing: .04em; text-shadow: 3px 3px 0 #d9b98e; }
@@ -325,7 +364,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .games-sign { width: fit-content; margin: 6px auto 0; padding: 3px 14px; background: #fffaf0e8; border: 3px solid #6c5c4f; box-shadow: 3px 3px 0 #423b3566; color: #4f4054; font-family: "Courier New", monospace; font-size: .8rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
 
 /* The game shelf: one pill per game, same size, stacked, deepest green first. */
-.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .blockup-button, .truthdare-button, .pi-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
+.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .blockup-button, .truthdare-button, .pi-button, .tongue-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
 .power-button { margin-top: 18px; background: #27543a; box-shadow: 0 7px 0 #18382596; }
 .hunger-button { background: #3f6b4a; box-shadow: 0 7px 0 #2d4d35; }
 .medicine-button { background: #5b9a6b; box-shadow: 0 7px 0 #427451; }
@@ -341,6 +380,8 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .truthdare-button { background: linear-gradient(120deg, #ff7eb3, #ff5d73); box-shadow: 0 7px 0 #c83a5a; }
 .pi-button { background: linear-gradient(120deg, #2bb5a6, #12897e); box-shadow: 0 7px 0 #0c625a; }
 .pi-button span { margin: 0; }
+.tongue-button { background: linear-gradient(120deg, #ff7eb3, #e94f8a); box-shadow: 0 7px 0 #b83668; }
+.tongue-button span { margin: 0; }
 .more-button { background: transparent; border: 3px solid #4f4054; box-shadow: 0 5px 0 #4f405433; color: #4f4054; margin-bottom: 38px; }
 .power-button span, .hunger-button span, .medicine-button span, .runner-button span, .drive-button span, .riddle-button span, .pong-button span, .gruits-button span, .escape-button span, .connector-button span, .underwater-button span, .more-button span { margin: 0; }
 .quest-pick { min-height: 100vh; padding: 16px; background: linear-gradient(#1c2a1e99, #1c2a1e99), url('/assets/pixel-magical-forest.png') center / cover fixed; }

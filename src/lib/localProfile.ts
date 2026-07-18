@@ -2,6 +2,7 @@ import type { Animal, Plot } from '../game/building';
 import type { Furniture } from '../game/voxel';
 import type { Season } from '../game/terrain';
 import type { CharacterId, SettingId } from '../game/types';
+import { storage } from './storage';
 
 export interface LocalProfile {
   character: CharacterId; setting: SettingId; foodBalance: number;
@@ -40,7 +41,7 @@ const fallback: LocalProfile = { character: 'cottontail', setting: 'haunted', fo
 
 export function loadLocalProfile(): LocalProfile {
   try {
-    const saved = JSON.parse(localStorage.getItem('house-quest-profile') ?? '') as Partial<LocalProfile>;
+    const saved = JSON.parse(storage.get('house-quest-profile') ?? '') as Partial<LocalProfile>;
     return {
       ...fallback, ...saved,
       ownedItems: Array.isArray(saved.ownedItems) ? saved.ownedItems : [],
@@ -56,5 +57,5 @@ export function loadLocalProfile(): LocalProfile {
 }
 
 export function saveLocalProfile(profile: LocalProfile) {
-  localStorage.setItem('house-quest-profile', JSON.stringify(profile));
+  storage.set('house-quest-profile', JSON.stringify(profile));
 }

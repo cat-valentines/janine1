@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { loadMyFriends } from './players';
+import { storage } from './storage';
 
 export interface NotificationItem {
   id: string;
@@ -48,7 +49,7 @@ export async function loadNotifications(userId: string): Promise<NotificationIte
 }
 
 const SEEN_KEY = 'magic-islands-notif-seen';
-export const loadSeenAt = () => localStorage.getItem(SEEN_KEY) ?? '';
-export const markSeen = () => localStorage.setItem(SEEN_KEY, new Date().toISOString());
+export const loadSeenAt = () => storage.get(SEEN_KEY) ?? '';
+export const markSeen = () => storage.set(SEEN_KEY, new Date().toISOString());
 export const countUnread = (items: NotificationItem[], seenAt: string) =>
   items.filter((item) => !seenAt || item.at > seenAt).length;

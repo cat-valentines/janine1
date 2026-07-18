@@ -1,6 +1,7 @@
 import {
   BOARD, darken, lighten, randomShape, shapeCols, shapeRows, type Shape,
 } from './blockUp';
+import { storage } from '../lib/storage';
 
 // A fixed internal resolution; CSS scales the canvas so it fits any screen.
 const VIEW_W = 460;
@@ -57,7 +58,7 @@ export class BlockUpEngine {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2D is not available');
     this.ctx = ctx;
-    this.best = Number(localStorage.getItem(BEST_KEY) || 0);
+    this.best = Number(storage.get(BEST_KEY) || 0);
 
     this.reset();
     if (import.meta.env.DEV) (window as unknown as { __BLOCKUP: BlockUpEngine }).__BLOCKUP = this;
@@ -182,7 +183,7 @@ export class BlockUpEngine {
     }
 
     this.score += gained;
-    if (this.score > this.best) { this.best = this.score; localStorage.setItem(BEST_KEY, String(this.best)); }
+    if (this.score > this.best) { this.best = this.score; storage.set(BEST_KEY, String(this.best)); }
 
     // out of pieces → deal three more
     if (this.tray.every((piece) => piece.placed)) this.refill();
@@ -191,7 +192,7 @@ export class BlockUpEngine {
     const alive = this.tray.some((piece) => !piece.placed && this.canPlaceAnywhere(piece.shape));
     if (!alive) {
       this.status = 'over';
-      if (this.score > this.best) { this.best = this.score; localStorage.setItem(BEST_KEY, String(this.best)); }
+      if (this.score > this.best) { this.best = this.score; storage.set(BEST_KEY, String(this.best)); }
     }
   }
 

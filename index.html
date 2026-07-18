@@ -12,6 +12,44 @@
   </head>
   <body>
     <div id="root"></div>
+    <!--
+      Pre-mount safety net (plain ES5, so it runs on ANY browser — even an old
+      iPad that cannot parse the app bundle). A React error boundary can only
+      catch crashes AFTER the app mounts; if the bundle fails to load or parse,
+      React never runs and you'd see only the page background. This shows a real
+      message (and the error) instead, and offers a reload.
+    -->
+    <script>
+      (function () {
+        var shown = false;
+        function mounted() {
+          var r = document.getElementById('root');
+          return r && r.childNodes && r.childNodes.length > 0;
+        }
+        function show(detail) {
+          if (shown || mounted()) return;
+          shown = true;
+          var r = document.getElementById('root');
+          if (!r) return;
+          r.innerHTML =
+            '<div style="max-width:440px;margin:12vh auto;padding:26px;font-family:-apple-system,system-ui,sans-serif;background:#fffaf0;border:3px solid #6c5c4f;border-radius:20px;text-align:center;color:#4f4054;box-shadow:7px 8px 0 rgba(66,59,53,.4)">' +
+            '<h1 style="margin:0 0 8px;font-size:1.5rem">🧭 Trouble loading</h1>' +
+            '<p style="margin:8px 0;color:#5a5560">The game could not start on this device. Try reloading, updating your browser, or opening the link in Safari (not inside another app).</p>' +
+            '<button onclick="location.reload(true)" style="margin:12px auto 6px;padding:12px 26px;border:0;border-radius:999px;background:#b45f55;color:#fff;font-weight:800;font-size:1rem">↻ Reload</button>' +
+            '<p style="margin-top:10px;font-family:monospace;font-size:12px;color:#b04a3a;word-break:break-word">' + (detail || '') + '</p>' +
+            '</div>';
+        }
+        window.addEventListener('error', function (e) {
+          var msg = (e && e.message) ? e.message : 'The app script failed to load.';
+          setTimeout(function () { show(msg); }, 1500);
+        }, true);
+        window.addEventListener('unhandledrejection', function (e) {
+          setTimeout(function () { show(e && e.reason ? String(e.reason) : 'Load error'); }, 1500);
+        });
+        // Nothing rendered after 12s? The bundle almost certainly failed silently.
+        setTimeout(function () { show('The app did not start (timed out).'); }, 12000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

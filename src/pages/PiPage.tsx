@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { PI_DIGITS, formatPi } from '../game/pi';
+import { storage } from '../lib/storage';
 
 const BEST_KEY = 'piBestDigits';
 const START_LIVES = 3;
@@ -17,7 +18,7 @@ export function PiPage({ onScore, onBack }: { onScore: (points: number) => void;
   const [shownCount, setShownCount] = useState(0); // digits revealed so far while showing
   const [inputPos, setInputPos] = useState(0);     // digits the player has copied this round
   const [lives, setLives] = useState(START_LIVES);
-  const [best, setBest] = useState(() => Number(localStorage.getItem(BEST_KEY) || 0));
+  const [best, setBest] = useState(() => Number(storage.get(BEST_KEY) || 0));
   const [lit, setLit] = useState<string | null>(null);   // key the calculator is flashing
   const [pressed, setPressed] = useState<string | null>(null); // key the player just tapped
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'bad' | 'watch'; text: string } | null>(null);
@@ -90,7 +91,7 @@ export function PiPage({ onScore, onBack }: { onScore: (points: number) => void;
       if (nextPos >= seq.length) {
         // whole pattern copied — this round is cleared
         const reached = round;
-        if (reached > best) { setBest(reached); localStorage.setItem(BEST_KEY, String(reached)); }
+        if (reached > best) { setBest(reached); storage.set(BEST_KEY, String(reached)); }
         if (MILESTONES.includes(reached)) setMilestone(`🎉 ${reached} digits of π!`);
         setFeedback({ kind: 'ok', text: `✓ ${reached} digit${reached === 1 ? '' : 's'}!` });
         setPhase('pause');
