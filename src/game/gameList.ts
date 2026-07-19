@@ -1,6 +1,6 @@
 export type GameId =
   | 'tower' | 'hunger' | 'medicine' | 'runner' | 'drive'
-  | 'riddle' | 'pong' | 'fruit' | 'escape' | 'connector' | 'underwater' | 'blockup' | 'truthdare' | 'pi' | 'tongue';
+  | 'riddle' | 'pong' | 'fruit' | 'escape' | 'connector' | 'underwater' | 'blockup' | 'truthdare' | 'pi' | 'tongue' | 'friction';
 
 export interface GameCard {
   id: GameId;
@@ -35,6 +35,7 @@ export const gameList: GameCard[] = [
   { id: 'truthdare', name: 'Truth or Dare', icon: '🌀', kind: 'Arcade', blurb: 'Pass-and-play with friends in one place. Spin the wheel, pick a mystery Truth or Dare card, and take your turn!' },
   { id: 'pi', name: 'Pi', icon: 'π', kind: 'Puzzle', blurb: 'The calculator flashes the digits of π — 3, 1, 4, 1, 5, 9… — one at a time. Watch the pattern, then copy it back. It grows every round!', learn: 'The digits of π and how to spot and remember number patterns.' },
   { id: 'tongue', name: 'Tongue Twister', icon: '👅', kind: 'Puzzle', blurb: 'Say the tongue twister 3 times in 20 seconds! Tap record and the game listens to check you got it right. Great for talking clearly and reading fast.', learn: 'Speaking clearly and reading fast — say each tongue twister without tripping up.' },
+  { id: 'friction', name: 'Slip & Grip', icon: '🧊', kind: 'Puzzle', blurb: 'Guide a purple block through physics puzzles by switching friction: 🧊 ICE to slide and build speed, 🟪 GRIP to steer and stop. Cross gaps and dodge spikes!', learn: 'How friction works — low friction (ice) keeps you sliding, high friction (grip) lets you speed up, steer and stop.' },
 ];
 
 export const gameById = (id: GameId) => gameList.find((game) => game.id === id);

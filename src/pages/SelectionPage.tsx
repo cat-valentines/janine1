@@ -48,6 +48,7 @@ import { BlockUpPage } from './BlockUpPage';
 import { TruthOrDarePage } from './TruthOrDarePage';
 import { PiPage } from './PiPage';
 import { TongueTwisterPage } from './TongueTwisterPage';
+import { FrictionPage } from './FrictionPage';
 import { MoreGamesPage } from './MoreGamesPage';
 import type { GameId } from '../game/gameList';
 import { AccountSetupPage } from './AccountSetupPage';
@@ -77,6 +78,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const truthDareOpen = path === '/play/truthdare';
   const piOpen = path === '/play/pi';
   const tongueOpen = path === '/play/tongue';
+  const frictionOpen = path === '/play/friction';
   const medicineIsland = paramOf(path, '/play/medicine');
   const runnerIsland = paramOf(path, '/play/runner');
   const home = () => navigate('/');
@@ -280,6 +282,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     if (id === 'truthdare') navigate('/play/truthdare');
     if (id === 'pi') navigate('/play/pi');
     if (id === 'tongue') navigate('/play/tongue');
+    if (id === 'friction') navigate('/play/friction');
   };
 
   if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => home()} />;
@@ -290,6 +293,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   if (truthDareOpen) return <TruthOrDarePage onBack={() => home()} />;
   if (piOpen) return <PiPage onScore={(digits) => setShopCoins((total) => total + Math.max(1, Math.round(digits / 4)))} onBack={() => home()} />;
   if (tongueOpen) return <TongueTwisterPage onScore={(coins) => setShopCoins((total) => total + coins)} onBack={() => home()} />;
+  if (frictionOpen) return <FrictionPage onScore={(coins) => setShopCoins((total) => total + coins)} onBack={() => home()} />;
   if (gruitsOpen) return <GruitsPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;
   if (riddleOpen) return <RiddlePage startLevel={riddleLevel}
@@ -354,21 +358,24 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
         completedQuests={savedProfile.completedQuests} isMember={isMember} ownsHouse={ownsHouse} houseName={houseName}
         onOpenProfile={() => navigate('/profile')} />
       <p className="games-sign">Games</p>
-      <button className="power-button" onClick={() => onStart(selection)}>🏰 Tower Royal <span>→</span></button>
-      <button className="hunger-button" onClick={() => navigate('/play/hunger')}>🏹 Hunger Quests <span>→</span></button>
-      <button className="medicine-button" onClick={() => navigate('/play/medicine/' + encodeURIComponent(islands[0].name))}>🌿 Medicine Mission <span>→</span></button>
-      <button className="runner-button" onClick={() => navigate('/play/runner/' + encodeURIComponent(islands[0].name))}>🏃 Runner Up <span>→</span></button>
-      <button className="drive-button" onClick={() => navigate('/play/truck')}>🚚 Truck Trouble <span>→</span></button>
-      <button className="riddle-button" onClick={() => navigate('/play/riddles')}>🧩 Riddle Rooms <span>→</span></button>
-      <button className="pong-button" onClick={() => navigate('/play/pong')}>🏓 Ping Pong <span>→</span></button>
-      <button className="gruits-button" onClick={() => navigate('/play/fruit')}>🍓 Fruit <span>→</span></button>
-      <button className="escape-button" onClick={() => navigate('/play/housekeeper')}>🔦 The Housekeeper <span>→</span></button>
-      <button className="connector-button" onClick={() => navigate('/play/connector')}>🔢 Connector <span>→</span></button>
-      <button className="underwater-button" onClick={() => navigate('/play/underwater')}>🐠 Underwater Maze <span>→</span></button>
-      <button className="blockup-button" onClick={() => navigate('/play/blockup')}>🧱 Block Up <span>→</span></button>
-      <button className="truthdare-button" onClick={() => navigate('/play/truthdare')}>🌀 Truth or Dare <span>→</span></button>
-      <button className="pi-button" onClick={() => navigate('/play/pi')}>π Pi <span>→</span></button>
-      <button className="tongue-button" onClick={() => navigate('/play/tongue')}>👅 Tongue Twister <span>→</span></button>
+      <div className="game-grid">
+        <button className="power-button" onClick={() => onStart(selection)}>🏰 Tower Royal <span>→</span></button>
+        <button className="hunger-button" onClick={() => navigate('/play/hunger')}>🏹 Hunger Quests <span>→</span></button>
+        <button className="medicine-button" onClick={() => navigate('/play/medicine/' + encodeURIComponent(islands[0].name))}>🌿 Medicine Mission <span>→</span></button>
+        <button className="runner-button" onClick={() => navigate('/play/runner/' + encodeURIComponent(islands[0].name))}>🏃 Runner Up <span>→</span></button>
+        <button className="drive-button" onClick={() => navigate('/play/truck')}>🚚 Truck Trouble <span>→</span></button>
+        <button className="riddle-button" onClick={() => navigate('/play/riddles')}>🧩 Riddle Rooms <span>→</span></button>
+        <button className="pong-button" onClick={() => navigate('/play/pong')}>🏓 Ping Pong <span>→</span></button>
+        <button className="gruits-button" onClick={() => navigate('/play/fruit')}>🍓 Fruit <span>→</span></button>
+        <button className="escape-button" onClick={() => navigate('/play/housekeeper')}>🔦 The Housekeeper <span>→</span></button>
+        <button className="connector-button" onClick={() => navigate('/play/connector')}>🔢 Connector <span>→</span></button>
+        <button className="underwater-button" onClick={() => navigate('/play/underwater')}>🐠 Underwater Maze <span>→</span></button>
+        <button className="blockup-button" onClick={() => navigate('/play/blockup')}>🧱 Block Up <span>→</span></button>
+        <button className="truthdare-button" onClick={() => navigate('/play/truthdare')}>🌀 Truth or Dare <span>→</span></button>
+        <button className="pi-button" onClick={() => navigate('/play/pi')}>π Pi <span>→</span></button>
+        <button className="tongue-button" onClick={() => navigate('/play/tongue')}>👅 Tongue Twister <span>→</span></button>
+        <button className="friction-button" onClick={() => navigate('/play/friction')}>🧊 Slip &amp; Grip <span>→</span></button>
+      </div>
       <button className="more-button" onClick={() => navigate('/games')}>⊞ See all games <span>→</span></button>
       <Leaderboard />
       <PlayersDirectory onOpenFriends={() => setFriendsOpen(true)} />
