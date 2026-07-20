@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { EscapeRoomEngine, type EscapeSnapshot } from '../game/escapeRoomEngine';
 import { THEMES, DIFFICULTIES, type Theme, type Difficulty } from '../game/escapeRoom';
 import { KeyPad } from '../components/KeyPad';
+import { addStars, getStars, STAR_GOAL } from '../lib/escapeStars';
 import { storage } from '../lib/storage';
 
 const LAST_KEY = 'escapeRoomLastTheme';
@@ -18,12 +19,20 @@ function nextTheme(): Theme {
 export function EscapeRoomPage({ onScore, onBack }: { onScore: (coins: number) => void; onBack: () => void }) {
   const [config, setConfig] = useState<{ theme: Theme; difficulty: Difficulty } | null>(null);
   const [snapshot, setSnapshot] = useState<EscapeSnapshot | null>(null);
+  const [collected, setCollected] = useState(() => getStars());
   const mount = useRef<HTMLDivElement>(null);
   const paid = useRef(false);
+  const prevFound = useRef(0);
   const update = useRef<(s: EscapeSnapshot) => void>(() => undefined);
 
   update.current = (next) => {
     setSnapshot(next);
+    // Bank every new star into the collection as soon as it's found — you keep
+    // them even if the timer runs out before you escape.
+    if (next.found > prevFound.current) {
+      setCollected(addStars(next.found - prevFound.current));
+      prevFound.current = next.found;
+    }
     if (next.status === 'won' && !paid.current && config) { paid.current = true; onScore(config.difficulty.coins); }
   };
 
@@ -39,7 +48,7 @@ export function EscapeRoomPage({ onScore, onBack }: { onScore: (coins: number) =
     return () => { window.removeEventListener('resize', resize); engine.dispose(); };
   }, [config]);
 
-  const start = (difficulty: Difficulty) => { paid.current = false; setSnapshot(null); setConfig({ theme: nextTheme(), difficulty }); };
+  const start = (difficulty: Difficulty) => { paid.current = false; prevFound.current = 0; setSnapshot(null); setConfig({ theme: nextTheme(), difficulty }); };
   const playAgain = () => { if (config) start(config.difficulty); };
   const goFullscreen = () => {
     const node = mount.current?.parentElement;
@@ -54,6 +63,8 @@ export function EscapeRoomPage({ onScore, onBack }: { onScore: (coins: number) =
         <h1>🔍 Escape Room</h1>
         <p>You're locked in a 3-D room. <b>Walk around</b> and <b>open the furniture</b> — some pieces hide a ⭐. Find every star to escape! Empty pieces give a <b>hot / cold</b> clue.</p>
         <p className="eroom-sub">Pick a difficulty — harder rooms hide more stars, add a timer, and pay more coins.</p>
+        <div className="eroom-collection">⭐ Your collection: <b>{collected.toLocaleString()}</b> / {STAR_GOAL.toLocaleString()} stars
+          <i style={{ width: `${Math.min(100, (collected / STAR_GOAL) * 100)}%` }} /></div>
         <div className="eroom-diffs">
           {DIFFICULTIES.map((d) => <button key={d.id} className={`eroom-diff ${d.id}`} onClick={() => start(d)}>
             <b>{d.name}</b>
@@ -80,6 +91,7 @@ export function EscapeRoomPage({ onScore, onBack }: { onScore: (coins: number) =
         <span>{config.theme.emoji} {config.theme.name}</span>
         <div className="eroom-hud">
           <b>⭐ {found}/{total}</b>
+          <b title="Your star collection">🏆 {collected.toLocaleString()}</b>
           {config.difficulty.seconds > 0 && <b className={(snapshot?.timeLeft ?? 0) <= 10 ? 'low' : ''}>⏱ {Math.ceil(snapshot?.timeLeft ?? config.difficulty.seconds)}s</b>}
         </div>
       </header>
@@ -98,6 +110,7 @@ export function EscapeRoomPage({ onScore, onBack }: { onScore: (coins: number) =
             ? <>You found all <strong>{total}</strong> stars in the {config.theme.name.toLowerCase()}! You earned <strong>🪙 {config.difficulty.coins} coins</strong>.</>
             : <>You found <strong>{found}</strong> of {total} stars. Try again — the stars hide somewhere new each time!</>}
           </p>
+          <p className="eroom-tally">🏆 Star collection: <strong>{collected.toLocaleString()}</strong> / {STAR_GOAL.toLocaleString()}</p>
           <button onClick={playAgain}>🔄 New room</button>
           <button onClick={() => { setConfig(null); setSnapshot(null); }}>Change difficulty</button>
           <button className="ghost" onClick={onBack}>Leave</button>

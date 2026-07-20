@@ -124,6 +124,11 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .eroom-diff.easy { background: linear-gradient(120deg, #4caf6e, #2e8f52); box-shadow: 0 5px 0 #1f6b3a; }
 .eroom-diff.medium { background: linear-gradient(120deg, #e0a83f, #c07f1f); box-shadow: 0 5px 0 #8a5a12; }
 .eroom-diff.hard { background: linear-gradient(120deg, #d3555f, #a5343e); box-shadow: 0 5px 0 #79232b; }
+.eroom-collection { position: relative; margin: 16px auto 6px; max-width: 340px; padding: 12px 14px 18px; border-radius: 12px; background: #ffffff12; border: 1px solid #ffffff22; font-size: .82rem; font-weight: 700; text-align: center; }
+.eroom-collection b { color: #ffd84a; }
+.eroom-collection::before { content: ''; position: absolute; left: 12px; right: 12px; bottom: 6px; height: 5px; border-radius: 3px; background: #ffffff22; }
+.eroom-collection i { position: absolute; left: 12px; bottom: 6px; height: 5px; max-width: calc(100% - 24px); border-radius: 3px; background: linear-gradient(90deg, #ffd84a, #ffb03a); box-shadow: 0 0 8px #ffd84a88; }
+.eroom-tally { font-size: .86rem; color: #ffd84a; font-weight: 700; }
 .eroom-controls { margin-top: 16px; font-size: .82rem; color: #cbbfe0; }
 .eroom-controls b { background: #ffffff1c; padding: 1px 7px; border-radius: 6px; }
 /* 3-D room view */

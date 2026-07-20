@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { loadMyFriends, type FriendRow } from '../lib/players';
 import { supabase } from '../lib/supabase';
 import { navigate } from '../lib/router';
+import { getStars, STAR_GOAL } from '../lib/escapeStars';
 
 interface ChallengeRoomProps { onChallenge: () => void; inviteLink: string; message: string }
 
@@ -10,6 +11,10 @@ const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: 
 export function ChallengeRoom({ onChallenge, inviteLink, message }: ChallengeRoomProps) {
   const [friends, setFriends] = useState<FriendRow[]>([]);
   const [signedIn, setSignedIn] = useState(false);
+  const [stars, setStars] = useState(0);
+
+  // Re-read the collection every time the panel opens (you may have just played).
+  useEffect(() => { setStars(getStars()); }, []);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -23,7 +28,7 @@ export function ChallengeRoom({ onChallenge, inviteLink, message }: ChallengeRoo
     <section className="panel challenge-panel">
       <div><span className="card-kicker">Search &amp; escape</span><h2>🔍 Escape Room</h2>
         <p>Open the furniture and find the hidden ⭐ stars to escape. Play alone, or challenge friends to reach a shared 5,000 stars. Invitation links contain a random code—never an email or account ID.</p></div>
-      <div className="shared-goal"><div><strong>0 / 5,000</strong><small>Shared stars</small></div><div className="goal-track"><i style={{ width: '0%' }} /></div><span>Reward: 🏆 seasonal champion cup</span></div>
+      <div className="shared-goal"><div><strong>{stars.toLocaleString()} / {STAR_GOAL.toLocaleString()}</strong><small>Your stars</small></div><div className="goal-track"><i style={{ width: `${Math.min(100, (stars / STAR_GOAL) * 100)}%` }} /></div><span>Reward: 🏆 seasonal champion cup</span></div>
       <div className="friends">
         {signedIn && friends.length
           ? friends.map((friend) => <span key={friend.id}>{icons[friend.character_id] ?? '🙂'} {friend.name} · Level {friend.level}</span>)

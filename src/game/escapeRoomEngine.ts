@@ -12,8 +12,23 @@ export interface EscapeSnapshot {
 
 interface Options { theme: Theme; difficulty: Difficulty; onUpdate: (s: EscapeSnapshot) => void }
 
-const RW = 15, RD = 12, WALL_H = 4;   // room width, depth, height
+const WALL_H = 4;   // room height
 const EYE = 1.55, RADIUS = 0.34, SPEED = 4.4, TURN = 2.4;
+
+const rand = (a: number, b: number) => a + Math.random() * (b - a);
+const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
+function shuffle<T>(a: T[]): T[] { const r = [...a]; for (let i = r.length - 1; i > 0; i -= 1) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+
+// A handful of wall / floor palettes per theme so no two rooms look alike, even
+// when the theme repeats.
+const WALL_PALETTE: Record<string, string[]> = {
+  bedroom: ['#b9a7e6', '#e6a7c4', '#a7c4e6', '#cbb189', '#a9d6b0', '#d6b3e0'],
+  bathroom: ['#8fd3e0', '#a7e0c4', '#b9c9e6', '#d3e0a7', '#c4b9e0', '#9ad6d0'],
+  living: ['#e6c79a', '#d6a98f', '#c9a9c4', '#a9c4b0', '#e0b9a7', '#c7b48c'],
+  kitchen: ['#f0a89a', '#f0d29a', '#c4e0a7', '#a7c4e0', '#e6b9d6', '#e0c49a'],
+};
+const FLOOR_PALETTE = ['#8a6f52', '#7a5a3c', '#a98a63', '#6a5140', '#94714c', '#b0a48c', '#8f7a5c'];
+const RUG_PALETTE = ['#c0455a', '#3f7fb0', '#3f8a55', '#c79a3a', '#7a5aa0', '#c96a3a', '#2e9a8a'];
 const REACH = 2.3;
 
 type Shape = 'cabinet' | 'drawers' | 'chest' | 'fridge' | 'bed' | 'sofa' | 'shelf' | 'oven' | 'bath' | 'plant' | 'lamp' | 'wall';
@@ -50,7 +65,9 @@ export class EscapeRoomEngine {
   private opts: Options;
   private disposables: Array<{ dispose: () => void }> = [];
 
-  private pos = new THREE.Vector3(RW / 2, 0, RD - 2.2);
+  private rw = rand(13, 17);   // this room's width…
+  private rd = rand(10.5, 13); // …and depth — different every game
+  private pos = new THREE.Vector3();
   private yaw = 0;
   private keys = new Set<string>();
   private pieces: Piece[] = [];
@@ -80,6 +97,8 @@ export class EscapeRoomEngine {
     container.appendChild(this.renderer.domElement);
     this.camera = new THREE.PerspectiveCamera(72, (container.clientWidth || 800) / (container.clientHeight || 600), 0.1, 60);
 
+    this.pos.set(this.rw / 2 + rand(-1, 1), 0, this.rd - 2.2);
+    this.yaw = rand(-0.35, 0.35);   // start facing roughly into the room
     this.buildRoom();
     this.placeFurniture();
 
@@ -97,53 +116,70 @@ export class EscapeRoomEngine {
 
   private buildRoom() {
     const theme = this.opts.theme;
+    const rw = this.rw, rd = this.rd;
     this.scene.background = new THREE.Color('#20182e');
-    this.scene.add(new THREE.AmbientLight('#fff4e6', 0.95));
+    this.scene.add(new THREE.AmbientLight('#fff4e6', rand(0.82, 1.0)));
     this.scene.add(new THREE.HemisphereLight('#fff', '#6a5a48', 0.5));
-    const lamp = new THREE.PointLight('#fff0d0', 0.8, 22, 2); lamp.position.set(RW / 2, WALL_H - 0.5, RD / 2); this.scene.add(lamp);
+    const lampCol = pick(['#fff0d0', '#ffe6c0', '#e6e0ff', '#fff']);
+    const lamp = new THREE.PointLight(lampCol, rand(0.7, 1.0), 24, 2); lamp.position.set(rw / 2, WALL_H - 0.5, rd / 2); this.scene.add(lamp);
 
-    const wallCol = this.wallColour(theme);
-    const wallMat = this.lambert(wallCol);
-    const floorMat = this.lambert(theme.floor);
+    const wallMat = this.lambert(pick(WALL_PALETTE[theme.id] ?? ['#c3b2e0']));
+    const floorMat = this.lambert(pick(FLOOR_PALETTE));
     const ceilMat = this.lambert('#efe6d6');
-    const floorGeo = new THREE.PlaneGeometry(RW, RD); this.disposables.push(floorGeo);
-    const floor = new THREE.Mesh(floorGeo, floorMat); floor.rotation.x = -Math.PI / 2; floor.position.set(RW / 2, 0, RD / 2);
-    const ceil = new THREE.Mesh(floorGeo, ceilMat); ceil.rotation.x = Math.PI / 2; ceil.position.set(RW / 2, WALL_H, RD / 2);
+    const floorGeo = new THREE.PlaneGeometry(rw, rd); this.disposables.push(floorGeo);
+    const floor = new THREE.Mesh(floorGeo, floorMat); floor.rotation.x = -Math.PI / 2; floor.position.set(rw / 2, 0, rd / 2);
+    const ceil = new THREE.Mesh(floorGeo, ceilMat); ceil.rotation.x = Math.PI / 2; ceil.position.set(rw / 2, WALL_H, rd / 2);
     this.scene.add(floor, ceil);
-    const wGeo = new THREE.PlaneGeometry(RW, WALL_H); const dGeo = new THREE.PlaneGeometry(RD, WALL_H);
+    const wGeo = new THREE.PlaneGeometry(rw, WALL_H); const dGeo = new THREE.PlaneGeometry(rd, WALL_H);
     this.disposables.push(wGeo, dGeo);
-    const back = new THREE.Mesh(wGeo, wallMat); back.position.set(RW / 2, WALL_H / 2, 0); this.scene.add(back);
-    const front = new THREE.Mesh(wGeo, wallMat); front.position.set(RW / 2, WALL_H / 2, RD); front.rotation.y = Math.PI; this.scene.add(front);
-    const left = new THREE.Mesh(dGeo, wallMat); left.position.set(0, WALL_H / 2, RD / 2); left.rotation.y = Math.PI / 2; this.scene.add(left);
-    const right = new THREE.Mesh(dGeo, wallMat); right.position.set(RW, WALL_H / 2, RD / 2); right.rotation.y = -Math.PI / 2; this.scene.add(right);
+    const back = new THREE.Mesh(wGeo, wallMat); back.position.set(rw / 2, WALL_H / 2, 0); this.scene.add(back);
+    const front = new THREE.Mesh(wGeo, wallMat); front.position.set(rw / 2, WALL_H / 2, rd); front.rotation.y = Math.PI; this.scene.add(front);
+    const left = new THREE.Mesh(dGeo, wallMat); left.position.set(0, WALL_H / 2, rd / 2); left.rotation.y = Math.PI / 2; this.scene.add(left);
+    const right = new THREE.Mesh(dGeo, wallMat); right.position.set(rw, WALL_H / 2, rd / 2); right.rotation.y = -Math.PI / 2; this.scene.add(right);
+
+    // a rug — random colour, size and spot, so the floor never looks the same
+    if (Math.random() < 0.85) {
+      const rugMat = this.lambert(pick(RUG_PALETTE));
+      const rgeo = new THREE.PlaneGeometry(rand(2.4, 4), rand(1.8, 3.2)); this.disposables.push(rgeo);
+      const rug = new THREE.Mesh(rgeo, rugMat); rug.rotation.x = -Math.PI / 2;
+      rug.position.set(rand(rw * 0.35, rw * 0.65), 0.02, rand(rd * 0.4, rd * 0.7)); this.scene.add(rug);
+    }
+    // a bright window on the back wall, at a random height/position
+    const winMat = new THREE.MeshBasicMaterial({ color: '#cfe9ff' }); this.disposables.push(winMat);
+    const wgeo = new THREE.PlaneGeometry(rand(1.3, 2.2), rand(1.1, 1.6)); this.disposables.push(wgeo);
+    const win = new THREE.Mesh(wgeo, winMat); win.position.set(rand(rw * 0.3, rw * 0.7), rand(1.9, 2.5), 0.05); this.scene.add(win);
   }
-  private wallColour(theme: Theme) {
-    return ({ bedroom: '#b9a7e6', bathroom: '#8fd3e0', living: '#e6c79a', kitchen: '#f0a89a' } as Record<string, string>)[theme.id] ?? '#c3b2e0';
+
+  /** Candidate furniture spots around this room, each facing the room centre. */
+  private layoutSpots(): Array<{ x: number; z: number; face: number }> {
+    const rw = this.rw, rd = this.rd;
+    const spots: Array<{ x: number; z: number; face: number }> = [];
+    [0.13, 0.31, 0.5, 0.69, 0.87].forEach((f) => spots.push({ x: f * rw, z: 1.0, face: 0 }));            // back wall
+    [0.3, 0.5, 0.72].forEach((f) => spots.push({ x: 1.0, z: f * rd, face: Math.PI / 2 }));                // left wall
+    [0.3, 0.5, 0.72].forEach((f) => spots.push({ x: rw - 1.0, z: f * rd, face: -Math.PI / 2 }));          // right wall
+    [0.15, 0.85].forEach((f) => spots.push({ x: f * rw, z: rd - 1.0, face: Math.PI }));                   // front corners
+    spots.push({ x: rw * rand(0.34, 0.44), z: rd * rand(0.42, 0.52), face: pick([0, Math.PI]) });        // free-standing island
+    return spots;
   }
 
   private placeFurniture() {
-    const items = this.opts.theme.items;
-    // spots around three walls, each facing the room centre
-    const spots: Array<{ x: number; z: number; face: number }> = [];
-    const backX = [2.4, 5.2, 7.5, 10.1, 12.6];
-    backX.forEach((x) => spots.push({ x, z: 1.1, face: 0 }));
-    [3.4, 6, 8.6].forEach((z) => spots.push({ x: 1.1, z, face: Math.PI / 2 }));
-    [3.4, 6, 8.6].forEach((z) => spots.push({ x: RW - 1.1, z, face: -Math.PI / 2 }));
-
+    const items = shuffle(this.opts.theme.items);   // which piece lands where changes every game
+    const spots = shuffle(this.layoutSpots());
     const n = Math.min(items.length, spots.length);
     const starSet = new Set<number>();
     while (starSet.size < this.total) starSet.add(Math.floor(Math.random() * n));
 
     for (let i = 0; i < n; i += 1) {
       const item = items[i]; const spot = spots[i];
+      const x = spot.x + rand(-0.25, 0.25), z = spot.z + rand(-0.25, 0.25);
+      const face = spot.face + rand(-0.12, 0.12);
       const group = new THREE.Group();
       const built = this.model(group, shapeFor(item.name));
-      group.position.set(spot.x, 0, spot.z);
-      group.rotation.y = spot.face;
+      group.position.set(x, 0, z);
+      group.rotation.y = face;
       this.scene.add(group);
-      // star anchor in world space (rotate the local anchor by face)
-      const a = built.anchor.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), spot.face).add(new THREE.Vector3(spot.x, 0, spot.z));
-      this.pieces.push({ group, name: item.name, x: spot.x, z: spot.z, hasStar: starSet.has(i), searched: false, door: built.door, starAnchor: a });
+      const a = built.anchor.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), face).add(new THREE.Vector3(x, 0, z));
+      this.pieces.push({ group, name: item.name, x, z, hasStar: starSet.has(i), searched: false, door: built.door, starAnchor: a });
     }
   }
 
@@ -281,7 +317,7 @@ export class EscapeRoomEngine {
     const star = new THREE.Group(); star.add(new THREE.Mesh(geo, mat));
     // float the found star OUT in front of the furniture (toward the room) so it
     // is always visible — never buried inside a solid body.
-    const toCentre = new THREE.Vector3(RW / 2 - p.x, 0, RD / 2 - p.z);
+    const toCentre = new THREE.Vector3(this.rw / 2 - p.x, 0, this.rd / 2 - p.z);
     if (toCentre.lengthSq() < 0.01) toCentre.set(0, 0, 1);
     toCentre.normalize().multiplyScalar(0.7);
     p.starBase = new THREE.Vector3(p.x + toCentre.x, 1.65, p.z + toCentre.z);
@@ -292,7 +328,7 @@ export class EscapeRoomEngine {
   }
 
   private canStand(x: number, z: number) {
-    if (x < RADIUS || x > RW - RADIUS || z < RADIUS || z > RD - RADIUS) return false;
+    if (x < RADIUS || x > this.rw - RADIUS || z < RADIUS || z > this.rd - RADIUS) return false;
     for (const p of this.pieces) if (Math.abs(x - p.x) < 0.75 && Math.abs(z - p.z) < 0.75) return false;  // furniture footprint
     return true;
   }
