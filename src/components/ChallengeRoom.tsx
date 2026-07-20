@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { loadMyFriends, type FriendRow } from '../lib/players';
 import { supabase } from '../lib/supabase';
+import { navigate } from '../lib/router';
 
 interface ChallengeRoomProps { onChallenge: () => void; inviteLink: string; message: string }
 
@@ -20,15 +21,18 @@ export function ChallengeRoom({ onChallenge, inviteLink, message }: ChallengeRoo
 
   return (
     <section className="panel challenge-panel">
-      <div><span className="card-kicker">Play safely together</span><h2>Challenge Room</h2>
-        <p>Reach a shared score of 5,000. Invitation links contain a random code—never an email or account ID.</p></div>
-      <div className="shared-goal"><div><strong>0 / 5,000</strong><small>Shared stars</small></div><div className="goal-track"><i style={{ width: '0%' }} /></div><span>Reward: 🎁 5 bonus coins each</span></div>
+      <div><span className="card-kicker">Search &amp; escape</span><h2>🔍 Escape Room</h2>
+        <p>Open the furniture and find the hidden ⭐ stars to escape. Play alone, or challenge friends to reach a shared 5,000 stars. Invitation links contain a random code—never an email or account ID.</p></div>
+      <div className="shared-goal"><div><strong>0 / 5,000</strong><small>Shared stars</small></div><div className="goal-track"><i style={{ width: '0%' }} /></div><span>Reward: 🏆 seasonal champion cup</span></div>
       <div className="friends">
         {signedIn && friends.length
           ? friends.map((friend) => <span key={friend.id}>{icons[friend.character_id] ?? '🙂'} {friend.name} · Level {friend.level}</span>)
           : <span>{signedIn ? '👋 No friends yet — search a username in Friends.' : '🔐 Log in to challenge your real friends.'}</span>}
       </div>
-      <button className="primary-button" onClick={onChallenge}>Challenge Friends</button>
+      <div className="challenge-buttons">
+        <button className="primary-button" onClick={() => navigate('/play/escaperoom')}>🔍 Play Alone</button>
+        <button className="primary-button ghost-btn" onClick={onChallenge}>👥 Challenge Friends</button>
+      </div>
       {inviteLink && <div className="invite-box"><input readOnly value={inviteLink} aria-label="Challenge invitation link" /><button onClick={() => navigator.clipboard.writeText(inviteLink)}>Copy</button></div>}
       {message && <p className="fine-print">{message}</p>}
     </section>

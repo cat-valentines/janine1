@@ -48,6 +48,7 @@ import { ConnectorPage } from './ConnectorPage';
 import { BlockUpPage } from './BlockUpPage';
 import { TruthOrDarePage } from './TruthOrDarePage';
 import { PiPage } from './PiPage';
+import { EscapeRoomPage } from './EscapeRoomPage';
 import { TongueTwisterPage } from './TongueTwisterPage';
 import { MoreGamesPage } from './MoreGamesPage';
 import type { GameId } from '../game/gameList';
@@ -79,6 +80,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const piOpen = path === '/play/pi';
   const tongueOpen = path === '/play/tongue';
   const frictionOpen = path === '/play/friction';
+  const escapeRoomOpen = path === '/play/escaperoom';
   const medicineIsland = paramOf(path, '/play/medicine');
   const runnerIsland = paramOf(path, '/play/runner');
   const home = () => navigate('/');
@@ -300,6 +302,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   if (piOpen) return <PiPage onScore={(digits) => award(Math.max(1, Math.round(digits / 4)))} onBack={() => home()} />;
   if (tongueOpen) return <TongueTwisterPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (frictionOpen) return <Suspense fallback={<main className="fric-page"><p className="world-loading">Chilling the ice…</p></main>}><FrictionPage onScore={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
+  if (escapeRoomOpen) return <EscapeRoomPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (gruitsOpen) return <GruitsPage onScore={(points) => award(Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;
   if (riddleOpen) return <RiddlePage startLevel={riddleLevel}
