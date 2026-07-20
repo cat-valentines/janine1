@@ -15,7 +15,7 @@ import { navigate, paramOf, useRoute } from '../lib/router';
 import { ensureGuestAccount, isAnonymous } from '../lib/players';
 import { NotificationsPanel } from '../components/NotificationsPanel';
 import { countUnread, loadNotifications, loadSeenAt, markSeen, type NotificationItem } from '../lib/notifications';
-import { updateProfileSelection } from '../lib/gameData';
+import { updateProfileSelection, addScore } from '../lib/gameData';
 import type { ShopItem } from '../shop/catalog';
 import { YourHousePage } from './YourHousePage';
 import { MapPage } from './MapPage';
@@ -39,6 +39,7 @@ const RunnerUpPage = lazy(() => import('./RunnerUpPage').then((m) => ({ default:
 const DriveMadPage = lazy(() => import('./DriveMadPage').then((m) => ({ default: m.DriveMadPage })));
 const TownMarketPage = lazy(() => import('./TownMarketPage').then((m) => ({ default: m.TownMarketPage })));
 const EscapePage = lazy(() => import('./EscapePage').then((m) => ({ default: m.EscapePage })));
+const FrictionPage = lazy(() => import('./FrictionPage').then((m) => ({ default: m.FrictionPage })));
 const UnderwaterMazePage = lazy(() => import('./UnderwaterMazePage').then((m) => ({ default: m.UnderwaterMazePage })));
 import { RiddlePage } from './RiddlePage';
 import { PingPongPage } from './PingPongPage';
@@ -48,7 +49,6 @@ import { BlockUpPage } from './BlockUpPage';
 import { TruthOrDarePage } from './TruthOrDarePage';
 import { PiPage } from './PiPage';
 import { TongueTwisterPage } from './TongueTwisterPage';
-import { FrictionPage } from './FrictionPage';
 import { MoreGamesPage } from './MoreGamesPage';
 import type { GameId } from '../game/gameList';
 import { AccountSetupPage } from './AccountSetupPage';
@@ -104,6 +104,12 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const [worldMode, setWorldMode] = useState<'build' | 'walk'>('build');
   const [foodBalance] = useState(savedProfile.foodBalance);
   const [shopCoins, setShopCoins] = useState(savedProfile.shopCoins);
+  /** Every game's reward: spend it in the shop AND collect it on the leaderboard. */
+  const award = (coins: number) => {
+    if (coins <= 0) return;
+    setShopCoins((total) => total + coins);
+    addScore(coins).catch(() => undefined);
+  };
   const [ownedItems, setOwnedItems] = useState<string[]>(savedProfile.ownedItems);
   const [equippedItem] = useState(savedProfile.equippedItem);
   const [ownsHouse, setOwnsHouse] = useState(savedProfile.ownsHouse);
@@ -286,23 +292,23 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   };
 
   if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => home()} />;
-  if (escapeOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Opening the front door…</p></main>}><EscapePage character={character} onEscape={(coins) => setShopCoins((total) => total + coins)} onBack={() => home()} /></Suspense>;
-  if (connectorOpen) return <ConnectorPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 40)))} onBack={() => home()} />;
-  if (underwaterOpen) return <Suspense fallback={<main className="reef-page"><p className="world-loading">Diving into the reef…</p></main>}><UnderwaterMazePage onCoins={(gained) => setShopCoins((total) => total + gained)} onBack={() => home()} /></Suspense>;
-  if (blockUpOpen) return <BlockUpPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 40)))} onBack={() => home()} />;
+  if (escapeOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Opening the front door…</p></main>}><EscapePage character={character} onEscape={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
+  if (connectorOpen) return <ConnectorPage onScore={(points) => award(Math.max(1, Math.round(points / 40)))} onBack={() => home()} />;
+  if (underwaterOpen) return <Suspense fallback={<main className="reef-page"><p className="world-loading">Diving into the reef…</p></main>}><UnderwaterMazePage onCoins={(gained) => award(gained)} onBack={() => home()} /></Suspense>;
+  if (blockUpOpen) return <BlockUpPage onScore={(points) => award(Math.max(1, Math.round(points / 40)))} onBack={() => home()} />;
   if (truthDareOpen) return <TruthOrDarePage onBack={() => home()} />;
-  if (piOpen) return <PiPage onScore={(digits) => setShopCoins((total) => total + Math.max(1, Math.round(digits / 4)))} onBack={() => home()} />;
-  if (tongueOpen) return <TongueTwisterPage onScore={(coins) => setShopCoins((total) => total + coins)} onBack={() => home()} />;
-  if (frictionOpen) return <FrictionPage onScore={(coins) => setShopCoins((total) => total + coins)} onBack={() => home()} />;
-  if (gruitsOpen) return <GruitsPage onScore={(points) => setShopCoins((total) => total + Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
+  if (piOpen) return <PiPage onScore={(digits) => award(Math.max(1, Math.round(digits / 4)))} onBack={() => home()} />;
+  if (tongueOpen) return <TongueTwisterPage onScore={(coins) => award(coins)} onBack={() => home()} />;
+  if (frictionOpen) return <Suspense fallback={<main className="fric-page"><p className="world-loading">Chilling the ice…</p></main>}><FrictionPage onScore={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
+  if (gruitsOpen) return <GruitsPage onScore={(points) => award(Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;
   if (riddleOpen) return <RiddlePage startLevel={riddleLevel}
-    onSolved={(level, coins) => { setRiddleLevel((n) => Math.max(n, level + 1)); if (coins) setShopCoins((total) => total + coins); }}
+    onSolved={(level, coins) => { setRiddleLevel((n) => Math.max(n, level + 1)); if (coins) award(coins); }}
     onBack={() => home()} />;
-  if (driveOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the track…</p></main>}><DriveMadPage onCoin={() => setShopCoins((total) => total + 1)} onBack={() => home()} /></Suspense>;
-  if (runnerIsland) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the course…</p></main>}><RunnerUpPage character={character} islandName={runnerIsland} onCoin={() => setShopCoins((total) => total + 1)} onBack={() => home()} /></Suspense>;
-  if (medicineIsland) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the herb forest…</p></main>}><MedicineMissionPage islandName={medicineIsland} onWin={(coins) => setShopCoins((total) => total + coins)} onBack={() => home()} /></Suspense>;
-  if (hungerOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the forest…</p></main>}><HungerQuestPage character={character} onWin={(coins) => setShopCoins((total) => total + coins)} onBack={() => home()} /></Suspense>;
+  if (driveOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the track…</p></main>}><DriveMadPage onCoin={() => award(1)} onBack={() => home()} /></Suspense>;
+  if (runnerIsland) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the course…</p></main>}><RunnerUpPage character={character} islandName={runnerIsland} onCoin={() => award(1)} onBack={() => home()} /></Suspense>;
+  if (medicineIsland) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the herb forest…</p></main>}><MedicineMissionPage islandName={medicineIsland} onWin={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
+  if (hungerOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the forest…</p></main>}><HungerQuestPage character={character} onWin={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
   if (worldOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading your 3D house…</p></main>}><HouseWorldPage character={character} initialMode={worldMode} season={houseSeason || currentSeason()} seed={houseSeed} onChangeSeason={setHouseSeason} houseName={houseName} houseWorld={houseWorld} furniture={houseFurniture} ownedItems={ownedItems}
     onChangeWorld={(update) => { setHouseWorld((previous) => update(previous || emptyWorld())); setOwnsHouse(true); if (!houseSource) setHouseSource('built'); }}
     onChangeFurniture={setHouseFurniture}

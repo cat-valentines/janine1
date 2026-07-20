@@ -1,4 +1,5 @@
-import { LEVELS, PHYS, VW, VH, BLOCK, type Rect, type Surface, type Mover } from './friction';
+import { PHYS, VW, VH, BLOCK, type Rect, type Surface, type Mover } from './friction';
+import { LEVELS } from './frictionLevels';
 
 type Solid = { x: number; y: number; w: number; h: number; kind: 'ground' | 'pad' | 'mover'; surface: Surface; delta?: number; axis?: 'x' | 'y' };
 

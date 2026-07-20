@@ -1,36 +1,53 @@
 import { rand, valueNoise } from './terrain';
 
-/** The arena is a square of forest ringed by cliffs, so nobody wanders off. */
-export const ARENA = 56;
-export const ARENA_TOP = 14;
+/**
+ * A wide, open forest valley. It used to be a small square ringed by vertical
+ * cliffs (very "boxed in"); now the land rolls up into hills that fade away into
+ * the fog, so it feels like open country you could wander forever. You still
+ * can't leave the valley, but you can't see the edge either.
+ */
+export const ARENA = 72;
+export const ARENA_TOP = 22;
 export const WALL = 3;
 
 export interface ForestBlock { x: number; y: number; z: number; colour: string }
 
 const palette = {
-  grass: '#4f8b3b', grassDeep: '#3d6d2d', dirt: '#7a5a3c',
-  stone: '#7f7d84', water: '#3f7fae', sand: '#ddc98f',
-  trunk: '#5f4026', leaves: '#2f6b28', leavesAlt: '#3f8a32',
-  cliff: '#655f66',
+  grass: '#4f8b3b', grassDeep: '#3d6d2d', dirt: '#7a5a3c', dirtDeep: '#654a30',
+  stone: '#7f7d84', stoneDeep: '#5f5d64', water: '#3f7fae', sand: '#ddc98f',
+  trunk: '#5f4026', leaves: '#2f6b28', leavesAlt: '#3f8a32', cliff: '#6a6350',
 };
 
 const inArena = (x: number, z: number) => x >= 0 && z >= 0 && x < ARENA && z < ARENA;
 
-/** Solid blocks in this column. The rim rises into an unclimbable wall. */
+/** Solid blocks in this column. The rim rolls up into hills that vanish in fog. */
 export function forestHeight(x: number, z: number, seed: number) {
-  if (!inArena(x, z)) return ARENA_TOP;
+  if (!inArena(x, z)) {
+    // beyond the valley: tall rolling hills, deep in the fog — the world goes on
+    return Math.round(9 + valueNoise(x / 22, z / 22, seed + 7) * 12);
+  }
   const edge = Math.min(x, z, ARENA - 1 - x, ARENA - 1 - z);
-  if (edge < WALL) return ARENA_TOP - edge * 2;
-  const rolling = valueNoise(x / 17, z / 17, seed) * 6 + valueNoise(x / 6, z / 6, seed + 3) * 2;
-  return Math.max(0, Math.round(1 + rolling * 0.8));
+  const rolling = valueNoise(x / 22, z / 22, seed) * 9 + valueNoise(x / 7, z / 7, seed + 3) * 3.2;
+  let h = Math.max(0, Math.round(2 + rolling * 0.7));
+  if (edge < WALL + 5) {                       // gentle rise into the surrounding hills, no vertical wall
+    const rise = WALL + 5 - edge;
+    h += Math.round(rise * rise * 0.22);
+  }
+  return h;
 }
 
 export const isForestSolid = (x: number, y: number, z: number, seed: number) => y >= 0 && y < forestHeight(x, z, seed);
 
-/** How many drop points the ring holds: the player plus every rival. */
+/** Can the player dig this block? (Not the boundary hills, and it must be solid.) */
+export function forestDiggable(x: number, y: number, z: number, seed: number) {
+  if (!inArena(x, z)) return false;
+  const edge = Math.min(x, z, ARENA - 1 - x, ARENA - 1 - z);
+  if (edge < WALL + 1) return false;           // keep the far hills solid so nobody tunnels out
+  return y >= 0 && y < forestHeight(x, z, seed);
+}
+
 export const SPAWNS = 6;
 
-/** Keeps a clearing around each drop point so nobody starts inside a tree. */
 function nearSpawn(x: number, z: number, seed: number) {
   for (let i = 0; i < SPAWNS; i += 1) {
     const spot = spawnPoint(i, seed);
@@ -42,13 +59,13 @@ function nearSpawn(x: number, z: number, seed: number) {
 /** A tree here, or 0. Deterministic so the forest never shifts. */
 function treeAt(x: number, z: number, seed: number) {
   const edge = Math.min(x, z, ARENA - 1 - x, ARENA - 1 - z);
-  if (edge < WALL + 2) return 0;
+  if (edge < WALL + 1) return 0;
   if (forestHeight(x, z, seed) < 2) return 0;
   if (nearSpawn(x, z, seed)) return 0;
-  return rand(x * 2.7, z * 2.7, seed + 21) > 0.9 ? 4 + Math.floor(rand(x, z, seed + 9) * 3) : 0;
+  return rand(x * 2.7, z * 2.7, seed + 21) > 0.87 ? 4 + Math.floor(rand(x, z, seed + 9) * 3) : 0;
 }
 
-/** Only surface blocks and cliff faces — a solid volume would be ~40k cubes. */
+/** Only surface blocks and cliff faces — a solid volume would be ~100k cubes. */
 export function buildForest(seed: number): ForestBlock[] {
   const blocks: ForestBlock[] = [];
   for (let z = 0; z < ARENA; z += 1) {
@@ -59,12 +76,25 @@ export function buildForest(seed: number): ForestBlock[] {
       const top = height - 1;
       const neighbours = [forestHeight(x + 1, z, seed), forestHeight(x - 1, z, seed), forestHeight(x, z + 1, seed), forestHeight(x, z - 1, seed)];
       const lowest = Math.min(...neighbours);
-      const cliff = edge < WALL;
-      const beach = !cliff && lowest === 0 && height <= 2;
-      blocks.push({ x, y: top, z, colour: cliff ? palette.cliff : beach ? palette.sand : height >= 7 ? palette.stone : palette.grass });
-      for (let y = top - 1; y >= Math.max(0, lowest - 1); y -= 1) {
-        blocks.push({ x, y, z, colour: cliff ? palette.cliff : y === top - 1 ? palette.grassDeep : palette.dirt });
+      const rim = edge < WALL;
+      const beach = !rim && lowest === 0 && height <= 2;
+      blocks.push({ x, y: top, z, colour: rim ? palette.cliff : beach ? palette.sand : height >= 8 ? palette.stone : palette.grass });
+      // a couple of blocks below the surface too, so a shallow dig has walls
+      for (let y = top - 1; y >= Math.max(0, Math.min(lowest - 1, top - 3)); y -= 1) {
+        blocks.push({ x, y, z, colour: rim ? palette.cliff : y === top - 1 ? palette.grassDeep : palette.dirt });
       }
+
+      // scattered outdoor props: rocks and little bushes
+      if (!rim && height >= 2 && !nearSpawn(x, z, seed) && !treeAt(x, z, seed)) {
+        const p = rand(x * 3.1, z * 3.1, seed + 50);
+        if (p > 0.982) {
+          blocks.push({ x, y: top + 1, z, colour: palette.stone });
+          if (rand(x, z, seed + 51) > 0.5) blocks.push({ x, y: top + 2, z, colour: palette.stoneDeep });
+        } else if (p > 0.958) {
+          blocks.push({ x, y: top + 1, z, colour: palette.leavesAlt });
+        }
+      }
+
       const trunk = treeAt(x, z, seed);
       if (!trunk) continue;
       for (let y = 1; y <= trunk; y += 1) blocks.push({ x, y: top + y, z, colour: palette.trunk });
@@ -93,7 +123,7 @@ export function forestGround(x: number, z: number, seed: number) {
 /** Where a drop point sits, without touching the heightmap. */
 export function spawnPoint(index: number, seed: number) {
   const angle = (index / SPAWNS) * Math.PI * 2 + rand(index, 1, seed) * 0.4;
-  const radius = ARENA * 0.3;
+  const radius = ARENA * 0.28;
   const centre = ARENA / 2;
   return { x: centre + Math.cos(angle) * radius, z: centre + Math.sin(angle) * radius };
 }

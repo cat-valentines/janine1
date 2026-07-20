@@ -40,6 +40,16 @@ export async function recordScore(score: number, level: number) {
   if (error) throw error;
 }
 
+/**
+ * Adds points to your lifetime leaderboard score. Every game calls this, so the
+ * board collects everything you play — not just Tower Royal.
+ */
+export async function addScore(points: number, level?: number) {
+  if (!points || points <= 0) return;
+  const { error } = await supabase.rpc('add_score', { points: Math.round(points), level: level ?? null });
+  if (error) throw error;
+}
+
 export interface PlayDay { streak: number; longest_streak: number; days_played: number; last_played: string | null }
 
 /** Counts today as a day played, on the server's clock. Returns the new streak. */

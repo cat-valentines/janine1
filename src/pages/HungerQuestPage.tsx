@@ -160,12 +160,13 @@ export function HungerQuestPage({ character, onWin, onBack }: HungerQuestPagePro
       {snapshot?.message && <p className="quest-message">{snapshot.message}</p>}
       {snapshot?.status === 'playing' && <KeyPad actions={[
         { codes: ['Space'], label: '⚔️' },
+        { codes: ['KeyE'], label: '⛏️' },
         { codes: ['ShiftLeft'], label: '⤴' },
         { codes: ['Digit1'], label: '🕊️' },
         { codes: ['Digit2'], label: '✨' },
         { codes: ['Digit3'], label: '👻' },
       ]} />}
-      {snapshot?.status === 'playing' && <p className="quest-help"><b>↑ ↓</b> walk · <b>← →</b> turn · <b>Space</b> attack · <b>Shift</b> jump · <b>1</b> fly · <b>2</b> teleport · <b>3</b> invisible · <b>F</b> first person</p>}
+      {snapshot?.status === 'playing' && <p className="quest-help"><b>↑ ↓</b> walk · <b>← →</b> turn · <b>Space</b> attack · <b>E</b> dig a hideout · <b>Shift</b> jump · <b>1</b> fly · <b>2</b> teleport · <b>3</b> invisible</p>}
 
       {snapshot?.status === 'dead' && <div className="quest-over">
         <div className="quest-over-card">

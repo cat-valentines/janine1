@@ -12,7 +12,7 @@ import { laserCatches } from '../game/laser';
 import type { GameSelection, GameState } from '../game/types';
 import { characterCollectibles } from '../game/characters';
 import { loadLocalProfile, saveLocalProfile } from '../lib/localProfile';
-import { recordScore } from '../lib/gameData';
+import { recordScore, addScore } from '../lib/gameData';
 import { supabase } from '../lib/supabase';
 
 interface GamePageProps { selection: GameSelection; onExit: () => void }
@@ -46,7 +46,8 @@ export function GamePage({ selection, onExit }: GamePageProps) {
       foodBalance: profile.foodBalance + Math.max(0, food),
       shopCoins: profile.shopCoins + Math.max(0, coins),
     });
-  }, [collected, collectedGold]);
+    if (coins > 0) addScore(coins, level).catch(() => undefined);   // collect on the leaderboard too
+  }, [collected, collectedGold, level]);
 
   // When a run ends, file the score against the account. Without this nothing
   // ever writes total_score and the leaderboard stays empty for everyone.

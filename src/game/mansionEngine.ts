@@ -420,16 +420,22 @@ export class MansionEngine {
     const wood = new THREE.MeshLambertMaterial({ map: pixelTexture('#5b3a24', '#3a2415', 'planks') });
     const handleMat = new THREE.MeshLambertMaterial({ color: '#d8c08a' });
     const sheetMat = new THREE.MeshLambertMaterial({ color: '#9a8f9e' });
-    this.disposables.push(wardrobeGeo, handleGeo, bedGeo, legGeo, sheetGeo, wood, handleMat, sheetMat);
+    const seamGeo = new THREE.BoxGeometry(0.05, 2.0, 0.05);   // the split between the two doors
+    const seamMat = new THREE.MeshLambertMaterial({ color: '#241408' });
+    this.disposables.push(wardrobeGeo, handleGeo, bedGeo, legGeo, sheetGeo, wood, handleMat, sheetMat, seamGeo, seamMat);
 
     hideSpots.forEach((at) => {
       const world = worldOf(at.col, at.row);
       if (at.kind === 'wardrobe') {
         const wardrobe = new THREE.Mesh(wardrobeGeo, wood);
         wardrobe.position.set(world.x, 1.15, world.z);
-        const handle = new THREE.Mesh(handleGeo, handleMat);
-        handle.position.set(world.x + 0.1, 1.15, world.z + CELL * 0.26);
-        this.scene.add(wardrobe, handle);
+        const front = world.z + CELL * 0.25;
+        // a centre seam + a handle on each door, so it reads as a wardrobe to hide in
+        const seam = new THREE.Mesh(seamGeo, seamMat);
+        seam.position.set(world.x, 1.15, front + 0.01);
+        const h1 = new THREE.Mesh(handleGeo, handleMat); h1.position.set(world.x - 0.13, 1.15, front + 0.02);
+        const h2 = new THREE.Mesh(handleGeo, handleMat); h2.position.set(world.x + 0.13, 1.15, front + 0.02);
+        this.scene.add(wardrobe, seam, h1, h2);
         this.hideMeshes.push({ mesh: wardrobe, at, kind: 'wardrobe' });
         return;
       }
@@ -449,19 +455,39 @@ export class MansionEngine {
   }
 
   private buildKeeper(asset: string) {
-    const body = new THREE.MeshLambertMaterial({ color: '#6d2b3a' });
-    const skin = new THREE.MeshLambertMaterial({ map: this.faceTexture(asset) });
-    const torsoGeo = new THREE.BoxGeometry(0.62, 1.0, 0.34);
-    const headGeo = new THREE.BoxGeometry(0.56, 0.56, 0.56);
+    void asset; // she no longer wears the player's face — she is her own dread now
+    const body = new THREE.MeshLambertMaterial({ color: '#2f1019', emissive: '#100407' }); // blood-dark robe
+    const skin = new THREE.MeshLambertMaterial({ color: '#b4ac9c' });                       // gaunt grey skin
+    const torsoGeo = new THREE.BoxGeometry(0.64, 1.08, 0.34);
+    const headGeo = new THREE.BoxGeometry(0.5, 0.56, 0.48);
     this.disposables.push(body, skin, torsoGeo, headGeo);
     const torso = new THREE.Mesh(torsoGeo, body);
     torso.position.y = 1.0;
     const head = new THREE.Mesh(headGeo, skin);
-    head.position.y = 1.78;
+    head.position.y = 1.8;
     this.keeper.add(torso, head);
 
-    // An outstretched arm holding an axe, so you can tell what she is carrying.
-    const armGeo = new THREE.BoxGeometry(0.16, 0.16, 0.7);
+    // stringy dark hair framing a hollow face
+    const hairMat = new THREE.MeshLambertMaterial({ color: '#0f070c' });
+    const hairGeo = new THREE.BoxGeometry(0.58, 0.42, 0.54);
+    const fringeGeo = new THREE.BoxGeometry(0.54, 0.16, 0.06);
+    this.disposables.push(hairMat, hairGeo, fringeGeo);
+    const hair = new THREE.Mesh(hairGeo, hairMat); hair.position.set(0, 2.02, -0.03);
+    const fringe = new THREE.Mesh(fringeGeo, hairMat); fringe.position.set(0, 1.96, 0.25);
+    this.keeper.add(hair, fringe);
+
+    // glowing red eyes + a grim mouth
+    const eyeMat = new THREE.MeshBasicMaterial({ color: '#ff2f2f' });
+    const eyeGeo = new THREE.BoxGeometry(0.1, 0.075, 0.05);
+    const mouthMat = new THREE.MeshLambertMaterial({ color: '#240a10' });
+    const mouthGeo = new THREE.BoxGeometry(0.24, 0.05, 0.04);
+    this.disposables.push(eyeMat, eyeGeo, mouthMat, mouthGeo);
+    [-0.12, 0.12].forEach((x) => { const e = new THREE.Mesh(eyeGeo, eyeMat); e.position.set(x, 1.85, 0.245); this.keeper.add(e); });
+    const eyeGlow = new THREE.PointLight('#ff2b2b', 1.5, 3.6, 2); eyeGlow.position.set(0, 1.85, 0.32); this.keeper.add(eyeGlow);
+    const mouth = new THREE.Mesh(mouthGeo, mouthMat); mouth.position.set(0, 1.67, 0.245); this.keeper.add(mouth);
+
+    // a long, gaunt arm holding the axe out in front
+    const armGeo = new THREE.BoxGeometry(0.16, 0.16, 0.72);
     const arm = new THREE.Mesh(armGeo, skin);
     arm.position.set(0.34, 1.15, 0.3);
     this.keeper.add(arm);
@@ -640,26 +666,6 @@ export class MansionEngine {
       .sort((a, b) => Math.hypot(a.col - startSpot.col, a.row - startSpot.row)
         - Math.hypot(b.col - startSpot.col, b.row - startSpot.row))
       .slice(0, n);
-  }
-
-  /** Flatten the character PNG onto a colour; raw alpha renders black. */
-  private faceTexture(asset: string) {
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.magFilter = THREE.NearestFilter;
-    const image = new Image();
-    image.onload = () => {
-      if (!ctx) return;
-      ctx.fillStyle = '#d8bfae';
-      ctx.fillRect(0, 0, 128, 128);
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(image, 6, 6, 116, 116);
-      texture.needsUpdate = true;
-    };
-    image.src = asset;
-    return texture;
   }
 
   /** A round of the house that actually visits every room. */

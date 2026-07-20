@@ -1067,6 +1067,15 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .fric-top button { border: 0; border-radius: 10px; padding: 7px 12px; background: #7c3aed; color: #fff; font-weight: 800; cursor: pointer; }
 .fric-top span { color: #c9bff0; }
 .fric-top b { margin-left: auto; color: #fff; }
+.fric-levels-btn { margin-left: auto; border: 0; border-radius: 10px; padding: 7px 12px; background: #3a2f63; color: #fff; font-weight: 800; cursor: pointer; }
+.fric-levelsel { width: min(460px, 100%); max-height: 82vh; display: flex; flex-direction: column; padding: 18px; background: linear-gradient(#241d45, #171233); border: 1px solid #46407a; border-radius: 20px; color: #e9e3ff; }
+.fric-levelsel h2 { margin: 0 0 2px; }
+.fric-levelsel-sub { margin: 0 0 12px; color: #b9aee6; font-size: .82rem; }
+.fric-levelgrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; overflow-y: auto; padding: 2px; }
+.fric-lvlbtn { aspect-ratio: 1; border: 0; border-radius: 10px; background: #6d28d9; color: #fff; font-weight: 800; font-size: .9rem; cursor: pointer; }
+.fric-lvlbtn.on { outline: 3px solid #ffd84d; }
+.fric-lvlbtn.locked { background: #2a2450; color: #6a629a; cursor: default; }
+.fric-close { margin-top: 12px; border: 0; border-radius: 12px; padding: 11px; background: #8b5cf6; color: #fff; font-weight: 800; cursor: pointer; }
 .fric-hint { width: min(100%, 760px); margin: 8px auto 6px; padding: 9px 13px; background: #ffffff12; border: 1px solid #ffffff20; border-radius: 12px; text-align: center; font-size: .84rem; color: #ddd4ff; }
 .fric-stage { width: min(100%, 760px); aspect-ratio: 720 / 440; background: #120e28; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 34px #0007; }
 .fric-canvas { display: block; width: 100%; height: 100%; touch-action: none; }

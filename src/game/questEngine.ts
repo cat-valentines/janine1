@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ARENA, ARENA_TOP, WALL, buildForest, forestGround, isForestSolid, spawnRing } from './forest';
+import { ARENA, ARENA_TOP, WALL, buildForest, forestDiggable, forestGround, forestHeight, isForestSolid, spawnRing } from './forest';
 import {
   DAY_SECONDS, FLY_DRAIN, FLY_HEIGHT, FLY_MIN, FLY_SPEED, INVISIBLE_COST, INVISIBLE_SECONDS,
   MAGIC_REGEN, MAX_HEARTS, MAX_MAGIC, RIVAL_COUNT, START_HEARTS, TELEPORT_COOLDOWN, TELEPORT_COST,
@@ -108,6 +108,20 @@ export class QuestEngine {
   private walkPhase = 0;
   private keys = new Set<string>();
   private pointerLocked = false;
+  // ---- digging ----
+  private dug = new Set<string>();                                            // blocks the player removed
+  private blockIndex = new Map<string, { mesh: THREE.InstancedMesh; index: number }>();  // (x,y,z) -> rendered instance
+  private revealed = new Set<string>();                                       // underground blocks now shown as tunnel walls
+  private dugWalls = new THREE.Group();
+  private buried = false;                                                     // hidden underground → mobs can't hunt you
+  private wasBuried = false;
+  private lastDig = 0;
+  private wallGeo = new THREE.BoxGeometry(1, 1, 1);
+  private wallMats = {
+    shallow: new THREE.MeshLambertMaterial({ color: '#3d6d2d' }),
+    dirt: new THREE.MeshLambertMaterial({ color: '#7a5a3c' }),
+    deep: new THREE.MeshLambertMaterial({ color: '#5f5d64' }),
+  };
 
   private hearts = START_HEARTS;
   private maxHearts = START_HEARTS;
@@ -147,8 +161,9 @@ export class QuestEngine {
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(this.renderer.domElement);
 
-    this.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 240);
-    this.scene.fog = new THREE.Fog('#9ed3e8', 30, 92);
+    this.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 260);
+    // thicker fog so the far hills melt into the sky — the valley feels endless
+    this.scene.fog = new THREE.Fog('#9ed3e8', 20, 58);
 
     this.ambient = new THREE.HemisphereLight('#ffffff', '#3d5a34', 2);
     this.sun = new THREE.DirectionalLight('#fff2d0', 1.4);
@@ -210,10 +225,12 @@ export class QuestEngine {
       cells.forEach((cell, index) => {
         matrix.setPosition(cell.x + 0.5, cell.y + 0.5, cell.z + 0.5);
         mesh.setMatrixAt(index, matrix);
+        this.blockIndex.set(`${cell.x},${cell.y},${cell.z}`, { mesh, index });   // so we can hide a dug block
       });
       mesh.instanceMatrix.needsUpdate = true;
       this.scene.add(mesh);
     });
+    this.scene.add(this.dugWalls);   // freshly-exposed tunnel walls go here
   }
 
   private addMob(type: MobType, at: { x: number; y: number; z: number }) {
@@ -332,6 +349,7 @@ export class QuestEngine {
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) event.preventDefault();
     this.keys.add(event.code);
     if (event.code === 'Space') this.swing();
+    if (event.code === 'KeyE') this.dig();
     if (event.code === 'KeyF') this.view = this.view === 'third' ? 'first' : 'third';
     if (event.code === 'Digit1') this.toggleFly();
     if (event.code === 'Digit2') this.teleport();
@@ -489,7 +507,52 @@ export class QuestEngine {
   // ---- movement ----------------------------------------------------------
 
   private solid(x: number, y: number, z: number) {
-    return isForestSolid(Math.floor(x), Math.floor(y), Math.floor(z), this.seed);
+    const cx = Math.floor(x), cy = Math.floor(y), cz = Math.floor(z);
+    if (this.dug.has(`${cx},${cy},${cz}`)) return false;   // you dug this out
+    return isForestSolid(cx, cy, cz, this.seed);
+  }
+
+  /** Dig the block you're looking at — tunnel down, hollow out a hiding hole. */
+  private dig() {
+    if (this.status !== 'playing') return;
+    if (this.time - this.lastDig < 0.16) return;   // small cooldown between blocks
+    const eye = this.position.clone(); eye.y += EYE;
+    const fwd = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch)).negate();
+    for (let s = 0.3; s <= 4.6; s += 0.12) {
+      const p = eye.clone().add(fwd.clone().multiplyScalar(s));
+      const cx = Math.floor(p.x), cy = Math.floor(p.y), cz = Math.floor(p.z);
+      if (this.dug.has(`${cx},${cy},${cz}`)) continue;
+      if (!isForestSolid(cx, cy, cz, this.seed)) continue;
+      if (!forestDiggable(cx, cy, cz, this.seed)) { this.say('⛏️ Too hard to dig here!', 900); return; }
+      this.lastDig = this.time;
+      this.removeBlock(cx, cy, cz);
+      return;
+    }
+  }
+
+  private removeBlock(x: number, y: number, z: number) {
+    const k = `${x},${y},${z}`;
+    if (this.dug.has(k)) return;
+    this.dug.add(k);
+    const hit = this.blockIndex.get(k);   // hide its rendered cube
+    if (hit) { hit.mesh.setMatrixAt(hit.index, new THREE.Matrix4().makeScale(0, 0, 0)); hit.mesh.instanceMatrix.needsUpdate = true; }
+    // reveal any solid neighbours as tunnel walls, so the hole has sides you can see
+    for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+      const nx = x + dx, ny = y + dy, nz = z + dz, nk = `${nx},${ny},${nz}`;
+      if (ny < 0 || this.dug.has(nk) || this.blockIndex.has(nk) || this.revealed.has(nk)) continue;
+      if (!isForestSolid(nx, ny, nz, this.seed)) continue;
+      this.revealed.add(nk);
+      const depth = forestHeight(nx, nz, this.seed) - 1 - ny;
+      const mat = depth <= 0 ? this.wallMats.shallow : depth < 4 ? this.wallMats.dirt : this.wallMats.deep;
+      const cube = new THREE.Mesh(this.wallGeo, mat);
+      cube.position.set(nx + 0.5, ny + 0.5, nz + 0.5);
+      this.dugWalls.add(cube);
+    }
+  }
+
+  /** True when there's solid ground right over your head — you're hidden. */
+  private isCovered() {
+    return this.status === 'playing' && this.solid(this.position.x, this.position.y + HEIGHT + 0.3, this.position.z);
   }
 
   private blocked(x: number, y: number, z: number, height = HEIGHT) {
@@ -591,9 +654,9 @@ export class QuestEngine {
 
   private moveMobs(dt: number) {
     const now = this.time;
-    // Nobody hunts during the first few seconds, so the drop is survivable,
-    // and nobody hunts you at all while you are invisible.
-    const hunting = this.time > GRACE && !this.isInvisible();
+    // Nobody hunts during the first few seconds, so the drop is survivable, and
+    // nobody hunts you while you are invisible OR hidden underground in a hole.
+    const hunting = this.time > GRACE && !this.isInvisible() && !this.buried;
     this.mobs.forEach((mob) => {
       if (!mob.alive) return;
       const to = this.position.clone().sub(mob.position);
@@ -738,6 +801,9 @@ export class QuestEngine {
       this.updateSky(dt);
       this.updateMagic(dt);
       this.movePlayer(dt);
+      this.buried = this.isCovered();
+      if (this.buried && !this.wasBuried) this.say('🫣 Hidden underground — dig deeper to stay safe!', 1600);
+      this.wasBuried = this.buried;
       this.moveMobs(dt);
       this.collectPickups();
       this.applyInvisibility();
