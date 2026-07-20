@@ -124,6 +124,19 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .eroom-diff.easy { background: linear-gradient(120deg, #4caf6e, #2e8f52); box-shadow: 0 5px 0 #1f6b3a; }
 .eroom-diff.medium { background: linear-gradient(120deg, #e0a83f, #c07f1f); box-shadow: 0 5px 0 #8a5a12; }
 .eroom-diff.hard { background: linear-gradient(120deg, #d3555f, #a5343e); box-shadow: 0 5px 0 #79232b; }
+.eroom-controls { margin-top: 16px; font-size: .82rem; color: #cbbfe0; }
+.eroom-controls b { background: #ffffff1c; padding: 1px 7px; border-radius: 6px; }
+/* 3-D room view */
+.eroom-page.playing { padding: 0; overflow: hidden; }
+.eroom-stage3d { position: relative; flex: 1; width: 100%; overflow: hidden; touch-action: none; }
+.eroom-canvas { position: absolute; inset: 0; }
+.eroom-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
+.eroom-top.over { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 5; padding: 6px 10px; border-radius: 12px; background: #140d20aa; backdrop-filter: blur(4px); }
+.eroom-clue.over { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); z-index: 5; width: max-content; max-width: min(92%, 620px); margin: 0; background: #140d20cc; }
+.eroom-prompt { position: absolute; left: 50%; bottom: 128px; transform: translateX(-50%); z-index: 5; padding: 8px 16px; border-radius: 999px; background: #ffd84a; color: #3a2a00; font-weight: 800; box-shadow: 0 6px 18px #0006; animation: eroom-bob 1s ease-in-out infinite; }
+.eroom-prompt b { background: #00000018; padding: 1px 6px; border-radius: 5px; }
+@keyframes eroom-bob { 0%,100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -4px); } }
+.eroom-full { position: absolute; right: 10px; bottom: 12px; z-index: 5; width: 40px; height: 40px; border: 0; border-radius: 10px; background: #140d20cc; color: #fff; font-size: 1.1rem; cursor: pointer; }
 .eroom-page .quest-over { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 18px; background: #140d20cc; }
 .invite-box { grid-column: 1 / -1; display: flex; gap: 8px; }
 .invite-box input { min-width: 0; flex: 1; padding: 11px; border: 1px solid #d9d1c5; border-radius: 12px; color: var(--ink-soft); }
