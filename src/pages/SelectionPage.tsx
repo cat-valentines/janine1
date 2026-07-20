@@ -22,8 +22,7 @@ import { MapPage } from './MapPage';
 import { ProfilePage } from './ProfilePage';
 import { RoyalMemberPage } from './RoyalMemberPage';
 import { StreakPage } from './StreakPage';
-import { countTodayAsPlayed } from '../game/progress';
-import { recordPlayDay } from '../lib/gameData';
+import { markPlayedToday } from '../lib/streak';
 import { HouseBuilderPage } from './HouseBuilderPage';
 // three.js is ~500KB — load it only when a player actually opens their house.
 const HouseWorldPage = lazy(() => import('./HouseWorldPage').then((m) => ({ default: m.HouseWorldPage })));
@@ -107,8 +106,16 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const [foodBalance] = useState(savedProfile.foodBalance);
   const [shopCoins, setShopCoins] = useState(savedProfile.shopCoins);
   /** Every game's reward: spend it in the shop AND collect it on the leaderboard. */
+  // A streak is only earned by ACTUALLY PLAYING a game — never by just opening
+  // the website. Refresh the on-screen numbers whenever the day gets counted.
+  const refreshStreak = (s: { streak: number; daysPlayed: number; lastPlayed: string } | null) => {
+    if (!s) return;
+    setStreak(s.streak); setDaysPlayed(s.daysPlayed); setLastPlayed(s.lastPlayed);
+  };
+
   const award = (coins: number) => {
     if (coins <= 0) return;
+    markPlayedToday().then(refreshStreak);   // scoring/winning in a game = you actually played
     setShopCoins((total) => total + coins);
     addScore(coins).catch(() => undefined);
   };
@@ -216,27 +223,22 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     return () => { stop = true; clearInterval(id); };
   }, []);
 
+  // Just detect whether you're signed in — visiting the site no longer touches
+  // your streak. (Streaks are earned by playing; see markPlayedToday.)
   useEffect(() => {
-    const local = countTodayAsPlayed({ lastPlayed, streak, daysPlayed });
-    if (local.lastPlayed !== lastPlayed) {
-      setStreak(local.streak);
-      setDaysPlayed(local.daysPlayed);
-      setLastPlayed(local.lastPlayed);
-    }
-    supabase.auth.getUser().then(({ data }) => {
-      setSignedIn(!!data.user);
-      if (!data.user) return;
-      // The server counts the day off its own clock, so winding the device
-      // forward cannot buy you islands.
-      recordPlayDay().then((row) => {
-        if (!row) return;
-        setStreak(row.streak);
-        setDaysPlayed(row.days_played);
-        setLastPlayed(row.last_played ?? local.lastPlayed);
-      }).catch(() => undefined);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    supabase.auth.getUser().then(({ data }) => setSignedIn(!!data.user));
   }, []);
+
+  // Being inside a game (/play/*) long enough that you must actually be playing
+  // it also earns the day — this covers games with no score (Truth or Dare,
+  // Ping Pong) and playing a round without winning. Opening a game and leaving
+  // before this fires does NOT count.
+  useEffect(() => {
+    if (!path.startsWith('/play/')) return;
+    const id = setTimeout(() => { markPlayedToday().then(refreshStreak); }, 30000);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path]);
 
   useEffect(() => {
     const showUser = (metadata: Record<string, unknown>) => { setUsername(String(metadata.display_name ?? metadata.full_name ?? metadata.name ?? 'Island Player')); setAuthMode(null); };
