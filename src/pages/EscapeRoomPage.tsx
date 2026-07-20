@@ -61,7 +61,7 @@ export function EscapeRoomPage({ onScore, onBack }: { onScore: (coins: number) =
       <header className="eroom-top"><button onClick={onBack}>← Leave</button><span>🔍 Escape Room</span></header>
       <div className="eroom-choose">
         <h1>🔍 Escape Room</h1>
-        <p>You're locked in a 3-D room. <b>Walk around</b> and <b>open the furniture</b> — some pieces hide a ⭐. Find every star to escape! Empty pieces give a <b>hot / cold</b> clue.</p>
+        <p>You're locked in a 3-D room full of furniture. <b>Walk around</b> and <b>open the doors, drawers and lids</b> — stars are hidden <b>inside</b> them (plants, lamps and pictures are just for show). Open an empty one and it gives you a <b>hot / cold clue</b> pointing toward the next star. Find them all to escape!</p>
         <p className="eroom-sub">Pick a difficulty — harder rooms hide more stars, add a timer, and pay more coins.</p>
         <div className="eroom-collection">⭐ Your collection: <b>{collected.toLocaleString()}</b> / {STAR_GOAL.toLocaleString()} stars
           <i style={{ width: `${Math.min(100, (collected / STAR_GOAL) * 100)}%` }} /></div>
