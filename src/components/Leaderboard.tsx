@@ -45,6 +45,7 @@ export function Leaderboard() {
           <span>{prizeFor(row.rank)}</span>
         </div>)}
       </div>}
+      {state === 'ready' && rows.length > 7 && <p className="leader-count">🏅 {rows.length} players — scroll the list to see everyone.</p>}
       {state === 'loading' && <p className="leader-empty">Loading the rankings…</p>}
       {state === 'ready' && !rows.length && <p className="leader-empty">No players on the board yet. Sign up and finish a quest to be the first!</p>}
       {state === 'offline' && <p className="leader-empty">The rankings are not online yet. Apply the database update to see real players here.</p>}

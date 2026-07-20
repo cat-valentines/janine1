@@ -98,6 +98,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const [streak, setStreak] = useState(savedProfile.streak);
   const [daysPlayed, setDaysPlayed] = useState(savedProfile.daysPlayed);
   const [lastPlayed, setLastPlayed] = useState(savedProfile.lastPlayed);
+  const [completedQuests, setCompletedQuests] = useState(savedProfile.completedQuests);
   const [signedIn, setSignedIn] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifs, setNotifs] = useState<NotificationItem[]>([]);
@@ -142,9 +143,9 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const selection = { character, setting, equippedItem };
   const collectible = characterCollectibles[character];
   useEffect(() => {
-    saveLocalProfile({ character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, completedQuests: savedProfile.completedQuests, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals, streak, daysPlayed, lastPlayed });
+    saveLocalProfile({ character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, completedQuests, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals, streak, daysPlayed, lastPlayed });
     supabase.auth.getUser().then(({ data }) => { if (data.user) updateProfileSelection(data.user.id, selection).catch(() => undefined); });
-  }, [character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals, streak, daysPlayed, lastPlayed]);
+  }, [character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, completedQuests, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals, streak, daysPlayed, lastPlayed]);
   // The house lives on the account: pull it in on login so it is never lost by
   // logging out or switching device, and fall back to this device when offline.
   useEffect(() => {
@@ -304,7 +305,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   if (piOpen) return <PiPage onScore={(digits) => award(Math.max(1, Math.round(digits / 4)))} onBack={() => home()} />;
   if (tongueOpen) return <TongueTwisterPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (frictionOpen) return <Suspense fallback={<main className="fric-page"><p className="world-loading">Chilling the ice…</p></main>}><FrictionPage onScore={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
-  if (escapeRoomOpen) return <Suspense fallback={<main className="eroom-page"><p className="world-loading">Locking the door…</p></main>}><EscapeRoomPage onScore={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
+  if (escapeRoomOpen) return <Suspense fallback={<main className="eroom-page"><p className="world-loading">Locking the door…</p></main>}><EscapeRoomPage onScore={(coins) => { award(coins); setCompletedQuests((q) => q + 1); }} onBack={() => home()} /></Suspense>;
   if (gruitsOpen) return <GruitsPage onScore={(points) => award(Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;
   if (riddleOpen) return <RiddlePage startLevel={riddleLevel}
@@ -338,9 +339,9 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     onOpenGarden={() => { home(); navigate('/house/build'); }}
     onOpenMarket={() => { home(); navigate('/house/market'); }}
     onInvite={createFriendChallenge} onClose={() => home()} />;
-  if (mapOpen) return <MapPage streak={streak} completedQuests={savedProfile.completedQuests} isMember={isMember} onBack={() => home()} onInvite={createFriendChallenge} onJoinMembership={() => { home(); navigate('/royal'); }} onPlay={() => onStart(selection)} onPlayGame={(gameId, islandName) => { home(); if (gameId === 'medicine') navigate('/play/medicine/' + encodeURIComponent(islandName)); else if (gameId === 'runner') navigate('/play/runner/' + encodeURIComponent(islandName)); }} />;
+  if (mapOpen) return <MapPage streak={streak} completedQuests={completedQuests} isMember={isMember} onBack={() => home()} onInvite={createFriendChallenge} onJoinMembership={() => { home(); navigate('/royal'); }} onPlay={() => onStart(selection)} onPlayGame={(gameId, islandName) => { home(); if (gameId === 'medicine') navigate('/play/medicine/' + encodeURIComponent(islandName)); else if (gameId === 'runner') navigate('/play/runner/' + encodeURIComponent(islandName)); }} />;
   if (streakOpen) return <StreakPage
-    streak={streak} daysPlayed={daysPlayed} completedQuests={savedProfile.completedQuests}
+    streak={streak} daysPlayed={daysPlayed} completedQuests={completedQuests}
     isMember={isMember} signedIn={signedIn}
     onGetMembership={() => { home(); navigate('/royal'); }}
     onBack={() => home()} />;
@@ -353,7 +354,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     character={character}
     onChangeCharacter={setCharacter}
     onDone={(name) => { setUsername(name); setCharacterChosen(true); setSetup(null); }} />;
-  if (profileOpen || !characterChosen) return <ProfilePage character={character} setting={setting} firstTime={!characterChosen} ownedItems={ownedItems} onChangeCharacter={setCharacter} onChangeSetting={setSetting} onChangeAccessory={setAccessory} onBuyAccessory={(id, price) => { if (shopCoins < price) return; setShopCoins((total) => total - price); setOwnedItems((items) => [...items, id]); setAccessory(id); }} onChosen={() => { setCharacterChosen(true); makeGuestReal(); home(); }} coins={shopCoins} foodBalance={foodBalance} completedQuests={savedProfile.completedQuests} isMember={isMember} accessory={accessory} realName={realName} birthday={birthday} country={country} onSavePrivate={(fields) => { setRealName(fields.realName); setBirthday(fields.birthday); setCountry(fields.country); }} onBack={() => home()} />;
+  if (profileOpen || !characterChosen) return <ProfilePage character={character} setting={setting} firstTime={!characterChosen} ownedItems={ownedItems} onChangeCharacter={setCharacter} onChangeSetting={setSetting} onChangeAccessory={setAccessory} onBuyAccessory={(id, price) => { if (shopCoins < price) return; setShopCoins((total) => total - price); setOwnedItems((items) => [...items, id]); setAccessory(id); }} onChosen={() => { setCharacterChosen(true); makeGuestReal(); home(); }} coins={shopCoins} foodBalance={foodBalance} completedQuests={completedQuests} isMember={isMember} accessory={accessory} realName={realName} birthday={birthday} country={country} onSavePrivate={(fields) => { setRealName(fields.realName); setBirthday(fields.birthday); setCountry(fields.country); }} onBack={() => home()} />;
   return (
     <main className="selection-page page-shell">
       <button className="menu-button" onClick={() => setMenuOpen(true)}>☰ Menu</button>
@@ -366,7 +367,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <header className="royal-header"><p className="eyebrow">A 30-island adventure</p><h1><span>♛</span> Magical Islands <span>♛</span></h1><p>Climb cozy towers, finish quests, and unlock a magical kingdom—alone or together with friends.</p></header>
       <ProfileTab character={character} setting={setting} accessory={accessory} coins={shopCoins} foodBalance={foodBalance}
         collectibleAsset={collectible.asset} collectibleName={collectible.plural}
-        completedQuests={savedProfile.completedQuests} isMember={isMember} ownsHouse={ownsHouse} houseName={houseName}
+        completedQuests={completedQuests} isMember={isMember} ownsHouse={ownsHouse} houseName={houseName}
         onOpenProfile={() => navigate('/profile')} />
       <p className="games-sign">Games</p>
       <div className="game-grid">

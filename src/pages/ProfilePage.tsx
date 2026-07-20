@@ -4,6 +4,7 @@ import { USERNAME_RULE, changeUsername, isTakenError, isUsernameFree, loadPrivat
 import { characterAssets, characterCollectibles } from '../game/characters';
 import { ChoiceCard } from '../components/ChoiceCard';
 import { CharacterCustomizer } from '../components/CharacterCustomizer';
+import { getStars, STAR_GOAL } from '../lib/escapeStars';
 import type { CharacterId, SettingId } from '../game/types';
 
 const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit' };
@@ -223,6 +224,7 @@ export function ProfilePage({ character, setting, coins, foodBalance, completedQ
         <div><dt>House</dt><dd>{houses[setting]}</dd></div>
         <div><dt>Membership</dt><dd>{isMember ? '♛ Royal Membership active' : 'Free explorer'}</dd></div>
         <div><dt>Quests finished</dt><dd>{completedQuests}</dd></div>
+        <div><dt>Escape Room stars</dt><dd>⭐ {getStars().toLocaleString()} / {STAR_GOAL.toLocaleString()}</dd></div>
       </dl>
       {userId && <button className="profile-signout" onClick={() => { supabase.auth.signOut(); onBack(); }}>Log out</button>}
     </section>

@@ -75,10 +75,16 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .section-heading h2 { margin: 4px 0 14px; }
 .leader-prize { padding: 9px 12px; background: #fff0c9; border-radius: 13px; font-size: .82rem; }
-.leader-table { overflow-x: auto; }
-.leader-row { display: grid; grid-template-columns: .6fr 1.2fr 1fr .7fr 1.6fr; min-width: 620px; padding: 12px; border-bottom: 1px solid #eee7dd; }
-.leader-row.header { color: var(--ink-soft); font-size: .75rem; font-weight: 750; text-transform: uppercase; }
-.leader-row.you { background: #fff1ec; border-radius: 12px; font-weight: 800; }
+/* Compact, and only as tall as ~7 players — the rest scroll inside. */
+.leaderboard { padding: 16px 18px; margin: 16px 0; }
+.leaderboard .section-heading h2 { margin: 2px 0 10px; }
+.leaderboard .fine-print { margin-top: 8px; font-size: .72rem; }
+.leader-table { overflow: auto; max-height: 300px; border: 1px solid #e8ddcb; border-radius: 14px; -webkit-overflow-scrolling: touch; }
+.leader-row { display: grid; grid-template-columns: .55fr 1.3fr 1fr .7fr 1.5fr; min-width: 540px; padding: 8px 12px; border-bottom: 1px solid #eee7dd; font-size: .88rem; }
+.leader-row:last-child { border-bottom: 0; }
+.leader-row.header { position: sticky; top: 0; z-index: 1; background: var(--paper); color: var(--ink-soft); font-size: .72rem; font-weight: 750; text-transform: uppercase; }
+.leader-row.you { background: #fff1ec; font-weight: 800; }
+.leader-count { margin: 8px 2px 0; font-size: .74rem; color: var(--ink-soft); font-weight: 600; }
 .fine-print { margin-top: 12px; font-size: .78rem; }
 .challenge-panel { display: grid; grid-template-columns: 1.1fr .9fr; align-items: center; gap: 20px 36px; }
 .challenge-panel h2 { margin: 4px 0 8px; }
