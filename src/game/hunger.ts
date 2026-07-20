@@ -18,7 +18,7 @@ export const magicWand: Weapon = {
 
 export const weaponById = (id: string) => id === 'wand' ? magicWand : weapons.find((w) => w.id === id);
 
-export type PickupKind = 'heart' | 'weapon' | 'wand' | 'water' | 'tent' | 'blanket';
+export type PickupKind = 'heart' | 'weapon' | 'wand' | 'water' | 'tent' | 'blanket' | 'apple' | 'berry';
 
 export interface PickupType { kind: PickupKind; name: string; icon: string; blurb: string }
 
@@ -29,6 +29,8 @@ export const pickupTypes: Record<PickupKind, PickupType> = {
   water: { kind: 'water', name: 'Water Bottle', icon: '💧', blurb: 'Water for your backpack.' },
   tent: { kind: 'tent', name: 'Tent', icon: '⛺', blurb: 'A tent for the night.' },
   blanket: { kind: 'blanket', name: 'Blanket', icon: '🧣', blurb: 'A warm blanket.' },
+  apple: { kind: 'apple', name: 'Apple', icon: '🍎', blurb: 'A juicy apple — heals a heart!' },
+  berry: { kind: 'berry', name: 'Berries', icon: '🫐', blurb: 'Sweet berries — heals a heart!' },
 };
 
 /** The three survival items the backpack is looking for. */

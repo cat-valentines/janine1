@@ -20,6 +20,7 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
   const [calling, setCalling] = useState(false);
   /** The chat opens only when you tap 💬 Text on a friend's profile. */
   const [showChat, setShowChat] = useState(false);
+  const [pendingAction, setPendingAction] = useState<null | 'chat' | 'invite'>(null);
   /** Which invite tray is open: none, "invite now", or "plan a play date". */
   const [tray, setTray] = useState<'none' | 'now' | 'plan'>('none');
   const [planGame, setPlanGame] = useState(gameTargets[0].id);
@@ -45,6 +46,11 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
     setShowChat(false);
     if (!selected || selected.status !== 'accepted') { setChat([]); return; }
     openChat(selected.id);
+    // a Text/Invite button on the row opens straight into that action
+    if (pendingAction === 'chat') setShowChat(true);
+    if (pendingAction === 'invite') { setInviteFriends(new Set([selected.id])); setTray('now'); }
+    setPendingAction(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
   useEffect(() => {
@@ -125,7 +131,15 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
     {!userId ? <div className="friend-login-note"><span>🔐</span><h3>Log in to find friends</h3><p>Only signed-up Magical Islands players appear here.</p></div> : <>
       <div className="friend-search"><span>🔍</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search real players by username…" maxLength={24} /></div>
       {search.trim().length >= 2 && <section className="player-search-results"><h3>Player search</h3>{found.map((player) => { const connected = friends.some((friend) => friend.id === player.id); return <div className="player-result" key={player.id}><span>{icons[player.character_id] ?? '🙂'}</span><strong>@{player.name}<small>Level {player.level}</small></strong><button className={`friend-star ${connected ? 'starred' : ''}`} onClick={() => toggleStar(player)} title={connected ? 'Unfriend this player' : 'Add friend'} aria-label={connected ? `Unfriend ${player.name}` : `Friend ${player.name}`}>{connected ? '★' : '☆'}</button></div>; })}{!found.length && <p className="friend-empty">No matching signed-up players.</p>}</section>}
-      <div className="friend-list">{friends.map((friend) => <div className="friend-row" key={friend.id}><button className={selected?.id === friend.id ? 'selected' : ''} onClick={() => setSelected(friend)}><span>{icons[friend.character_id] ?? '🙂'}</span><strong>{friend.name}<small>{friend.status === 'accepted' ? `Level ${friend.level}` : 'Wants to be your friend'}</small></strong></button>{friend.status === 'pending' && friend.incoming && <button className="friend-accept" onClick={() => accept(friend)}>✓ Accept</button>}<button className="friend-star starred" onClick={() => unfriend(friend)} title="Unfriend this player" aria-label={`Unfriend ${friend.name}`}>★</button></div>)}{!friends.length && <p className="friend-empty">No friends yet. Add someone from the list below.</p>}</div>
+      <div className="friend-list">{friends.map((friend) => <div className="friend-row" key={friend.id}>
+        <button className={selected?.id === friend.id ? 'selected' : ''} onClick={() => setSelected(friend)}><span>{icons[friend.character_id] ?? '🙂'}</span><strong>{friend.name}<small>{friend.status === 'accepted' ? `Level ${friend.level}` : 'Wants to be your friend'}</small></strong></button>
+        {friend.status === 'accepted' && <>
+          <button className="friend-quick text" onClick={() => { setPendingAction('chat'); setSelected(friend); setShowChat(true); openChat(friend.id); }} title={`Text @${friend.name}`}>💬 Text</button>
+          <button className="friend-quick invite" onClick={() => { setPendingAction('invite'); setSelected(friend); openTray('now'); }} title={`Invite @${friend.name}`}>🎮 Invite</button>
+        </>}
+        {friend.status === 'pending' && friend.incoming && <button className="friend-accept" onClick={() => accept(friend)}>✓ Accept</button>}
+        <button className="friend-star starred" onClick={() => unfriend(friend)} title="Unfriend this player" aria-label={`Unfriend ${friend.name}`}>★</button>
+      </div>)}{!friends.length && <p className="friend-empty">No friends yet. Add someone from the list below.</p>}</div>
 
       {search.trim().length < 2 && <section className="all-players">
         <h3>Signed-up players</h3>

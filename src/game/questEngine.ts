@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ARENA, ARENA_TOP, WALL, buildForest, forestDiggable, forestGround, forestHeight, isForestSolid, spawnRing } from './forest';
+import { ARENA, ARENA_TOP, WALL, buildForest, foodSpots, forestDiggable, forestGround, forestHeight, isForestSolid, spawnRing } from './forest';
 import {
   DAY_SECONDS, FLY_DRAIN, FLY_HEIGHT, FLY_MIN, FLY_SPEED, INVISIBLE_COST, INVISIBLE_SECONDS,
   MAGIC_REGEN, MAX_HEARTS, MAX_MAGIC, RIVAL_COUNT, START_HEARTS, TELEPORT_COOLDOWN, TELEPORT_COST,
@@ -312,6 +312,14 @@ export class QuestEngine {
       const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTexture(pickupTypes[kind].icon) }));
       sprite.scale.setScalar(0.9);
       sprite.position.set(x, y + 0.6, z);
+      this.scene.add(sprite);
+      this.pickups.push({ kind, sprite, position: sprite.position.clone(), taken: false });
+    });
+    // apples on the trees, berries on the bushes, and food stashed in the caves
+    foodSpots(this.seed).forEach(({ x, y, z, kind }) => {
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTexture(pickupTypes[kind].icon) }));
+      sprite.scale.setScalar(0.8);
+      sprite.position.set(x, y, z);
       this.scene.add(sprite);
       this.pickups.push({ kind, sprite, position: sprite.position.clone(), taken: false });
     });
@@ -703,6 +711,8 @@ export class QuestEngine {
       } else if (pickup.kind === 'weapon') {
         const stronger = weaponById('axe');
         if (stronger && stronger.damage > this.weapon.damage) this.weapon = stronger;
+      } else if (pickup.kind === 'apple' || pickup.kind === 'berry') {
+        this.hearts = Math.min(this.maxHearts, this.hearts + 1);   // food heals a heart
       } else if (!this.backpack.includes(pickup.kind)) {
         this.backpack.push(pickup.kind);
       }
