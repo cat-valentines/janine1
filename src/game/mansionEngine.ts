@@ -396,7 +396,7 @@ export class MansionEngine {
   private buildKeys() {
     const geo = new THREE.TorusGeometry(0.18, 0.06, 8, 14);
     const stem = new THREE.BoxGeometry(0.09, 0.42, 0.09);
-    const mat = new THREE.MeshLambertMaterial({ color: '#f2c94c', emissive: '#6a5410' });
+    const mat = new THREE.MeshLambertMaterial({ color: '#ffd94a', emissive: '#d0a01e' }); // strongly self-lit so the keys glow gold in the dark and are easy to find
     this.disposables.push(geo, stem, mat);
     keySpots.forEach((at) => {
       const group = new THREE.Group();
@@ -456,8 +456,9 @@ export class MansionEngine {
 
   private buildKeeper(asset: string) {
     void asset; // she no longer wears the player's face — she is her own dread now
-    const body = new THREE.MeshLambertMaterial({ color: '#2f1019', emissive: '#100407' }); // blood-dark robe
-    const skin = new THREE.MeshLambertMaterial({ color: '#b4ac9c' });                       // gaunt grey skin
+    const body = new THREE.MeshLambertMaterial({ color: '#2f1019', emissive: '#140508' }); // blood-dark robe
+    // pale, faintly self-lit skin so her face floats out of the dark even with no light on it
+    const skin = new THREE.MeshLambertMaterial({ color: '#e9e0cf', emissive: '#5a5344' });
     const torsoGeo = new THREE.BoxGeometry(0.64, 1.08, 0.34);
     const headGeo = new THREE.BoxGeometry(0.5, 0.56, 0.48);
     this.disposables.push(body, skin, torsoGeo, headGeo);
@@ -476,15 +477,25 @@ export class MansionEngine {
     const fringe = new THREE.Mesh(fringeGeo, hairMat); fringe.position.set(0, 1.96, 0.25);
     this.keeper.add(hair, fringe);
 
-    // glowing red eyes + a grim mouth
-    const eyeMat = new THREE.MeshBasicMaterial({ color: '#ff2f2f' });
-    const eyeGeo = new THREE.BoxGeometry(0.1, 0.075, 0.05);
-    const mouthMat = new THREE.MeshLambertMaterial({ color: '#240a10' });
-    const mouthGeo = new THREE.BoxGeometry(0.24, 0.05, 0.04);
-    this.disposables.push(eyeMat, eyeGeo, mouthMat, mouthGeo);
-    [-0.12, 0.12].forEach((x) => { const e = new THREE.Mesh(eyeGeo, eyeMat); e.position.set(x, 1.85, 0.245); this.keeper.add(e); });
-    const eyeGlow = new THREE.PointLight('#ff2b2b', 1.5, 3.6, 2); eyeGlow.position.set(0, 1.85, 0.32); this.keeper.add(eyeGlow);
-    const mouth = new THREE.Mesh(mouthGeo, mouthMat); mouth.position.set(0, 1.67, 0.245); this.keeper.add(mouth);
+    // sunken dark eye sockets, then big glowing red eyes that clearly stick out
+    const socketMat = new THREE.MeshBasicMaterial({ color: '#160305' });
+    const socketGeo = new THREE.BoxGeometry(0.19, 0.15, 0.05);
+    const eyeMat = new THREE.MeshBasicMaterial({ color: '#ff2323' });   // unlit → always burns red, even in pitch dark
+    const eyeGeo = new THREE.BoxGeometry(0.13, 0.1, 0.07);
+    const mouthMat = new THREE.MeshBasicMaterial({ color: '#1a0206' });
+    const mouthGeo = new THREE.BoxGeometry(0.28, 0.09, 0.05);
+    const toothGeo = new THREE.BoxGeometry(0.035, 0.06, 0.05);
+    const toothMat = new THREE.MeshLambertMaterial({ color: '#efe6d4', emissive: '#4a4438' });
+    this.disposables.push(socketMat, socketGeo, eyeMat, eyeGeo, mouthMat, mouthGeo, toothGeo, toothMat);
+    [-0.12, 0.12].forEach((x) => {
+      const socket = new THREE.Mesh(socketGeo, socketMat); socket.position.set(x, 1.86, 0.235);
+      const eye = new THREE.Mesh(eyeGeo, eyeMat); eye.position.set(x, 1.86, 0.28);
+      this.keeper.add(socket, eye);
+    });
+    const eyeGlow = new THREE.PointLight('#ff2323', 2.4, 4.2, 2); eyeGlow.position.set(0, 1.86, 0.42); this.keeper.add(eyeGlow);
+    // a grim, gap-toothed grimace
+    const mouth = new THREE.Mesh(mouthGeo, mouthMat); mouth.position.set(0, 1.64, 0.25); this.keeper.add(mouth);
+    [-0.09, -0.03, 0.03, 0.09].forEach((x) => { const t = new THREE.Mesh(toothGeo, toothMat); t.position.set(x, 1.64, 0.27); this.keeper.add(t); });
 
     // a long, gaunt arm holding the axe out in front
     const armGeo = new THREE.BoxGeometry(0.16, 0.16, 0.72);
