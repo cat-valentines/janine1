@@ -150,7 +150,7 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
         <p className="card-kicker">How to get out</p>
         <h2>Find {KEYS_TO_ESCAPE} keys and reach the door — you have {DAYS} nights.</h2>
         <div className="escape-rules">
-          <div><span>🔑</span><strong>Find the keys</strong><small>{KEYS_TO_ESCAPE} of them are hidden around the house. The front door will not open without all of them.</small></div>
+          <div><span>🔑</span><strong>Search the cabinets</strong><small>{KEYS_TO_ESCAPE} keys are locked inside cabinets around the house. Stand at a cabinet and press Space to swing it open and grab the key. The front door won't open without all of them.</small></div>
           <div><span>🚪</span><strong>Get to the door</strong><small>It glows faintly. Stand at it and press Space once you have every key.</small></div>
           <div><span>🚪</span><strong>Hide</strong><small>Press Space at a wardrobe to climb in, or at a bed to slide underneath. But if she watches you get in, she will come and open it.</small></div>
           <div><span>🪵</span><strong>Mind the floorboards</strong><small>The worn brown boards creak if you run over them, and she hears it from anywhere.</small></div>
@@ -196,7 +196,7 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
         { codes: ['ShiftLeft'], label: '🤫' },
       ]} />}
       {snapshot?.status === 'playing' && <p className="escape-help">
-        <b>↑ ↓</b> walk · <b>← →</b> turn · <b>Shift</b> sneak · <b>E</b> throw a stone · <b>Space</b> {snapshot.hidden ? 'come back out' : snapshot.nearHide ? 'hide here' : snapshot.nearDoor ? 'open the door' : 'hide / open doors'}
+        <b>↑ ↓</b> walk · <b>← →</b> turn · <b>Shift</b> sneak · <b>E</b> throw a stone · <b>Space</b> {snapshot.hidden ? 'come back out' : snapshot.nearKey ? '🔑 open the cabinet' : snapshot.nearHide ? 'hide here' : snapshot.nearDoor ? 'open the door' : 'search cabinets / hide'}
       </p>}
 
       {caught && <div className="quest-over">

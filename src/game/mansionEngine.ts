@@ -26,6 +26,7 @@ export interface MansionSnapshot {
   keeperState: 'patrol' | 'chase' | 'search';
   nearHide: boolean;
   nearDoor: boolean;
+  nearKey: boolean;   // standing at a closed cabinet you can open
   status: 'playing' | 'caught' | 'escaped' | 'lost';
   party: boolean;
   level: number;
@@ -60,6 +61,9 @@ interface Roamer {
 }
 
 interface Cell { col: number; row: number }
+
+/** A pair of hinged doors that swing open — on a key cabinet, or a wardrobe. */
+interface DoorAnim { left: THREE.Object3D; right: THREE.Object3D; max: number; open: number; target: number; pulse: number }
 
 /** A stable colour hue for a player id, so each real player has their own tint. */
 function hashHue(id: string): number {
@@ -145,8 +149,12 @@ export class MansionEngine {
   private livePlayers = new Map<string, LiveFigure>();
   private floorCells: Cell[] = [];
 
-  private keyMeshes: Array<{ mesh: THREE.Object3D; taken: boolean; at: Cell; cooldown: number }> = [];
-  private hideMeshes: Array<{ mesh: THREE.Object3D; at: Cell; kind: HideKind }> = [];
+  // Each key now lives inside a cabinet you must open to collect it.
+  private keyMeshes: Array<{ group: THREE.Object3D; key: THREE.Object3D; doors: DoorAnim; at: Cell; opened: boolean; taken: boolean; cooldown: number }> = [];
+  private doorAnims: DoorAnim[] = [];
+  private doorHandleGeo = new THREE.BoxGeometry(0.06, 0.28, 0.06);
+  private hideMeshes: Array<{ mesh: THREE.Object3D; at: Cell; kind: HideKind; doors?: DoorAnim }> = [];
+  private hiddenDoors: DoorAnim | null = null;   // the wardrobe you're currently tucked inside
   private collected = 0;
   private day = 1;
   private hidden = false;
@@ -393,21 +401,54 @@ export class MansionEngine {
     }
   }
 
+  /** A pair of hinged doors on the front of a cabinet/wardrobe. Returns them so
+   *  they can be swung open. `max` is the fully-open angle in radians. */
+  private addDoors(cx: number, cy: number, frontZ: number, halfW: number, height: number, mat: THREE.Material, handleMat: THREE.Material, max: number): DoorAnim {
+    const doorGeo = new THREE.BoxGeometry(halfW - 0.02, height, 0.06);
+    this.disposables.push(doorGeo);
+    const make = (side: 1 | -1) => {
+      const pivot = new THREE.Group();
+      pivot.position.set(cx + side * halfW, cy, frontZ);
+      const panel = new THREE.Mesh(doorGeo, mat);
+      panel.position.x = -side * (halfW - 0.02) / 2;   // panel reaches from the hinge toward the centre
+      pivot.add(panel);
+      const handle = new THREE.Mesh(this.doorHandleGeo, handleMat);
+      handle.position.set(-side * (halfW - 0.16), 0, 0.06);
+      pivot.add(handle);
+      this.scene.add(pivot);
+      return pivot;
+    };
+    const anim: DoorAnim = { left: make(-1), right: make(1), max, open: 0, target: 0, pulse: 0 };
+    this.doorAnims.push(anim);
+    return anim;
+  }
+
   private buildKeys() {
-    const geo = new THREE.TorusGeometry(0.18, 0.06, 8, 14);
-    const stem = new THREE.BoxGeometry(0.09, 0.42, 0.09);
-    const mat = new THREE.MeshLambertMaterial({ color: '#ffd94a', emissive: '#d0a01e' }); // strongly self-lit so the keys glow gold in the dark and are easy to find
-    this.disposables.push(geo, stem, mat);
+    const geo = new THREE.TorusGeometry(0.16, 0.055, 8, 14);
+    const stem = new THREE.BoxGeometry(0.08, 0.38, 0.08);
+    const keyMat = new THREE.MeshLambertMaterial({ color: '#ffd94a', emissive: '#d0a01e' }); // self-lit so it glows inside the cabinet
+    const cabMat = new THREE.MeshLambertMaterial({ map: pixelTexture('#6a4526', '#472d16', 'planks') });
+    const doorMat = new THREE.MeshLambertMaterial({ map: pixelTexture('#7a5230', '#4e3319', 'planks') });
+    const handleMat = new THREE.MeshLambertMaterial({ color: '#d8c08a' });
+    const cabGeo = new THREE.BoxGeometry(1.5, 1.7, 0.85);
+    this.disposables.push(geo, stem, keyMat, cabMat, doorMat, handleMat, cabGeo);
     keySpots.forEach((at) => {
-      const group = new THREE.Group();
-      group.add(new THREE.Mesh(geo, mat));
-      const bar = new THREE.Mesh(stem, mat);
-      bar.position.y = -0.3;
-      group.add(bar);
       const world = worldOf(at.col, at.row);
-      group.position.set(world.x, 1.1, world.z);
-      this.scene.add(group);
-      this.keyMeshes.push({ mesh: group, taken: false, at, cooldown: 0 });
+      const cx = world.x, cz = world.z;
+      // the cabinet body
+      const body = new THREE.Mesh(cabGeo, cabMat);
+      body.position.set(cx, 0.85, cz);
+      this.scene.add(body);
+      // the key sitting inside, behind the doors
+      const key = new THREE.Group();
+      key.add(new THREE.Mesh(geo, keyMat));
+      const bar = new THREE.Mesh(stem, keyMat); bar.position.y = -0.27; key.add(bar);
+      key.position.set(cx, 1.0, cz - 0.06);
+      key.visible = false;                    // hidden until you open the cabinet
+      this.scene.add(key);
+      // the two doors that swing open
+      const doors = this.addDoors(cx, 0.9, cz + 0.44, 0.74, 1.5, doorMat, handleMat, 1.95);
+      this.keyMeshes.push({ group: body, key, doors, at, opened: false, taken: false, cooldown: 0 });
     });
   }
 
@@ -418,25 +459,20 @@ export class MansionEngine {
     const legGeo = new THREE.BoxGeometry(0.12, 0.4, 0.12);
     const sheetGeo = new THREE.BoxGeometry(CELL * 0.58, 0.14, CELL * 0.5);
     const wood = new THREE.MeshLambertMaterial({ map: pixelTexture('#5b3a24', '#3a2415', 'planks') });
+    const doorMat = new THREE.MeshLambertMaterial({ map: pixelTexture('#6a4529', '#432b16', 'planks') });
     const handleMat = new THREE.MeshLambertMaterial({ color: '#d8c08a' });
     const sheetMat = new THREE.MeshLambertMaterial({ color: '#9a8f9e' });
-    const seamGeo = new THREE.BoxGeometry(0.05, 2.0, 0.05);   // the split between the two doors
-    const seamMat = new THREE.MeshLambertMaterial({ color: '#241408' });
-    this.disposables.push(wardrobeGeo, handleGeo, bedGeo, legGeo, sheetGeo, wood, handleMat, sheetMat, seamGeo, seamMat);
+    this.disposables.push(wardrobeGeo, handleGeo, bedGeo, legGeo, sheetGeo, wood, doorMat, handleMat, sheetMat);
 
     hideSpots.forEach((at) => {
       const world = worldOf(at.col, at.row);
       if (at.kind === 'wardrobe') {
         const wardrobe = new THREE.Mesh(wardrobeGeo, wood);
         wardrobe.position.set(world.x, 1.15, world.z);
-        const front = world.z + CELL * 0.25;
-        // a centre seam + a handle on each door, so it reads as a wardrobe to hide in
-        const seam = new THREE.Mesh(seamGeo, seamMat);
-        seam.position.set(world.x, 1.15, front + 0.01);
-        const h1 = new THREE.Mesh(handleGeo, handleMat); h1.position.set(world.x - 0.13, 1.15, front + 0.02);
-        const h2 = new THREE.Mesh(handleGeo, handleMat); h2.position.set(world.x + 0.13, 1.15, front + 0.02);
-        this.scene.add(wardrobe, seam, h1, h2);
-        this.hideMeshes.push({ mesh: wardrobe, at, kind: 'wardrobe' });
+        // two doors that swing open when you climb in
+        const doors = this.addDoors(world.x, 1.15, world.z + CELL * 0.25 + 0.02, CELL * 0.34, 2.1, doorMat, handleMat, 1.7);
+        this.scene.add(wardrobe);
+        this.hideMeshes.push({ mesh: wardrobe, at, kind: 'wardrobe', doors });
         return;
       }
       // A bed on legs, with a gap underneath to slide into.
@@ -702,13 +738,37 @@ export class MansionEngine {
   }
 
   private nearestHide() {
-    let best: { at: Cell; distance: number; kind: HideKind; world: { x: number; z: number } } | null = null;
+    type Hide = { at: Cell; distance: number; kind: HideKind; world: { x: number; z: number }; doors?: DoorAnim };
+    let best: Hide | null = null;
     this.hideMeshes.forEach((spot) => {
       const world = worldOf(spot.at.col, spot.at.row);
       const distance = Math.hypot(world.x - this.position.x, world.z - this.position.z);
-      if (!best || distance < best.distance) best = { at: spot.at, distance, kind: spot.kind, world };
+      if (!best || distance < best.distance) best = { at: spot.at, distance, kind: spot.kind, world, doors: spot.doors };
     });
-    return best as { at: Cell; distance: number; kind: HideKind; world: { x: number; z: number } } | null;
+    return best as Hide | null;
+  }
+
+  /** The nearest cabinet you haven't opened yet. */
+  private nearestCabinet() {
+    let best: { index: number; distance: number } | null = null;
+    this.keyMeshes.forEach((cab, index) => {
+      if (cab.opened) return;
+      const world = worldOf(cab.at.col, cab.at.row);
+      const distance = Math.hypot(world.x - this.position.x, world.z - this.position.z);
+      if (!best || distance < best.distance) best = { index, distance };
+    });
+    return best as { index: number; distance: number } | null;
+  }
+
+  private openCabinet(index: number) {
+    const cab = this.keyMeshes[index];
+    if (cab.opened) return;
+    cab.opened = true;
+    cab.taken = true;
+    cab.doors.target = 1;         // doors swing open and stay open
+    cab.key.visible = true;       // the key glows inside
+    this.collected += 1;
+    this.say(`🔑 Key ${this.collected} of ${KEYS_TO_ESCAPE}! You found it in the cabinet.`, 2.4);
   }
 
   private atDoor() {
@@ -716,10 +776,18 @@ export class MansionEngine {
     return Math.hypot(world.x - this.position.x, world.z - this.position.z) < 2.2;
   }
 
-  /** Space does the obvious thing: hide, come out, or open the door. */
+  /** Space does the obvious thing: open a cabinet, hide, come out, or exit. */
   private useSpace() {
     if (this.status !== 'playing') return;
-    if (this.hidden) { this.hidden = false; this.hideKind = null; this.busted = false; this.say('You slip back out.', 1.4); return; }
+    if (this.hidden) {
+      this.hidden = false; this.hideKind = null; this.busted = false;
+      if (this.hiddenDoors) { this.hiddenDoors.pulse = 0.7; this.hiddenDoors = null; }   // doors swing as you climb out
+      this.say('You slip back out.', 1.4);
+      return;
+    }
+    // A key cabinet right here? Open it.
+    const cabinet = this.nearestCabinet();
+    if (cabinet && cabinet.distance < 1.9) { this.openCabinet(cabinet.index); return; }
     const hide = this.nearestHide();
     if (hide && hide.distance < HIDE_DISTANCE) {
       // If she watched you climb in, hiding will not save you — she comes to look.
@@ -727,6 +795,7 @@ export class MansionEngine {
       this.hidden = true;
       this.hideKind = hide.kind;
       this.hideAt.set(hide.world.x, 0, hide.world.z);
+      if (hide.doors) { hide.doors.pulse = 0.7; this.hiddenDoors = hide.doors; }         // doors swing as you climb in
       if (this.busted) this.say('😱 She saw you get in!', 2.4);
       else this.say(hide.kind === 'bed' ? '🛏️ Under the bed. Stay still…' : '🚪 In the wardrobe. Stay still…', 2);
       return;
@@ -881,14 +950,14 @@ export class MansionEngine {
   }
 
   /**
-   * Bot players racing to find the keys, each on their own — fleeing whichever
-   * keeper gets close, then getting back to the hunt.
+   * The other players roaming the house — fleeing whichever keeper gets close,
+   * otherwise wandering between the cabinets, so the house feels busy. (The keys
+   * live in fixed cabinets now, so nobody can carry one off.)
    */
   private moveBots(dt: number) {
     const keepers = [this.keeperPos];
     if (this.keeper2) keepers.push(this.keeper2.pos);
-    const keys = this.keyMeshes.filter((key) => !key.taken);
-    this.bots.forEach((bot, i) => {
+    this.bots.forEach((bot) => {
       if (bot.flash > 0) bot.flash -= dt;
       const here = { col: colOf(bot.pos.x), row: rowOf(bot.pos.z) };
       let nearest = Infinity;
@@ -896,35 +965,11 @@ export class MansionEngine {
       bot.repath -= dt;
 
       if (nearest < 6) {
-        // A keeper is close — run somewhere random to get away.
         if (bot.repath <= 0 || !bot.path.length) { bot.path = findPath(here, this.randomCell()); bot.repath = 0.7; }
         this.advance(bot, dt, KEEPER_PATROL_SPEED * 1.35);
-      } else if (keys.length) {
-        // Race for a key — bots spread across the different keys.
-        const key = keys[i % keys.length];
-        const target = key.at;
-        if (bot.repath <= 0 || !bot.path.length) { bot.path = findPath(here, target); bot.repath = 1.4; }
-        this.advance(bot, dt, KEEPER_PATROL_SPEED * 1.05);
-        // First come, first served: a bot that gets there first snatches it. To
-        // keep the game winnable it does not vanish — the bot grabs it and drops
-        // it somewhere new as it runs, so you have to find it again.
-        if (bot.pos.distanceTo(key.mesh.position) < 1.4 && key.cooldown <= 0) {
-          const playerFar = this.position.distanceTo(key.mesh.position) > 3.5;
-          if (playerFar) {
-            const cell = this.randomCell();
-            const w = worldOf(cell.col, cell.row);
-            key.at = cell;
-            key.mesh.position.set(w.x, 1.1, w.z);
-            key.cooldown = 6;
-            bot.path = [];
-            bot.repath = 1.6;
-            this.say('🏃 A player grabbed a key — it is somewhere else now!', 2.2);
-          }
-        }
       } else {
-        // All keys found — just roam.
-        if (!bot.path.length) bot.path = findPath(here, this.randomCell());
-        this.advance(bot, dt, KEEPER_PATROL_SPEED);
+        if (bot.repath <= 0 || !bot.path.length) { bot.path = findPath(here, this.randomCell()); bot.repath = 1.6; }
+        this.advance(bot, dt, KEEPER_PATROL_SPEED * 1.05);
       }
 
       // Caught: dragged off, reappears elsewhere — so the house stays busy.
@@ -943,7 +988,11 @@ export class MansionEngine {
     this.level += 1;
     this.speedMul += 0.12;
     this.collected = 0;
-    this.keyMeshes.forEach((key) => { key.taken = false; key.mesh.visible = true; });
+    this.keyMeshes.forEach((cab) => {
+      cab.opened = false; cab.taken = false; cab.cooldown = 0; cab.key.visible = false;
+      cab.doors.target = 0; cab.doors.open = 0; cab.doors.pulse = 0;
+      cab.doors.left.rotation.y = 0; cab.doors.right.rotation.y = 0;
+    });
     const start = worldOf(startSpot.col, startSpot.row);
     this.position.set(start.x, 0, start.z);
     this.yaw = Math.PI;
@@ -1096,16 +1145,15 @@ export class MansionEngine {
     this.say(`🌙 Night ${this.day}. She is walking again…`, 3);
   }
 
-  private collectKeys() {
-    this.keyMeshes.forEach((key) => {
-      if (key.cooldown > 0) key.cooldown -= 1 / 60;
-      if (key.taken) return;
-      if (key.mesh.position.distanceTo(this.position) > 1.5) return;
-      key.taken = true;
-      key.mesh.visible = false;
-      this.collected += 1;
-      this.say(`🔑 Key ${this.collected} of ${KEYS_TO_ESCAPE}!`, 2);
-    });
+  /** Swing every door toward its target (cabinets stay open; wardrobes pulse). */
+  private updateDoors(dt: number) {
+    this.keyMeshes.forEach((cab) => { cab.key.rotation.y += dt * 2; });   // the revealed key spins
+    for (const d of this.doorAnims) {
+      if (d.pulse > 0) { d.pulse = Math.max(0, d.pulse - dt); d.open = Math.sin((1 - d.pulse / 0.7) * Math.PI); }
+      else d.open += (d.target - d.open) * Math.min(1, dt * 9);
+      d.left.rotation.y = -d.open * d.max;
+      d.right.rotation.y = d.open * d.max;
+    }
   }
 
   private snapshot(): MansionSnapshot {
@@ -1118,6 +1166,7 @@ export class MansionEngine {
       alarm: this.alarm, keeperState: this.keeperState,
       nearHide: !!hide && hide.distance < HIDE_DISTANCE,
       nearDoor: this.atDoor(),
+      nearKey: (() => { const c = this.nearestCabinet(); return !!c && c.distance < 1.9; })(),
       status: this.status,
       party: this.party, level: this.level,
       message: this.time < this.messageUntil ? this.message : '',
@@ -1149,8 +1198,8 @@ export class MansionEngine {
       this.movePlayer(dt);
       this.moveKeeper(dt);
       if (this.party) { this.moveKeeper2(dt); this.moveBots(dt); }
-      this.collectKeys();
     }
+    this.updateDoors(dt);
 
     this.keeper.position.copy(this.keeperPos);
     this.keeper.rotation.y = this.keeperYaw;
@@ -1169,7 +1218,6 @@ export class MansionEngine {
         live.group.rotation.y = live.yaw;
       });
     }
-    this.keyMeshes.forEach((key) => { key.mesh.rotation.y = this.time * 1.6; });
 
     this.thrown = this.thrown.filter((stone) => {
       stone.t += dt * 1.8;
