@@ -245,8 +245,13 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
         <small>Saved automatically · click food to eat it</small>
       </aside>}
 
-      {/* Sell mode: your own market stand. Tick goods to lay out, then sell. */}
-      {sellMode && !shop && !snapshot?.atRival && !standOpen && <button className="stand-reopen" onClick={() => setStandOpen(true)}>🧺 My stand</button>}
+      {/* Sell mode collapsed: still show the food you've collected, tap to sell. */}
+      {sellMode && !shop && !snapshot?.atRival && !standOpen && <button className="stand-reopen" onClick={() => setStandOpen(true)}>
+        <b>🧺 Sell</b>
+        {packList.length
+          ? packList.slice(0, 6).map(([id, count]) => <span className="reopen-food" key={id}>{forageById(id)?.icon} {count}</span>)
+          : <span className="reopen-food none">no food yet — go gather!</span>}
+      </button>}
 
       {sellMode && !shop && !snapshot?.atRival && standOpen && <aside className="stand-panel">
         <div className="stand-head">

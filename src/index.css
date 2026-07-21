@@ -623,7 +623,9 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .store-toggle { border: 0; border-radius: 999px; padding: 4px 11px; font-weight: 800; font-size: .72rem; cursor: pointer; background: #ded7ca; color: #7a6a55; }
 .store-toggle.open { background: #dff3e2; color: #2e7d46; }
 .panel-collapse { border: 0; border-radius: 8px; padding: 2px 9px; background: #ded7ca; color: #5d5148; font-weight: 900; font-size: .95rem; line-height: 1; cursor: pointer; }
-.stand-reopen { position: absolute; left: 12px; bottom: 12px; z-index: 6; padding: 10px 16px; border: 3px solid #5d5148; border-radius: 12px; background: #fffaf0f2; color: #3e2f22; font-weight: 850; box-shadow: 5px 5px 0 #2b241d66; cursor: pointer; }
+.stand-reopen { position: absolute; left: 12px; bottom: 12px; z-index: 6; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; max-width: min(92vw, 420px); padding: 8px 12px; border: 3px solid #5d5148; border-radius: 12px; background: #fffaf0f2; color: #3e2f22; font-weight: 850; box-shadow: 5px 5px 0 #2b241d66; cursor: pointer; }
+.reopen-food { padding: 2px 8px; border-radius: 999px; background: #eef0e6; font-weight: 800; font-size: .82rem; }
+.reopen-food.none { background: none; color: var(--ink-soft); font-weight: 600; font-size: .78rem; }
 /* another player's stall — buy panel */
 .rival-panel { border-color: #7a5aa0; }
 .rival-goods { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px; margin-top: 8px; }
@@ -1667,11 +1669,14 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 /* ---- Phone market: keep panels small so the game and controls stay visible ---- */
 @media (max-width: 650px) {
   .stand-panel { width: min(92%, 320px); max-height: 46vh; left: 8px; bottom: 8px; padding: 10px; }
+  /* walk-mode food pack: sit below the top buttons, not behind them */
+  .pack-panel { top: 52px; left: 8px; right: auto; width: min(64%, 220px); }
   .market-live { top: 90px; right: 8px; width: min(44%, 152px); padding: 7px 9px; }
   .market-live > strong { font-size: .72rem; }
   .market-live > div span { font-size: .58rem; padding: 1px 6px; }
   .market-live > small { font-size: .58rem; }
-  /* the collapsed "My stand" pill sits up top-centre, clear of the on-screen keypad */
-  .stand-reopen { left: 50%; bottom: auto; top: 52px; transform: translateX(-50%); padding: 8px 15px; font-size: .84rem; }
+  /* the collapsed food pill sits bottom-centre, above the keypad and clear of the live panel */
+  .stand-reopen { left: 50%; right: auto; top: auto; bottom: 92px; transform: translateX(-50%); max-width: 94vw; padding: 7px 11px; font-size: .82rem; }
+  .reopen-food { font-size: .76rem; padding: 2px 7px; }
   .rival-goods { grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); }
 }
