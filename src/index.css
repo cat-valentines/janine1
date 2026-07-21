@@ -1713,3 +1713,16 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
   .pong-canvas, .drive-canvas, .runner-canvas { width: auto; height: auto; max-width: 100%; max-height: 90dvh; margin: 0 auto; }
   .fric-stage { width: auto; height: 90dvh; margin: 0 auto; }
 }
+
+/* ---- Housekeeper phone controls: finger joystick, tap-to-toggle sneak, and a
+   Buttons/Joystick switch. Touch devices only; desktop keeps keyboard + mouse. ---- */
+.joystick, .sneak-toggle, .escape-ctl-toggle { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .joystick { display: block; position: fixed; left: 22px; bottom: 26px; z-index: 41; width: 118px; height: 118px; border-radius: 50%; background: #12162488; border: 2px solid #ffffff40; touch-action: none; }
+  .joystick-knob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: #ffffffd8; box-shadow: 0 2px 6px #0006; pointer-events: none; }
+  .sneak-toggle { display: block; position: fixed; right: 16px; bottom: 152px; z-index: 42; padding: 10px 16px; border: 0; border-radius: 999px; background: #2a3550dd; color: #fff; font-weight: 850; font-size: .9rem; box-shadow: 0 3px 0 #00000055; }
+  .sneak-toggle.on { background: #5f8fd0; box-shadow: 0 3px 0 #2a4a80, 0 0 0 3px #5f8fd055; }
+  .escape-ctl-toggle { display: flex; position: fixed; right: 16px; bottom: 208px; z-index: 42; gap: 3px; padding: 3px; border-radius: 999px; background: #1c2333cc; }
+  .escape-ctl-toggle button { border: 0; border-radius: 999px; padding: 6px 11px; background: transparent; color: #cbd6ea; font-weight: 800; font-size: .74rem; }
+  .escape-ctl-toggle button.on { background: #5f8fd0; color: #fff; }
+}

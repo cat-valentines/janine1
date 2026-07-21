@@ -7,8 +7,12 @@ import { sendFriendMessage } from '../lib/friends';
 import { heartbeat, leaveGame } from '../lib/presence';
 import { joinLiveGame } from '../lib/liveGame';
 import { KeyPad } from '../components/KeyPad';
+import { Joystick } from '../components/Joystick';
+import { storage } from '../lib/storage';
 import { supabase } from '../lib/supabase';
 import type { CharacterId } from '../game/types';
+
+const setShift = (down: boolean) => window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { code: 'ShiftLeft', key: 'Shift', bubbles: true }));
 
 interface EscapePageProps {
   character: CharacterId;
@@ -23,6 +27,9 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
   const [started, setStarted] = useState(false);
   const [round, setRound] = useState(1);
   const [snapshot, setSnapshot] = useState<MansionSnapshot | null>(null);
+  // Phone: tap-to-toggle sneak (walk quietly), and choose finger joystick or buttons.
+  const [sneaking, setSneaking] = useState(false);
+  const [controls, setControls] = useState<'buttons' | 'joystick'>(() => (storage.get('escapeControls') === 'joystick' ? 'joystick' : 'buttons'));
   // Start-screen: play alone, or invite friends to a scheduled game.
   const [mode, setMode] = useState<'alone' | 'friends' | 'everybody'>('alone');
   const [userId, setUserId] = useState('');
@@ -32,6 +39,12 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
   const [inviteDate, setInviteDate] = useState('');
   const [inviteTime, setInviteTime] = useState('');
   const [inviteNote, setInviteNote] = useState('');
+
+  const toggleSneak = () => { const next = !sneaking; setSneaking(next); setShift(next); };
+  const chooseControls = (mode: 'buttons' | 'joystick') => { setControls(mode); storage.set('escapeControls', mode); };
+  // Never leave sneak stuck on once the round ends; release it on leaving too.
+  useEffect(() => { if (snapshot?.status !== 'playing') { setSneaking(false); setShift(false); } }, [snapshot?.status]);
+  useEffect(() => () => { setShift(false); }, []);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -190,11 +203,20 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
       <button className="quest-leave" onClick={onBack}>← Leave</button>
 
       {snapshot?.message && <p className="escape-message">{snapshot.message}</p>}
-      {snapshot?.status === 'playing' && <KeyPad actions={[
-        { codes: ['Space'], label: '✋' },
-        { codes: ['KeyE'], label: '🪨' },
-        { codes: ['ShiftLeft'], label: '🤫' },
-      ]} />}
+      {snapshot?.status === 'playing' && <>
+        {/* Choose how to move: on-screen buttons, or a finger joystick. */}
+        <div className="escape-ctl-toggle">
+          <button className={controls === 'buttons' ? 'on' : ''} onClick={() => chooseControls('buttons')}>⬆ Buttons</button>
+          <button className={controls === 'joystick' ? 'on' : ''} onClick={() => chooseControls('joystick')}>🕹 Joystick</button>
+        </div>
+        {/* Tap to sneak — walk quietly so she can't hear you (no need to hold it). */}
+        <button className={`sneak-toggle ${sneaking ? 'on' : ''}`} onClick={toggleSneak}>🤫 {sneaking ? 'Sneaking' : 'Sneak'}</button>
+        {controls === 'joystick' && <Joystick />}
+        <KeyPad dirs={controls === 'buttons' ? ['up', 'down', 'left', 'right'] : []} actions={[
+          { codes: ['Space'], label: '✋' },
+          { codes: ['KeyE'], label: '🪨' },
+        ]} />
+      </>}
       {snapshot?.status === 'playing' && <p className="escape-help">
         <b>↑ ↓</b> walk · <b>← →</b> turn · <b>Shift</b> sneak · <b>E</b> throw a stone · <b>Space</b> {snapshot.hidden ? 'come back out' : snapshot.nearKey ? '🔑 open the cabinet' : snapshot.nearHide ? 'hide here' : snapshot.nearDoor ? 'open the door' : 'search cabinets / hide'}
       </p>}
