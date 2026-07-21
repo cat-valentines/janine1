@@ -16,6 +16,7 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
   const [myHandle, setMyHandle] = useState('');
   const [handleInput, setHandleInput] = useState('');
   const [savingHandle, setSavingHandle] = useState(false);
+  const [editingHandle, setEditingHandle] = useState(false);
   const [friends, setFriends] = useState<FriendRow[]>([]);
   const [selected, setSelected] = useState<FriendRow | null>(null);
   const [search, setSearch] = useState('');
@@ -67,7 +68,7 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
     try {
       if (await isUsernameFree(name) === false) { setNote(`@${name} is already taken — try another.`); setSavingHandle(false); return; }
       await changeUsername(userId, name);
-      setMyHandle(name); setMyName(name); setHandleInput('');
+      setMyHandle(name); setMyName(name); setHandleInput(''); setEditingHandle(false);
       setNote(`✅ You're now @${name} — your friends can find you!`);
     } catch (error) {
       setNote(isTakenError(error) ? `@${name} is already taken — try another.` : 'Could not save your username. Try again.');
@@ -165,12 +166,15 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
   return <div className="friends-backdrop" onClick={onClose}><aside className="friends-panel" onClick={(event) => event.stopPropagation()}>
     <div className="shop-heading"><div><span className="card-kicker">Real players only</span><h2>Friends</h2></div><button onClick={onClose} aria-label="Close friends">×</button></div>
     {!userId ? <div className="friend-login-note"><span>🔐</span><h3>Log in to find friends</h3><p>Only signed-up Magical Islands players appear here.</p></div> : <>
-      {myHandle && !isPlaceholderName(myHandle)
-        ? <div className="friend-you"><span>👋</span><div><strong>Friends find you as <b>@{myHandle}</b></strong><small>Tell your friends this exact username so they can search and text you.</small></div></div>
-        : <div className="friend-you warn"><span>⚠️</span><div>
-            <strong>Set a username so friends can find you</strong>
-            <small>You don't have a public name yet, so you're hidden from search. Pick one and your friends can find and text you.</small>
-            <div className="handle-set"><input value={handleInput} onChange={(event) => setHandleInput(event.target.value)} placeholder="your_username" maxLength={24} onKeyDown={(event) => event.key === 'Enter' && saveHandle()} /><button disabled={savingHandle} onClick={saveHandle}>{savingHandle ? 'Saving…' : 'Save'}</button></div>
+      {myHandle && !isPlaceholderName(myHandle) && !editingHandle
+        ? <div className="friend-you"><span>👋</span><div>
+            <strong>Friends find you as <b>@{myHandle}</b></strong>
+            <small>Tell your friends this exact username so they can search and text you. <button className="linklike" onClick={() => { setHandleInput(myHandle); setEditingHandle(true); }}>Change it</button></small>
+          </div></div>
+        : <div className={`friend-you ${myHandle && !isPlaceholderName(myHandle) ? '' : 'warn'}`}><span>{myHandle && !isPlaceholderName(myHandle) ? '✏️' : '⚠️'}</span><div>
+            <strong>{myHandle && !isPlaceholderName(myHandle) ? 'Change your username' : 'Set a username so friends can find you'}</strong>
+            <small>{myHandle && !isPlaceholderName(myHandle) ? 'Pick the exact @name your friends will search for.' : "You don't have a public name yet, so you're hidden from search. Pick one and your friends can find and text you."}</small>
+            <div className="handle-set"><input value={handleInput} onChange={(event) => setHandleInput(event.target.value)} placeholder="your_username" maxLength={24} onKeyDown={(event) => event.key === 'Enter' && saveHandle()} autoFocus={editingHandle} /><button disabled={savingHandle} onClick={saveHandle}>{savingHandle ? 'Saving…' : 'Save'}</button></div>
           </div></div>}
       <div className="friend-search"><span>🔍</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search real players by username…" maxLength={24} /></div>
       {query.length >= 2 && <section className="player-search-results"><h3>Player search</h3>{found.map((player) => { const connected = friends.some((friend) => friend.id === player.id); return <div className="player-result" key={player.id}><span>{icons[player.character_id] ?? '🙂'}</span><strong>@{player.name}<small>Level {player.level}</small></strong><button className={`friend-star ${connected ? 'starred' : ''}`} onClick={() => toggleStar(player)} title={connected ? 'Unfriend this player' : 'Add friend'} aria-label={connected ? `Unfriend ${player.name}` : `Friend ${player.name}`}>{connected ? '★' : '☆'}</button></div>; })}{!found.length && <p className="friend-empty">No matching signed-up players.</p>}</section>}
