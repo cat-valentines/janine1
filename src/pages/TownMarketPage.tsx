@@ -15,13 +15,15 @@ interface TownMarketPageProps {
   onBuy: (item: ShopItem) => void;
   /** Coins earned selling goods at your own stand. */
   onEarn: (coins: number) => void;
+  /** Jump straight into sell mode (chosen from the menu's "Sell your items"). */
+  initialSell?: boolean;
   onOpenHouseMarket: () => void;
   onBack: () => void;
 }
 
-export function TownMarketPage({ character, coins, ownedItems, supplies, onGather, onEat, onBuy, onEarn, onOpenHouseMarket, onBack }: TownMarketPageProps) {
-  const [entered, setEntered] = useState(false);
-  const [sellMode, setSellMode] = useState(false);
+export function TownMarketPage({ character, coins, ownedItems, supplies, onGather, onEat, onBuy, onEarn, initialSell, onOpenHouseMarket, onBack }: TownMarketPageProps) {
+  const [entered, setEntered] = useState(!!initialSell);
+  const [sellMode, setSellMode] = useState(!!initialSell);
   const [snapshot, setSnapshot] = useState<TownSnapshot | null>(null);
   const [standSet, setStandSet] = useState<Set<string>>(new Set());
   const mount = useRef<HTMLDivElement>(null);

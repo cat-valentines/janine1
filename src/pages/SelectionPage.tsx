@@ -58,7 +58,7 @@ import { loadAccountState } from '../lib/players';
 
 export function SelectionPage({ onStart }: { onStart: (selection: GameSelection) => void }) {
   const path = useRoute();
-  const marketOpen = path === '/market';
+  const marketOpen = path === '/market' || path === '/market/sell';
   const houseOpen = path === '/house';
   const mapOpen = path === '/map';
   const riddleOpen = path === '/play/riddles';
@@ -275,7 +275,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     setShopCoins((total) => total - item.price);
     setOwnedItems((items) => [...items, item.id]);
   };
-  if (marketOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Walking into town…</p></main>}><TownMarketPage character={character} coins={shopCoins} ownedItems={ownedItems}
+  if (marketOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Walking into town…</p></main>}><TownMarketPage character={character} coins={shopCoins} ownedItems={ownedItems} initialSell={path === '/market/sell'}
     supplies={supplies}
     onGather={setSupplies}
     onEat={(id) => setSupplies((pack) => ({ ...pack, [id]: Math.max(0, (pack[id] ?? 0) - 1) }))}
@@ -402,7 +402,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <Leaderboard />
       <PlayersDirectory onOpenFriends={() => setFriendsOpen(true)} />
       <ChallengeRoom onChallenge={createFriendChallenge} inviteLink={inviteLink} message={challengeMessage} />
-      {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); navigate('/market'); }} onOpenHouse={() => { setMenuOpen(false); navigate('/house'); }} onOpenMap={() => { setMenuOpen(false); navigate('/map'); }} onInviteFriend={() => { setMenuOpen(false); setFriendsOpen(true); }} />}
+      {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); navigate('/market'); }} onSellItems={() => { setMenuOpen(false); navigate('/market/sell'); }} onOpenHouse={() => { setMenuOpen(false); navigate('/house'); }} onOpenMap={() => { setMenuOpen(false); navigate('/map'); }} onInviteFriend={() => { setMenuOpen(false); setFriendsOpen(true); }} />}
       {notifOpen && <NotificationsPanel items={notifs} signedIn={signedIn} seenAt={notifSeen} onClose={() => setNotifOpen(false)} onOpenFriends={() => { setNotifOpen(false); setFriendsOpen(true); }} />}
       {friendsOpen && <FriendsPanel onClose={() => setFriendsOpen(false)} onShare={() => { createFriendChallenge(); setFriendsOpen(false); }} />}
       {authMode && <div className="auth-backdrop" onClick={() => setAuthMode(null)}><div className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="auth-close" onClick={() => setAuthMode(null)}>×</button><Auth key={authMode} initialMode={authMode} /></div></div>}

@@ -199,8 +199,11 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .shop-item small { color: var(--ink-soft); }
 .shop-item button { padding: 8px; border: 0; border-radius: 10px; background: var(--accent); color: white; font-weight: 750; cursor: pointer; }
 .shop-item button:disabled { background: #c7c0b8; cursor: not-allowed; }
-.your-shop { display: grid; gap: 10px; padding: 13px; color: var(--ink-soft); }
+.your-shop { display: grid; gap: 8px; padding: 12px 13px; color: var(--ink-soft); }
 .your-shop h3 { margin-top: 8px; color: #403744; font-size: 1rem; }
+.market-note { margin: 0; font-size: .8rem; line-height: 1.4; }
+.market-actions { display: flex; gap: 8px; }
+.market-actions .list-food { flex: 1; padding: 11px 8px; text-align: center; }
 .list-food { padding: 10px; border: 0; border-radius: 10px; background: #3e6e60; color: white; font-weight: 800; cursor: pointer; }
 .list-food:disabled { background: #aaa49e; cursor: not-allowed; }
 .market-listing { display: flex; justify-content: space-between; gap: 8px; padding: 8px; background: #fffaf1; border-radius: 9px; font-size: .8rem; }
