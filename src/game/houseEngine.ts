@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { EMPTY, blockById } from './building';
+import { EMPTY, animalById, blockById, cropById, cropReady, type Animal, type Plot } from './building';
 import { SX, SY, SZ, blocksMovement, inside, isSolid, spawnHeight, voxelAt, withVoxel, type Furniture } from './voxel';
-import { buildTerrain, isTerrainSolid, seasonStyles, type Season } from './terrain';
+import { buildTerrain, isTerrainSolid, seasonStyles, terrainHeight, type Season } from './terrain';
 
 export type Mode = 'build' | 'walk';
 export type View = 'first' | 'third';
@@ -21,9 +21,14 @@ interface EngineOptions {
   /** Shop item id -> emoji. Furniture comes from the shop, not the block palette. */
   furnitureIcons: Record<string, string>;
   characterAsset: string;
+  /** The animals you're raising and the crops you've planted — they live on your land. */
+  animals: Animal[];
+  garden: Array<Plot | null>;
   onChangeWorld: (update: (previous: string) => string) => void;
   onPlaceFurniture: (cell: { x: number; y: number; z: number }) => void;
 }
+
+interface Wanderer { sprite: THREE.Sprite; x: number; z: number; dir: number; speed: number; phase: number }
 
 /** Emoji drawn to a texture, so shop furniture shows up in the 3D house. */
 function emojiTexture(emoji: string) {
@@ -49,6 +54,8 @@ export class HouseEngine {
   private blockGroup = new THREE.Group();
   private terrainGroup = new THREE.Group();
   private furnitureGroup = new THREE.Group();
+  private livestockGroup = new THREE.Group();
+  private wanderers: Wanderer[] = [];
   private avatar = new THREE.Group();
   private highlight: THREE.LineSegments;
 
@@ -103,7 +110,7 @@ export class HouseEngine {
     sun.position.set(18, 30, 12);
     this.scene.add(sun);
 
-    this.scene.add(this.blockGroup, this.terrainGroup, this.furnitureGroup, this.avatar);
+    this.scene.add(this.blockGroup, this.terrainGroup, this.furnitureGroup, this.livestockGroup, this.avatar);
 
     const edge = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
     this.highlight = new THREE.LineSegments(edge, new THREE.LineBasicMaterial({ color: '#20222a' }));
@@ -114,6 +121,7 @@ export class HouseEngine {
     this.rebuildTerrain();
     this.rebuildBlocks();
     this.rebuildFurniture();
+    this.buildLivestock();
     this.resetPlayer();
 
     this.bind();
@@ -131,6 +139,15 @@ export class HouseEngine {
   /** One InstancedMesh per colour keeps the whole landscape to a few draw calls. */
   private rebuildTerrain() {
     this.terrainGroup.clear();
+    // Endless land: a huge flat grass plane just under the ground, filling the
+    // world out to the fog so there's no visible edge — your land goes on forever.
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(320, 320),
+      new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].grass }),
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(SX / 2, 0.99, SZ / 2);
+    this.terrainGroup.add(ground);
     const byColour = new Map<string, Array<{ x: number; y: number; z: number }>>();
     buildTerrain(this.season, this.seed).forEach((block) => {
       const list = byColour.get(block.colour) ?? [];
@@ -162,6 +179,65 @@ export class HouseEngine {
     this.applySky();
     this.rebuildTerrain();
     this.rebuildBlocks();
+  }
+
+  private emojiSprite(icon: string, size: number) {
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTexture(icon), transparent: true }));
+    sprite.scale.setScalar(size);
+    return sprite;
+  }
+
+  private groundY(x: number, z: number) {
+    return Math.max(1, terrainHeight(Math.round(x), Math.round(z), this.seed));
+  }
+
+  /** Put the animals you're raising out to roam your land, and plant the crops
+   *  you've grown in a garden patch — so everything you raise lives on your land. */
+  private buildLivestock() {
+    this.livestockGroup.clear();
+    this.wanderers = [];
+    // Crops: a tidy patch in the yard just south of the house.
+    const patchX = 2, patchZ = SZ + 1.5;
+    this.options.garden.forEach((plot, i) => {
+      if (!plot) return;
+      const crop = cropById(plot.crop);
+      if (!crop) return;
+      const cx = patchX + (i % 3) * 1.5, cz = patchZ + Math.floor(i / 3) * 1.5;
+      const soil = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.14, 1.2), new THREE.MeshLambertMaterial({ color: '#6b4a2a' }));
+      soil.position.set(cx, 1.05, cz);
+      this.livestockGroup.add(soil);
+      const ready = cropReady(plot, Date.now());
+      const sprite = this.emojiSprite(ready ? crop.icon : crop.seedIcon, ready ? 1.0 : 0.6);
+      sprite.position.set(cx, ready ? 1.65 : 1.4, cz);
+      this.livestockGroup.add(sprite);
+    });
+    // Animals: roam the pasture behind the garden.
+    this.options.animals.slice(0, 24).forEach((animal, i) => {
+      const type = animalById(animal.type);
+      if (!type) return;
+      const x = -1 + Math.random() * (SX + 2), z = SZ + 5 + Math.random() * 8;
+      const sprite = this.emojiSprite(type.icon, 1.35);
+      sprite.position.set(x, this.groundY(x, z) + 0.6, z);
+      this.livestockGroup.add(sprite);
+      this.wanderers.push({ sprite, x, z, dir: Math.random() * Math.PI * 2, speed: 0.5 + Math.random() * 0.6, phase: i * 1.7 });
+    });
+  }
+
+  /** Amble the animals gently around their pasture. */
+  private moveAnimals(dt: number) {
+    const XMIN = -1, XMAX = SX + 1, ZMIN = SZ + 4, ZMAX = SZ + 14;
+    for (const w of this.wanderers) {
+      w.phase += dt;
+      w.dir += Math.sin(w.phase * 0.6) * dt * 0.9;
+      w.x += Math.cos(w.dir) * w.speed * dt;
+      w.z += Math.sin(w.dir) * w.speed * dt;
+      if (w.x < XMIN) { w.x = XMIN; w.dir = Math.PI - w.dir; }
+      if (w.x > XMAX) { w.x = XMAX; w.dir = Math.PI - w.dir; }
+      if (w.z < ZMIN) { w.z = ZMIN; w.dir = -w.dir; }
+      if (w.z > ZMAX) { w.z = ZMAX; w.dir = -w.dir; }
+      const bob = Math.abs(Math.sin(w.phase * 5)) * 0.06;
+      w.sprite.position.set(w.x, this.groundY(w.x, w.z) + 0.6 + bob, w.z);
+    }
   }
 
   // ---- setup -------------------------------------------------------------
@@ -533,6 +609,7 @@ export class HouseEngine {
   private loop = () => {
     if (!this.running) return;
     const dt = Math.min(this.clock.getDelta(), 0.05);
+    if (this.wanderers.length) this.moveAnimals(dt);
     if (this.mode === 'walk') this.walk(dt);
     else {
       this.hovered = this.pick();

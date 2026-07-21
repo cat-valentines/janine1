@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { HouseEngine, type Mode, type View } from '../game/houseEngine';
-import { blocks } from '../game/building';
+import { blocks, type Animal, type Plot } from '../game/building';
 import { emptyWorld, normaliseWorld, type Furniture } from '../game/voxel';
 import { characterAssets } from '../game/characters';
 import { seasonOrder, seasonStyles, type Season } from '../game/terrain';
@@ -19,6 +19,9 @@ interface HouseWorldPageProps {
   houseWorld: string;
   furniture: Furniture[];
   ownedItems: string[];
+  /** The animals and crops you're raising, so they appear out on your land. */
+  animals: Animal[];
+  garden: Array<Plot | null>;
   onChangeWorld: (update: (previous: string) => string) => void;
   onChangeFurniture: (furniture: Furniture[]) => void;
   onRename: (name: string) => void;
@@ -26,7 +29,7 @@ interface HouseWorldPageProps {
 }
 
 export function HouseWorldPage(props: HouseWorldPageProps) {
-  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
+  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
   const mount = useRef<HTMLDivElement>(null);
   const engine = useRef<HouseEngine | null>(null);
   const [mode, setMode] = useState<Mode>(initialMode ?? 'build');
@@ -57,6 +60,8 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       furniture,
       furnitureIcons: icons,
       characterAsset: characterAssets[character],
+      animals,
+      garden,
       onChangeWorld: (update) => changeWorld.current(update),
       onPlaceFurniture: (cell) => placeFurniture.current(cell),
     });
