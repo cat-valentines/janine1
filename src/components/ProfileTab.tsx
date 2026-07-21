@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { loadMyStats, type MyStats } from '../lib/players';
 import { supabase } from '../lib/supabase';
 import { characterAssets } from '../game/characters';
@@ -27,16 +27,27 @@ interface ProfileTabProps {
 export function ProfileTab(props: ProfileTabProps) {
   const { character, setting, accessory, coins, foodBalance, collectibleAsset, collectibleName, completedQuests, isMember, ownsHouse, houseName, onOpenProfile } = props;
   const [stats, setStats] = useState<MyStats | null>(null);
+  const [userId, setUserId] = useState('');
+  const userIdRef = useRef('');
 
+  // Your "score" here is your leaderboard score (total_score) — the running
+  // total of everything you've earned. Keep it fresh so it always matches the
+  // number on the leaderboard, not a stale value from when the page loaded.
   useEffect(() => {
-    const read = (id?: string) => {
-      if (!id) { setStats(null); return; }
-      loadMyStats(id).then(setStats).catch(() => setStats(null));
-    };
-    supabase.auth.getUser().then(({ data }) => read(data.user?.id));
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => read(session?.user?.id));
-    return () => data.subscription.unsubscribe();
+    const read = (id: string) => { if (id) loadMyStats(id).then(setStats).catch(() => undefined); };
+    const setId = (id: string) => { userIdRef.current = id; setUserId(id); if (id) read(id); else setStats(null); };
+    supabase.auth.getUser().then(({ data }) => setId(data.user?.id ?? ''));
+    const timer = setInterval(() => read(userIdRef.current), 12000);
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => setId(session?.user?.id ?? ''));
+    return () => { clearInterval(timer); data.subscription.unsubscribe(); };
   }, []);
+
+  // Earning coins bumps your leaderboard score too — re-read it right after.
+  useEffect(() => {
+    if (!userId) return;
+    const id = setTimeout(() => loadMyStats(userId).then(setStats).catch(() => undefined), 1500);
+    return () => clearTimeout(id);
+  }, [coins, userId]);
 
   // Where you live: the furthest island you have unlocked so far.
   const unlocked = islands.filter((island) => completedQuests >= island.questsNeeded && (!island.membersOnly || isMember));
