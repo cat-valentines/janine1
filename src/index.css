@@ -1680,3 +1680,14 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
   .reopen-food { font-size: .76rem; padding: 2px 7px; }
   .rival-goods { grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); }
 }
+
+/* ---- Phone: let games use the full screen (trim chrome around them; no shape
+   change so nothing distorts). Desktop is untouched. ---- */
+@media (max-width: 650px) {
+  .runner-page, .pong-page, .drive-page, .riddle-page, .quest-page, .fric-page,
+  .blockup-page, .eroom-page, .human-page, .gruits-page { padding: 6px; }
+  .gruits-page { padding: 6px 6px 24px; }
+  .runner-stage, .pong-stage, .blockup-stage, .gruits-stage { width: 100%; border-width: 3px; box-shadow: 4px 5px 0 #0e131e88; }
+  .runner-page .quest-top-row, .pong-page .quest-top-row, .drive-page .quest-top-row { margin-bottom: 8px; }
+  .runner-help, .pong-help, .gruits-help, .fric-help { margin-top: 8px; padding: 6px; font-size: .72rem; }
+}
