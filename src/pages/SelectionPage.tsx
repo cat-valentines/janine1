@@ -278,6 +278,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     onGather={setSupplies}
     onEat={(id) => setSupplies((pack) => ({ ...pack, [id]: Math.max(0, (pack[id] ?? 0) - 1) }))}
     onBuy={buyItem}
+    onEarn={(gold) => { if (gold > 0) { setShopCoins((total) => total + gold); addScore(gold).catch(() => undefined); } }}
     onOpenHouseMarket={() => { home(); navigate('/house/market'); }}
     onBack={() => home()} /></Suspense>;
   const openGame = (id: GameId) => {

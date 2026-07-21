@@ -148,6 +148,11 @@ export const foodEnergy: Record<string, number> = {
   berries: 12, mushroom: 14, apple: 16, herb: 8, carrot: 12, fish: 22, venison: 30, egg: 15,
 };
 
+/** What each foraged good fetches at your own market stand, per item. */
+export const sellPrice: Record<string, number> = {
+  wood: 2, stone: 2, berries: 3, mushroom: 3, apple: 3, herb: 2, carrot: 3, fish: 6, venison: 10, egg: 4,
+};
+
 export const MAX_ENERGY = 100;
 /** Energy per second, walking and standing still. */
 export const DRAIN_WALK = 0.75;

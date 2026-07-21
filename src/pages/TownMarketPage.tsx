@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { TownEngine, type TownSnapshot } from '../game/townEngine';
-import { forageById, forageKinds, shopById, townHouses, townShops } from '../game/town';
+import { forageById, forageKinds, sellPrice, shopById, townHouses, townShops } from '../game/town';
 import { characterAssets } from '../game/characters';
 import type { CharacterId } from '../game/types';
 import type { ShopItem } from '../shop/catalog';
@@ -13,13 +13,17 @@ interface TownMarketPageProps {
   onGather: (supplies: Record<string, number>) => void;
   onEat: (id: string) => void;
   onBuy: (item: ShopItem) => void;
+  /** Coins earned selling goods at your own stand. */
+  onEarn: (coins: number) => void;
   onOpenHouseMarket: () => void;
   onBack: () => void;
 }
 
-export function TownMarketPage({ character, coins, ownedItems, supplies, onGather, onEat, onBuy, onOpenHouseMarket, onBack }: TownMarketPageProps) {
+export function TownMarketPage({ character, coins, ownedItems, supplies, onGather, onEat, onBuy, onEarn, onOpenHouseMarket, onBack }: TownMarketPageProps) {
   const [entered, setEntered] = useState(false);
+  const [sellMode, setSellMode] = useState(false);
   const [snapshot, setSnapshot] = useState<TownSnapshot | null>(null);
+  const [standSet, setStandSet] = useState<Set<string>>(new Set());
   const mount = useRef<HTMLDivElement>(null);
   const engine = useRef<TownEngine | null>(null);
   // Held in refs so the engine is built once and never restarted mid-walk.
@@ -32,6 +36,7 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
     const created = new TownEngine(mount.current, {
       characterAsset: characterAssets[character],
       supplies: suppliesRef.current,
+      selling: sellMode,
       onUpdate: setSnapshot,
       onGather: (next) => gatherRef.current(next),
     });
@@ -39,13 +44,35 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
     const resize = () => created.resize();
     window.addEventListener('resize', resize);
     return () => { window.removeEventListener('resize', resize); created.dispose(); engine.current = null; };
-  }, [entered, character]);
+  }, [entered, character, sellMode]);
 
   const goFullscreen = () => {
     const node = mount.current?.parentElement;
     if (!node) return;
     if (document.fullscreenElement) document.exitFullscreen();
     else node.requestFullscreen?.();
+  };
+
+  const pack = snapshot?.gathered ?? supplies;
+
+  // Lay the goods you ticked out on the 3-D stand.
+  useEffect(() => {
+    if (!engine.current) return;
+    const icons = [...standSet].filter((id) => (pack[id] ?? 0) > 0).map((id) => forageById(id)?.icon ?? '').filter(Boolean);
+    engine.current.setStandItems(icons);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [standSet, snapshot]);
+
+  const toggleStand = (id: string) => setStandSet((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const sellOne = (id: string) => { const sold = engine.current?.sell(id, 1) ?? 0; if (sold > 0) onEarn(sold * (sellPrice[id] ?? 1)); };
+  const sellStand = () => {
+    let coins = 0;
+    standSet.forEach((id) => { const have = pack[id] ?? 0; if (have > 0) coins += (engine.current?.sell(id, have) ?? 0) * (sellPrice[id] ?? 1); });
+    if (coins > 0) onEarn(coins);
   };
 
   if (!entered) {
@@ -68,12 +95,13 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
             <small>{shop.keeperIcon} {shop.keeper}</small>
           </div>)}
         </div>
-        <button className="profile-start" onClick={() => setEntered(true)}>Walk into town <span>→</span></button>
+        <button className="profile-start" onClick={() => { setSellMode(false); setEntered(true); }}>Walk into town <span>→</span></button>
+        <button className="profile-start sell-start" onClick={() => { setSellMode(true); setEntered(true); }}>🧺 Sell your items <span>→</span></button>
+        <p className="quest-hint sell-hint">Open your own market stand on the street and lay out the goods you've gathered — wood 🪵, berries 🫐, fish 🐟 and more — to sell for gold. It's the same town, but this time <strong>you're the shopkeeper</strong>.</p>
       </section>
     </main>;
   }
 
-  const pack = snapshot?.gathered ?? supplies;
   const packList = Object.entries(pack).filter(([id, n]) => n > 0 && forageKinds[id]);
   const low = (snapshot?.energy ?? 100) < 30;
   const shop = snapshot?.inside ? shopById(snapshot.inside) : null;
@@ -140,7 +168,7 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
       </aside>}
 
       {/* The backpack: everything foraged, and anything edible can be eaten. */}
-      {!shop && packList.length > 0 && <aside className="pack-panel">
+      {!sellMode && !shop && packList.length > 0 && <aside className="pack-panel">
         <strong>🎒 My pack</strong>
         <div>
           {packList.map(([id, count]) => {
@@ -160,6 +188,30 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
           })}
         </div>
         <small>Saved automatically · click food to eat it</small>
+      </aside>}
+
+      {/* Sell mode: your own market stand. Tick goods to lay out, then sell. */}
+      {sellMode && !shop && <aside className="stand-panel">
+        <strong>🧺 Your market stand</strong>
+        {snapshot?.atStall
+          ? <small>Tick a good to lay it out on your stand, then sell it for gold.</small>
+          : <small>Walk to your stand at the west end of the street to lay out goods.</small>}
+        <div className="stand-items">
+          {packList.length === 0 && <p className="stand-empty">Your pack is empty — head out to the 🌲 forest to gather wood, berries and fish, then come back and sell them!</p>}
+          {packList.map(([id, count]) => {
+            const kind = forageById(id);
+            if (!kind) return null;
+            const on = standSet.has(id);
+            const price = sellPrice[id] ?? 1;
+            return <div className={`stand-row ${on ? 'on' : ''}`} key={id}>
+              <label><input type="checkbox" checked={on} onChange={() => toggleStand(id)} /><span>{kind.icon}</span> {kind.name} <b>×{count}</b></label>
+              <span className="stand-price">🪙 {price}</span>
+              <button className="stand-sell" disabled={!on} onClick={() => sellOne(id)}>Sell</button>
+              {kind.edible && <button className="stand-eat" onClick={() => { engine.current?.eat(id); onEat(id); }}>Eat</button>}
+            </div>;
+          })}
+        </div>
+        {[...standSet].some((id) => (pack[id] ?? 0) > 0) && <button className="stand-sell-all" onClick={sellStand}>Sell everything on my stand 🪙</button>}
       </aside>}
 
       {house && !shop && <aside className="house-knock">

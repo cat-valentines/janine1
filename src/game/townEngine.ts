@@ -31,6 +31,8 @@ export interface TownSnapshot {
   /** True when standing on a camp bed. */
   canSleep: boolean;
   campName: string;
+  /** True in sell mode when you are standing at your own market stand. */
+  atStall: boolean;
   message: string;
 }
 
@@ -41,6 +43,8 @@ interface EngineOptions {
   onUpdate: (snapshot: TownSnapshot) => void;
   /** Called whenever the pack changes, so it can be saved right away. */
   onGather: (supplies: Gathered) => void;
+  /** Sell mode: the player gets their own market stand on the street. */
+  selling?: boolean;
 }
 
 type ResourceKind = 'tree' | 'rock' | 'berry' | 'mushroom' | 'apple' | 'herb' | 'carrot' | 'crate' | 'nest';
@@ -96,6 +100,10 @@ export class TownEngine {
   private messageUntil = 0;
   private time = 0;
 
+  /** Your market stand (sell mode): where it sits, and the item sprites on it. */
+  private stall: { x: number; z: number } | null = null;
+  private standSprites: THREE.Sprite[] = [];
+
   private running = true;
   private clock = new THREE.Clock();
 
@@ -121,6 +129,9 @@ export class TownEngine {
     townShops.forEach((shop) => this.buildShop(shop));
     this.buildHouses();
     this.buildTrees();
+    // Sell mode: your stand sits just down the street, straight ahead of where
+    // you start, so you see it the moment you walk in.
+    if (options.selling) this.buildStall();
 
     const built = buildBody('#4a7fb5', '#f2d0b4', 1, faceTexture(options.characterAsset), '#f2d0b4');
     this.avatar = built.group;
@@ -418,6 +429,35 @@ export class TownEngine {
     sprite.position.set(x, y, z);
     this.scene.add(sprite);
     return sprite;
+  }
+
+  /** Your own market stand on the west end of the street: a counter with a
+   *  striped canopy, ready for you to lay your foraged goods out to sell. */
+  private buildStall() {
+    const cx = 9, cz = STREET_Z - 0.6;   // counter footprint on the street, straight ahead of spawn
+    this.stall = { x: cx + 2, z: cz + 0.6 };
+    // counter table
+    this.box(cx, 0, cz, 4, 1.1, 1.2, '#a9713f');
+    this.box(cx, 1.05, cz - 0.1, 4, 0.15, 1.4, '#c68a4f');   // overhang top
+    // four posts
+    [[cx, cz], [cx + 3.7, cz], [cx, cz + 1], [cx + 3.7, cz + 1]].forEach(([px, pz]) => this.box(px, 0, pz, 0.22, 3, 0.22, '#6f4a28'));
+    // striped canopy
+    for (let i = 0; i < 5; i += 1) this.box(cx + i * 0.8, 3, cz - 0.2, 0.8, 0.2, 1.6, i % 2 ? '#e4574c' : '#f4efe6', false);
+    // a sign so it reads as "your stall"
+    this.prop('🧺', cx + 2, 3.7, cz + 0.4, 1.4);
+    this.prop('🪙', cx + 0.5, 1.7, cz + 0.5, 0.7);
+  }
+
+  /** Lay the chosen goods out on the counter so the stand shows what's for sale. */
+  setStandItems(icons: string[]) {
+    this.standSprites.forEach((s) => { this.scene.remove(s); s.material.map?.dispose(); s.material.dispose(); });
+    this.standSprites = [];
+    if (!this.stall) return;
+    const start = this.stall.x - 1.3;
+    icons.slice(0, 6).forEach((icon, i) => {
+      const s = this.prop(icon, start + i * 0.52, 1.5, this.stall!.z, 0.55);
+      this.standSprites.push(s);
+    });
   }
 
   private lantern(x: number, z: number) {
@@ -728,6 +768,18 @@ export class TownEngine {
     this.say(`😋 Yum! +${gain} energy`, 1.6);
   }
 
+  /** Sell up to `count` of a foraged good from your stand. Returns how many
+   *  actually sold (capped by what you have). The page hands out the coins. */
+  sell(id: string, count: number): number {
+    const have = this.gathered[id] ?? 0;
+    const n = Math.min(have, Math.max(1, count));
+    if (n <= 0) return 0;
+    this.gathered[id] -= n;
+    if (this.gathered[id] <= 0) delete this.gathered[id];
+    this.options.onGather({ ...this.gathered });
+    return n;
+  }
+
   /** Which shop's four walls the player is standing between. */
   private shopHere() {
     return townShops.find((shop) =>
@@ -791,6 +843,7 @@ export class TownEngine {
       snakeNear: this.snakeNear() < 9,
       canSleep: !!this.bedHere(),
       campName: this.bedHere()?.name ?? '',
+      atStall: !!this.stall && Math.hypot(this.position.x - this.stall.x, this.position.z - this.stall.z) < 6,
       message: this.time < this.messageUntil ? this.message : '',
     };
   }
