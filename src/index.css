@@ -100,6 +100,17 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .challenge-buttons { display: flex; gap: 10px; justify-self: end; flex-wrap: wrap; }
 .challenge-buttons .primary-button { margin: 0; }
 .primary-button.ghost-btn { background: #6b7f8c; box-shadow: 0 7px 0 #4f5f6a; }
+.primary-button.ghost-btn.on { background: #3e6e60; box-shadow: 0 7px 0 #2c5147; }
+/* pick which friend to challenge */
+.challenge-picker { grid-column: 1 / -1; margin-top: 6px; padding: 12px; background: #f6f2ea; border: 1px solid #e2d8c8; border-radius: 14px; }
+.challenge-pick-title { margin: 0 0 8px; font-weight: 800; color: #4f4054; }
+.challenge-friend-list { display: grid; gap: 6px; max-height: 240px; overflow-y: auto; }
+.challenge-friend { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; background: #fff; border: 1px solid #eadff0; border-radius: 10px; }
+.challenge-friend > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .88rem; }
+.challenge-friend small { color: var(--ink-soft); font-size: .72rem; margin-left: 4px; }
+.challenge-friend button { flex: none; border: 0; border-radius: 999px; padding: 6px 13px; background: #b45f55; color: #fff; font-weight: 800; font-size: .78rem; cursor: pointer; }
+.challenge-friend button.sent { background: #5b9a6b; }
+.challenge-link-btn { width: 100%; margin-top: 9px; padding: 8px; border: 2px dashed #b9ad9c; border-radius: 10px; background: none; color: var(--ink-soft); font-weight: 700; font-size: .8rem; cursor: pointer; }
 
 /* Escape Room — point-and-click search game */
 .eroom-page { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; padding: 10px; background: #241b33; color: #efe9f6; }
