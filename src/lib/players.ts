@@ -103,8 +103,12 @@ export async function isUsernameFree(name: string) {
 /** Renames you everywhere: the profile other players search, and your login. */
 export async function changeUsername(userId: string, name: string) {
   const clean = name.trim();
+  // Upsert, not update: some accounts never got a profile row (the signup
+  // trigger can miss, e.g. older or OAuth accounts). A plain update on a
+  // missing row changes nothing and reports success, so the player thinks
+  // they have a username but stays invisible. Upsert creates it if needed.
   const { error } = await supabase.from('player_profiles')
-    .update({ display_name: clean }).eq('user_id', userId);
+    .upsert({ user_id: userId, display_name: clean }, { onConflict: 'user_id' });
   if (error) throw error;
   // The header greeting reads the auth copy, so it has to move too.
   const { error: authError } = await supabase.auth.updateUser({ data: { display_name: clean } });
@@ -139,12 +143,14 @@ export interface SetupFields {
 
 /** Saves the setup screen and marks the account finished, so others can find them. */
 export async function finishAccountSetup(userId: string, fields: SetupFields) {
-  const { error } = await supabase.from('player_profiles').update({
+  // Upsert so an account that never got a profile row still gets one here.
+  const { error } = await supabase.from('player_profiles').upsert({
+    user_id: userId,
     display_name: fields.username.trim(),
     birthday: fields.birthday || null,
     selected_character: fields.character,
     onboarded: true,
-  }).eq('user_id', userId);
+  }, { onConflict: 'user_id' });
   if (error) throw error;
   const { error: authError } = await supabase.auth.updateUser({ data: { display_name: fields.username.trim() } });
   if (authError) throw authError;
