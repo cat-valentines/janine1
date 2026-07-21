@@ -49,7 +49,7 @@ export function MoreGamesPage({ onPlay, onBack }: MoreGamesPageProps) {
         <span className="more-body">
           <strong>{game.name}</strong>
           <small>{game.blurb}</small>
-          {game.learn && <small className="more-learn"><b>You'll learn:</b> {game.learn}</small>}
+          {game.learn && kind === 'Educational' && <small className="more-learn"><b>You'll learn:</b> {game.learn}</small>}
         </span>
       </button>)}
     </div>
