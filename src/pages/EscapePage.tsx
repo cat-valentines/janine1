@@ -21,7 +21,7 @@ interface EscapePageProps {
 }
 
 const ESCAPE_PRIZE = 40;
-const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶' };
+const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷' };
 
 export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
   const [started, setStarted] = useState(false);

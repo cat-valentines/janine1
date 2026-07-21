@@ -4,7 +4,7 @@ import { acceptFriend, addFriend, changeUsername, isTakenError, isUsernameFree, 
 import { inviteLink, inviteTargets, gameTargets, type InviteTarget } from '../game/inviteTargets';
 import { supabase } from '../lib/supabase';
 
-const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶' };
+const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷' };
 
 /** An auto-generated "player_xxxxxxxx" name, or none — either way, invisible to friend search. */
 const isPlaceholderName = (name: string) => !name || /^player_[0-9a-f]{8}$/.test(name);

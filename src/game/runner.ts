@@ -40,6 +40,31 @@ export const runnerThemes: Record<CharacterId, RunnerTheme> = {
     skyTop: '#a5dcef', skyLow: '#e6f2d8', ground: '#84b455', groundDark: '#5f8c3b', groundLine: '#4a6d2c',
     obstacle: '#a8763f', obstacleDark: '#77522b', decor: ['🌾', '🌻', '🐝'], far: '#b6d68f',
   },
+  koala: {
+    name: 'The Gum Trees', icon: '🌿',
+    skyTop: '#bfe0ea', skyLow: '#e7f2e0', ground: '#7ca86a', groundDark: '#57804a', groundLine: '#436035',
+    obstacle: '#8a9b6b', obstacleDark: '#5f6d47', decor: ['🌿', '🍃', '🦋'], far: '#a3c48f',
+  },
+  teddy: {
+    name: 'The Honey Woods', icon: '🍯',
+    skyTop: '#f0d8a8', skyLow: '#f7ecd2', ground: '#9c7a4a', groundDark: '#6f5533', groundLine: '#543f26',
+    obstacle: '#c79a4a', obstacleDark: '#8f6d2f', decor: ['🍯', '🐝', '🌳'], far: '#c9ad78',
+  },
+  panda: {
+    name: 'The Bamboo Grove', icon: '🎋',
+    skyTop: '#cfe6d6', skyLow: '#eef6ea', ground: '#7fae5f', groundDark: '#588640', groundLine: '#43662f',
+    obstacle: '#6fa04a', obstacleDark: '#4d7032', decor: ['🎋', '🐼', '🌿'], far: '#a0c986',
+  },
+  tiger: {
+    name: 'The Jungle', icon: '🌴',
+    skyTop: '#8fd0c0', skyLow: '#d6efd8', ground: '#4f8b4a', groundDark: '#376437', groundLine: '#2a4d2a',
+    obstacle: '#7a5a2b', obstacleDark: '#553d1c', decor: ['🌴', '🐯', '🌺'], far: '#6faa6a',
+  },
+  piggy: {
+    name: 'The Farm', icon: '🚜',
+    skyTop: '#bfe6f2', skyLow: '#f4ecd6', ground: '#9ab04a', groundDark: '#6f8433', groundLine: '#546327',
+    obstacle: '#b07a4a', obstacleDark: '#7d552f', decor: ['🌽', '🐷', '🚜'], far: '#c2c88f',
+  },
 };
 
 export type ObstacleKind = 'spike' | 'block' | 'spikes3';

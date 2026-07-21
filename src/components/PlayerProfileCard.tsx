@@ -3,7 +3,7 @@ import { loadMyStats, type MyStats } from '../lib/players';
 import { supabase } from '../lib/supabase';
 import type { GameSelection } from '../game/types';
 
-const names = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit' };
+const names = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Bao', tiger: 'Elena', piggy: 'Piggy' };
 const houses = { haunted: 'Haunted House', secret: 'Secret Rooms', power: 'Power House' };
 
 export function PlayerProfileCard({ selection, balance, coins, collectibleAsset, collectibleName }: { selection: GameSelection; balance: number; coins: number; collectibleAsset: string; collectibleName: string }) {

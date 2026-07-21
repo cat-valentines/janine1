@@ -9,7 +9,7 @@ import type { FoundPlayer } from '../lib/players';
 import type { CharacterId } from '../game/types';
 import type { ShopItem } from '../shop/catalog';
 
-const CHAR_ICON: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶' };
+const CHAR_ICON: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷' };
 const charIcon = (id: string) => CHAR_ICON[id] ?? '🙂';
 // A little stock every player's stall offers, so you can always buy from a neighbour.
 const RIVAL_GOODS: Array<{ id: string; price: number }> = [

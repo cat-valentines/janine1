@@ -1,4 +1,4 @@
-export type CharacterId = 'cottontail' | 'momo' | 'toby' | 'ollie' | 'coral' | 'biscuit';
+export type CharacterId = 'cottontail' | 'momo' | 'toby' | 'ollie' | 'coral' | 'biscuit' | 'koala' | 'teddy' | 'panda' | 'tiger' | 'piggy';
 export type SettingId = 'haunted' | 'secret' | 'power';
 export type Direction = 'left' | 'right';
 
