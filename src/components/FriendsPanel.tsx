@@ -61,7 +61,7 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
   }, []);
 
   const saveHandle = async () => {
-    const name = handleInput.trim();
+    const name = handleInput.trim().replace(/^@+/, '');
     if (!USERNAME_RULE.test(name)) { setNote('Usernames are 3–24 letters, numbers or _ (no spaces).'); return; }
     setSavingHandle(true);
     try {
@@ -87,12 +87,14 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
+  // Usernames show everywhere as "@name", so people type the @ when searching.
+  // Strip a leading @ so searching "@cat" finds the player named "cat".
+  const query = search.trim().replace(/^@+/, '');
   useEffect(() => {
-    const query = search.trim();
     if (!userId || query.length < 2) { setFound([]); return; }
     const timer = setTimeout(() => searchPlayers(query).then(setFound).catch(() => setNote('Player search is not online yet.')), 300);
     return () => clearTimeout(timer);
-  }, [search, userId]);
+  }, [query, userId]);
 
   const friendNow = async (player: FoundPlayer) => {
     try { await addFriend(userId, player.id); setNote(`🎉 You and @${player.name} are friends now!`); setFound((rows) => rows.filter((row) => row.id !== player.id)); await refresh(); }
@@ -171,7 +173,7 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
             <div className="handle-set"><input value={handleInput} onChange={(event) => setHandleInput(event.target.value)} placeholder="your_username" maxLength={24} onKeyDown={(event) => event.key === 'Enter' && saveHandle()} /><button disabled={savingHandle} onClick={saveHandle}>{savingHandle ? 'Saving…' : 'Save'}</button></div>
           </div></div>}
       <div className="friend-search"><span>🔍</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search real players by username…" maxLength={24} /></div>
-      {search.trim().length >= 2 && <section className="player-search-results"><h3>Player search</h3>{found.map((player) => { const connected = friends.some((friend) => friend.id === player.id); return <div className="player-result" key={player.id}><span>{icons[player.character_id] ?? '🙂'}</span><strong>@{player.name}<small>Level {player.level}</small></strong><button className={`friend-star ${connected ? 'starred' : ''}`} onClick={() => toggleStar(player)} title={connected ? 'Unfriend this player' : 'Add friend'} aria-label={connected ? `Unfriend ${player.name}` : `Friend ${player.name}`}>{connected ? '★' : '☆'}</button></div>; })}{!found.length && <p className="friend-empty">No matching signed-up players.</p>}</section>}
+      {query.length >= 2 && <section className="player-search-results"><h3>Player search</h3>{found.map((player) => { const connected = friends.some((friend) => friend.id === player.id); return <div className="player-result" key={player.id}><span>{icons[player.character_id] ?? '🙂'}</span><strong>@{player.name}<small>Level {player.level}</small></strong><button className={`friend-star ${connected ? 'starred' : ''}`} onClick={() => toggleStar(player)} title={connected ? 'Unfriend this player' : 'Add friend'} aria-label={connected ? `Unfriend ${player.name}` : `Friend ${player.name}`}>{connected ? '★' : '☆'}</button></div>; })}{!found.length && <p className="friend-empty">No matching signed-up players.</p>}</section>}
       <div className="friend-list">{friends.map((friend) => <div className="friend-row" key={friend.id}>
         <button className={selected?.id === friend.id ? 'selected' : ''} onClick={() => setSelected(friend)}><span>{icons[friend.character_id] ?? '🙂'}</span><strong>{friend.name}<small>{friend.status === 'accepted' ? `Level ${friend.level}` : 'Wants to be your friend'}</small></strong></button>
         {friend.status === 'accepted' && <>
@@ -182,7 +184,7 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
         <button className="friend-star starred" onClick={() => unfriend(friend)} title="Unfriend this player" aria-label={`Unfriend ${friend.name}`}>★</button>
       </div>)}{!friends.length && <p className="friend-empty">No friends yet. Add someone from the list below.</p>}</div>
 
-      {search.trim().length < 2 && <section className="all-players">
+      {query.length < 2 && <section className="all-players">
         <h3>Signed-up players</h3>
         {everyone.filter((player) => !friends.some((friend) => friend.id === player.id)).map((player) => <div className="player-result" key={player.id}>
           <span>{icons[player.character_id] ?? '🙂'}</span>
