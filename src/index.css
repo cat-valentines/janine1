@@ -611,6 +611,24 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .stand-eat { background: #6f8a63; color: #fff; }
 .stand-sell-all { width: 100%; margin-top: 10px; padding: 9px; border: 0; border-radius: 10px; background: #c1490c; color: #fff; font-weight: 850; cursor: pointer; }
 .stand-empty { color: var(--ink-soft); font-size: .76rem; line-height: 1.4; text-align: center; padding: 8px 4px; }
+/* live players at the market */
+.market-live { position: absolute; top: 96px; right: 12px; width: min(48%, 210px); padding: 9px 11px; background: #fffaf0f2; border: 3px solid #5d5148; box-shadow: 5px 6px 0 #2b241d80; }
+.market-live > strong { display: block; font-size: .82rem; color: #2e7d46; }
+.market-live > div { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.market-live > div span { padding: 2px 8px; border-radius: 999px; background: #eef6ef; color: #2f5a3c; font-weight: 700; font-size: .66rem; }
+.market-live > small { display: block; margin-top: 4px; color: var(--ink-soft); font-size: .64rem; line-height: 1.35; }
+/* open/close store toggle */
+.stand-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.store-toggle { border: 0; border-radius: 999px; padding: 4px 11px; font-weight: 800; font-size: .72rem; cursor: pointer; background: #ded7ca; color: #7a6a55; }
+.store-toggle.open { background: #dff3e2; color: #2e7d46; }
+/* another player's stall — buy panel */
+.rival-panel { border-color: #7a5aa0; }
+.rival-goods { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px; margin-top: 8px; }
+.rival-good { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 4px; border: 2px solid #c9b6ec; border-radius: 10px; background: #f6f0ff; cursor: pointer; }
+.rival-good:disabled { opacity: .45; cursor: default; }
+.rival-good span { font-size: 1.3rem; }
+.rival-good b { font-size: .68rem; }
+.rival-good i { font-style: normal; font-weight: 800; font-size: .66rem; color: #8a6a1a; }
 .gather-prompt { position: absolute; bottom: 46px; left: 50%; translate: -50% 0; padding: 8px 16px; background: #1c2333d0; border: 2px solid #8fd39f; color: #d8f5df; font-weight: 800; white-space: nowrap; pointer-events: none; }
 .house-knock { position: absolute; right: 12px; bottom: 12px; display: grid; gap: 5px; width: min(92%, 260px); padding: 13px; background: #fffaf0f2; border: 4px solid #5d5148; box-shadow: 7px 8px 0 #2b241d80; }
 .house-knock strong { font-family: "Courier New", monospace; }

@@ -33,6 +33,8 @@ export interface TownSnapshot {
   campName: string;
   /** True in sell mode when you are standing at your own market stand. */
   atStall: boolean;
+  /** Name of another live player's stall you're standing at, if any. */
+  atRival: string;
   message: string;
 }
 
@@ -103,6 +105,9 @@ export class TownEngine {
   /** Your market stand (sell mode): where it sits, and the item sprites on it. */
   private stall: { x: number; z: number } | null = null;
   private standSprites: THREE.Sprite[] = [];
+  /** Other live players' stalls, so you can see and buy from real people here now. */
+  private rivalGroup = new THREE.Group();
+  private rivals: Array<{ name: string; x: number; z: number }> = [];
 
   private running = true;
   private clock = new THREE.Clock();
@@ -125,6 +130,7 @@ export class TownEngine {
     sun.position.set(30, 50, 20);
     this.scene.add(sun);
 
+    this.scene.add(this.rivalGroup);
     this.buildGround();
     townShops.forEach((shop) => this.buildShop(shop));
     this.buildHouses();
@@ -458,6 +464,70 @@ export class TownEngine {
       const s = this.prop(icon, start + i * 0.52, 1.5, this.stall!.z, 0.55);
       this.standSprites.push(s);
     });
+  }
+
+  /** A little floating name label, drawn to a canvas texture. */
+  private nameSprite(text: string, x: number, y: number, z: number) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#00000088'; ctx.fillRect(0, 0, 256, 64);
+      ctx.font = 'bold 34px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(text.slice(0, 14), 128, 34);
+    }
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas) }));
+    sprite.scale.set(2.4, 0.6, 1); sprite.position.set(x, y, z);
+    this.rivalGroup.add(sprite);
+  }
+
+  /** Show the real players who are at the market right now as their own stalls,
+   *  spread down the street, so you can walk up and buy from them. Everything
+   *  goes in rivalGroup (no scene/collision buildup) so it can refresh freely. */
+  setRivals(list: Array<{ name: string; icon: string }>) {
+    this.rivalGroup.children.forEach((child) => {
+      const c = child as THREE.Mesh & THREE.Sprite;
+      (c.geometry as THREE.BufferGeometry | undefined)?.dispose?.();
+      const mat = c.material as (THREE.Material & { map?: THREE.Texture }) | undefined;
+      mat?.map?.dispose?.(); mat?.dispose?.();
+    });
+    this.rivalGroup.clear();
+    this.rivals = [];
+    const box = (w: number, h: number, d: number, color: string, cx: number, cy: number, cz: number) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
+      m.position.set(cx, cy, cz); this.rivalGroup.add(m);
+    };
+    const emoji = (icon: string, cx: number, cy: number, cz: number, s: number) => {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTexture(icon) }));
+      sp.scale.setScalar(s); sp.position.set(cx, cy, cz); this.rivalGroup.add(sp);
+    };
+    list.slice(0, 6).forEach((rival, i) => {
+      const x = 20 + i * 9, z = STREET_Z + 3.4;
+      box(3.4, 1.1, 1.1, '#8a6642', x + 1.7, 0.55, z + 0.55);          // counter
+      box(3.6, 0.14, 1.3, '#a9713f', x + 1.7, 1.15, z + 0.5);         // counter top
+      box(0.2, 2.8, 0.2, '#6f4a28', x, 1.4, z + 0.55); box(0.2, 2.8, 0.2, '#6f4a28', x + 3.4, 1.4, z + 0.55);
+      for (let k = 0; k < 4; k += 1) box(0.85, 0.18, 1.4, k % 2 ? '#5f8b6b' : '#f4efe6', x + 0.42 + k * 0.85, 2.85, z + 0.35);
+      emoji(rival.icon, x + 1.7, 1.85, z - 0.1, 1.2);                 // the player
+      emoji('🛒', x + 0.6, 1.5, z + 0.9, 0.6);
+      this.nameSprite(rival.name, x + 1.7, 3.5, z + 0.5);
+      this.rivals.push({ name: rival.name, x: x + 1.7, z: z + 0.5 });
+    });
+  }
+
+  /** Pick up a good you bought (from another player's stall). */
+  receive(id: string, note: string) {
+    this.gathered[id] = (this.gathered[id] ?? 0) + 1;
+    this.options.onGather({ ...this.gathered });
+    this.say(note);
+  }
+
+  private nearestRival() {
+    let best = ''; let bestDist = 4;
+    for (const rival of this.rivals) {
+      const d = Math.hypot(this.position.x - rival.x, this.position.z - rival.z);
+      if (d < bestDist) { bestDist = d; best = rival.name; }
+    }
+    return best;
   }
 
   private lantern(x: number, z: number) {
@@ -844,6 +914,7 @@ export class TownEngine {
       canSleep: !!this.bedHere(),
       campName: this.bedHere()?.name ?? '',
       atStall: !!this.stall && Math.hypot(this.position.x - this.stall.x, this.position.z - this.stall.z) < 6,
+      atRival: this.nearestRival(),
       message: this.time < this.messageUntil ? this.message : '',
     };
   }

@@ -2,8 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { TownEngine, type TownSnapshot } from '../game/townEngine';
 import { forageById, forageKinds, sellPrice, shopById, townHouses, townShops } from '../game/town';
 import { characterAssets } from '../game/characters';
+import { heartbeat, leaveGame, playersInGame } from '../lib/presence';
+import { supabase } from '../lib/supabase';
+import type { FoundPlayer } from '../lib/players';
 import type { CharacterId } from '../game/types';
 import type { ShopItem } from '../shop/catalog';
+
+const CHAR_ICON: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶' };
+const charIcon = (id: string) => CHAR_ICON[id] ?? '🙂';
+// A little stock every player's stall offers, so you can always buy from a neighbour.
+const RIVAL_GOODS: Array<{ id: string; price: number }> = [
+  { id: 'berries', price: 4 }, { id: 'apple', price: 4 }, { id: 'fish', price: 8 }, { id: 'wood', price: 3 }, { id: 'mushroom', price: 4 },
+];
 
 interface TownMarketPageProps {
   character: CharacterId;
@@ -15,17 +25,22 @@ interface TownMarketPageProps {
   onBuy: (item: ShopItem) => void;
   /** Coins earned selling goods at your own stand. */
   onEarn: (coins: number) => void;
+  /** Coins spent buying goods from another player's stall. */
+  onSpend: (coins: number) => void;
   /** Jump straight into sell mode (chosen from the menu's "Sell your items"). */
   initialSell?: boolean;
   onOpenHouseMarket: () => void;
   onBack: () => void;
 }
 
-export function TownMarketPage({ character, coins, ownedItems, supplies, onGather, onEat, onBuy, onEarn, initialSell, onOpenHouseMarket, onBack }: TownMarketPageProps) {
+export function TownMarketPage({ character, coins, ownedItems, supplies, onGather, onEat, onBuy, onEarn, onSpend, initialSell, onOpenHouseMarket, onBack }: TownMarketPageProps) {
   const [entered, setEntered] = useState(!!initialSell);
   const [sellMode, setSellMode] = useState(!!initialSell);
   const [snapshot, setSnapshot] = useState<TownSnapshot | null>(null);
   const [standSet, setStandSet] = useState<Set<string>>(new Set());
+  const [storeOpen, setStoreOpen] = useState(true);
+  const [livePlayers, setLivePlayers] = useState<FoundPlayer[]>([]);
+  const [myName, setMyName] = useState('');
   const mount = useRef<HTMLDivElement>(null);
   const engine = useRef<TownEngine | null>(null);
   // Held in refs so the engine is built once and never restarted mid-walk.
@@ -55,15 +70,40 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
     else node.requestFullscreen?.();
   };
 
+  useEffect(() => { supabase.auth.getUser().then(({ data }) => setMyName((data.user?.user_metadata.display_name as string | undefined) ?? '')); }, []);
+
+  // Live market: tell the server you're here, and pull the real players who are
+  // at the market right now so you can see them and shop from each other.
+  useEffect(() => {
+    if (!entered) return;
+    heartbeat('market');
+    const hb = setInterval(() => heartbeat('market'), 5000);
+    const poll = () => playersInGame('market').then((players) => {
+      const others = players.filter((p) => p.name !== myName);
+      setLivePlayers(others);
+      engine.current?.setRivals(others.map((p) => ({ name: p.name, icon: charIcon(p.character_id) })));
+    }).catch(() => undefined);
+    poll();
+    const pollTimer = setInterval(poll, 6000);
+    return () => { clearInterval(hb); clearInterval(pollTimer); leaveGame(); };
+  }, [entered, myName]);
+
   const pack = snapshot?.gathered ?? supplies;
 
-  // Lay the goods you ticked out on the 3-D stand.
+  // Lay the goods you ticked out on the 3-D stand — unless your store is closed.
   useEffect(() => {
     if (!engine.current) return;
+    if (!storeOpen) { engine.current.setStandItems([]); return; }
     const icons = [...standSet].filter((id) => (pack[id] ?? 0) > 0).map((id) => forageById(id)?.icon ?? '').filter(Boolean);
     engine.current.setStandItems(icons);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [standSet, snapshot]);
+  }, [standSet, snapshot, storeOpen]);
+
+  const buyFromRival = (id: string, price: number) => {
+    if (coins < price) return;
+    onSpend(price);
+    engine.current?.receive(id, `🛒 Bought a ${forageById(id)?.name.toLowerCase() ?? 'good'} for 🪙 ${price}`);
+  };
 
   const toggleStand = (id: string) => setStandSet((current) => {
     const next = new Set(current);
@@ -115,8 +155,15 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
 
       <div className="quest-hud">
         <div className="quest-day"><strong>🪙 {coins} gold</strong><small>{shop ? `Inside ${shop.name}` : snapshot?.inForest ? 'In the forest' : 'Walking the street'}</small></div>
-
       </div>
+
+      {/* Real players at the market right now. */}
+      <aside className="market-live">
+        <strong>{livePlayers.length ? `🟢 ${livePlayers.length} here now` : '🟢 Live market'}</strong>
+        {livePlayers.length
+          ? <div>{livePlayers.slice(0, 6).map((p) => <span key={p.id} title={`@${p.name}`}>{charIcon(p.character_id)} {p.name}</span>)}</div>
+          : <small>No other players shopping right now. Their stalls appear here when they join.</small>}
+      </aside>
 
       {/* Battery: your energy. Eat from the pack or sleep at a camp. */}
       {snapshot && <div className={`energy-meter ${low ? 'low' : ''} ${snapshot.venom ? 'venom' : ''}`}>
@@ -193,27 +240,49 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
       </aside>}
 
       {/* Sell mode: your own market stand. Tick goods to lay out, then sell. */}
-      {sellMode && !shop && <aside className="stand-panel">
-        <strong>🧺 Your market stand</strong>
-        {snapshot?.atStall
-          ? <small>Tick a good to lay it out on your stand, then sell it for gold.</small>
-          : <small>Walk to your stand at the west end of the street to lay out goods.</small>}
-        <div className="stand-items">
-          {packList.length === 0 && <p className="stand-empty">Your pack is empty — head out to the 🌲 forest to gather wood, berries and fish, then come back and sell them!</p>}
-          {packList.map(([id, count]) => {
+      {sellMode && !shop && !snapshot?.atRival && <aside className="stand-panel">
+        <div className="stand-head">
+          <strong>🧺 Your stand</strong>
+          <button className={`store-toggle ${storeOpen ? 'open' : ''}`} onClick={() => setStoreOpen((o) => !o)}>{storeOpen ? '🟢 Open' : '🔴 Closed'}</button>
+        </div>
+        {!storeOpen
+          ? <p className="stand-empty">Your store is <b>closed</b>. Go gather more supplies, then re-open whenever you like — your stand waits for you.</p>
+          : <>
+            {snapshot?.atStall
+              ? <small>Tick a good to lay it out on your stand, then sell it for gold.</small>
+              : <small>Walk to your stand (straight ahead on the street) to lay out goods.</small>}
+            <div className="stand-items">
+              {packList.length === 0 && <p className="stand-empty">Your pack is empty — head out to the 🌲 forest to gather wood, berries and fish, then come back and sell them!</p>}
+              {packList.map(([id, count]) => {
+                const kind = forageById(id);
+                if (!kind) return null;
+                const on = standSet.has(id);
+                const price = sellPrice[id] ?? 1;
+                return <div className={`stand-row ${on ? 'on' : ''}`} key={id}>
+                  <label><input type="checkbox" checked={on} onChange={() => toggleStand(id)} /><span>{kind.icon}</span> {kind.name} <b>×{count}</b></label>
+                  <span className="stand-price">🪙 {price}</span>
+                  <button className="stand-sell" disabled={!on} onClick={() => sellOne(id)}>Sell</button>
+                  {kind.edible && <button className="stand-eat" onClick={() => { engine.current?.eat(id); onEat(id); }}>Eat</button>}
+                </div>;
+              })}
+            </div>
+            {[...standSet].some((id) => (pack[id] ?? 0) > 0) && <button className="stand-sell-all" onClick={sellStand}>Sell everything on my stand 🪙</button>}
+          </>}
+      </aside>}
+
+      {/* Standing at another live player's stall — buy their goods. */}
+      {snapshot?.atRival && !shop && <aside className="stand-panel rival-panel">
+        <div className="stand-head"><strong>🛒 @{snapshot.atRival}'s stand</strong></div>
+        <small>Buy goods from this live player for gold.</small>
+        <div className="rival-goods">
+          {RIVAL_GOODS.map(({ id, price }) => {
             const kind = forageById(id);
             if (!kind) return null;
-            const on = standSet.has(id);
-            const price = sellPrice[id] ?? 1;
-            return <div className={`stand-row ${on ? 'on' : ''}`} key={id}>
-              <label><input type="checkbox" checked={on} onChange={() => toggleStand(id)} /><span>{kind.icon}</span> {kind.name} <b>×{count}</b></label>
-              <span className="stand-price">🪙 {price}</span>
-              <button className="stand-sell" disabled={!on} onClick={() => sellOne(id)}>Sell</button>
-              {kind.edible && <button className="stand-eat" onClick={() => { engine.current?.eat(id); onEat(id); }}>Eat</button>}
-            </div>;
+            return <button key={id} className="rival-good" disabled={coins < price} onClick={() => buyFromRival(id, price)}>
+              <span>{kind.icon}</span><b>{kind.name}</b><i>🪙 {price}</i>
+            </button>;
           })}
         </div>
-        {[...standSet].some((id) => (pack[id] ?? 0) > 0) && <button className="stand-sell-all" onClick={sellStand}>Sell everything on my stand 🪙</button>}
       </aside>}
 
       {house && !shop && <aside className="house-knock">
