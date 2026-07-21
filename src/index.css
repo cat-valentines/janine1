@@ -1691,3 +1691,25 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
   .runner-page .quest-top-row, .pong-page .quest-top-row, .drive-page .quest-top-row { margin-bottom: 8px; }
   .runner-help, .pong-help, .gruits-help, .fric-help { margin-top: 8px; padding: 6px; font-size: .72rem; }
 }
+
+/* ---- Phone: the four wide games easier to see. Riddle Rooms grows in place
+   (its background is a gradient, so a taller scene is safe); Ping Pong, Truck
+   Trouble and Slip & Grip fill the screen when you rotate to landscape, with a
+   nudge to rotate while in portrait. Desktop is untouched. ---- */
+@media (max-width: 650px) and (orientation: portrait) {
+  .riddle-scene { aspect-ratio: 4 / 5; }
+  .pong-page::after, .drive-page::after, .fric-page::after {
+    content: "\21bb  Turn your phone sideways for a full-screen game";
+    position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 50; pointer-events: none;
+    padding: 9px 12px; text-align: center; border-radius: 12px;
+    background: #000000cc; color: #fff; font-weight: 800; font-size: .82rem;
+  }
+}
+@media (orientation: landscape) and (max-width: 950px) {
+  .pong-page, .drive-page, .runner-page, .fric-page { padding: 4px; }
+  .pong-help, .runner-help, .fric-help, .gruits-help { display: none; }
+  .pong-page .quest-top-row, .drive-page .quest-top-row, .runner-page .quest-top-row { margin-bottom: 4px; }
+  .pong-stage, .drive-stage, .runner-stage { width: fit-content; max-width: 100%; margin: 0 auto; }
+  .pong-canvas, .drive-canvas, .runner-canvas { width: auto; height: auto; max-width: 100%; max-height: 90dvh; margin: 0 auto; }
+  .fric-stage { width: auto; height: 90dvh; margin: 0 auto; }
+}
