@@ -1047,11 +1047,18 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .notif-dot { position: absolute; top: 12px; right: 12px; width: 9px; height: 9px; background: #e0452f; border-radius: 50%; }
 .notif-friends-link { width: 100%; margin-top: 12px; padding: 10px; border: 2px dashed #7a4a9e; border-radius: 10px; background: #f3eef6; color: #5a3a72; font-weight: 800; font-size: .8rem; cursor: pointer; }
 
-.streak-button span { font-size: 1.05rem; line-height: 1; filter: grayscale(1) opacity(.5); }
-.streak-button b { color: #9a8f7d; font-size: .72rem; font-weight: 900; line-height: 1; }
-.streak-button.burning { border-color: #c1490c; background: #ffe4cc; }
+/* Grey / "not played yet today" — like Duolingo before your daily lesson. */
+.streak-button { border-color: #b9b0a4; background: #ececea; }
+.streak-button span { font-size: 1.05rem; line-height: 1; filter: grayscale(1) opacity(.45); }
+.streak-button b { color: #9a938a; font-size: .72rem; font-weight: 900; line-height: 1; }
+/* Lit / "streaking" — you played a game today. */
+.streak-button.burning { border-color: #c1490c; background: #ffe4cc; animation: streak-pulse 1.9s ease-in-out infinite; }
 .streak-button.burning span { filter: none; }
 .streak-button.burning b { color: #c1490c; }
+@keyframes streak-pulse {
+  0%, 100% { box-shadow: 0 5px 14px #261f2930, 0 0 0 2px #f9731633; }
+  50% { box-shadow: 0 6px 18px #c1490c55, 0 0 0 7px #f9731600; }
+}
 .streak-page { min-height: 100vh; padding: 14px 14px 60px; background: linear-gradient(#2a1a1099, #2a1a1099), url('/assets/pixel-countryside.png') center / cover fixed; }
 .streak-page .quest-top-row { max-width: 720px; margin: 0 auto 14px; }
 .streak-page .quest-top-row span { background: #3a241698; border-color: #c58a52; color: #ffe9d1; }

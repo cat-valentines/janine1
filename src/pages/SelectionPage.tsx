@@ -22,6 +22,7 @@ import { MapPage } from './MapPage';
 import { ProfilePage } from './ProfilePage';
 import { RoyalMemberPage } from './RoyalMemberPage';
 import { StreakPage } from './StreakPage';
+import { todayKey } from '../game/progress';
 import { markPlayedToday } from '../lib/streak';
 import { HouseBuilderPage } from './HouseBuilderPage';
 // three.js is ~500KB — load it only when a player actually opens their house.
@@ -120,6 +121,9 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     setShopCoins((total) => total + coins);
     addScore(coins).catch(() => undefined);
   };
+  // Duolingo-style: the flame is grey until you've PLAYED a game today, then it
+  // lights up. Just visiting the site leaves it grey.
+  const playedToday = lastPlayed === todayKey();
   const [ownedItems, setOwnedItems] = useState<string[]>(savedProfile.ownedItems);
   const [equippedItem] = useState(savedProfile.equippedItem);
   const [ownsHouse, setOwnsHouse] = useState(savedProfile.ownsHouse);
@@ -361,7 +365,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <button className="friends-button" onClick={() => setFriendsOpen(true)}>Friends ☺</button>
       <button className="profile-button" onClick={() => navigate('/profile')} title="My profile" aria-label="My profile"><img src={characterAssets[character]} alt="" /></button>
       <button className={`crown-button ${isMember ? 'is-member' : ''}`} onClick={() => navigate('/royal')} title="Royal Membership" aria-label="Royal Membership">♛</button>
-      <button className={`streak-button ${streak > 0 ? 'burning' : ''}`} onClick={() => navigate('/streak')} title="Your daily streak" aria-label="Your daily streak"><span>🔥</span><b>{streak}</b></button>
+      <button className={`streak-button ${playedToday ? 'burning' : ''}`} onClick={() => navigate('/streak')} title={playedToday ? '🔥 Your streak is lit for today!' : 'Play a game today to light your streak'} aria-label="Your daily streak"><span>🔥</span><b>{streak}</b></button>
       <button className="notif-button" onClick={() => { setNotifOpen(true); markSeen(); setNotifSeen(loadSeenAt()); }} title="Notifications" aria-label="Notifications">🔔{countUnread(notifs, notifSeen) > 0 && <i className="notif-badge">{Math.min(9, countUnread(notifs, notifSeen))}</i>}</button>
       {username ? <><span className="signed-in-name">☺ {username}</span><button className="auth-button login-button" onClick={() => supabase.auth.signOut()}>Log out</button></> : <><button className="auth-button login-button" onClick={() => setAuthMode('signin')}>Log in</button><button className="auth-button signup-button" onClick={() => setAuthMode('signup')}>Sign up</button></>}
       <header className="royal-header"><p className="eyebrow">A 30-island adventure</p><h1><span>♛</span> Magical Islands <span>♛</span></h1><p>Climb cozy towers, finish quests, and unlock a magical kingdom—alone or together with friends.</p></header>
