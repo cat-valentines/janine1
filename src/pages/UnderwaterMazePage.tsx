@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ReefEngine, type ReefSnapshot } from '../game/reefEngine';
 import { coralFacts, fishKinds, KEYS_TO_WIN, START_LIVES, type FishId } from '../game/reef';
+import { Joystick } from '../components/Joystick';
+import { storage } from '../lib/storage';
 
 interface UnderwaterMazePageProps {
   onCoins: (coins: number) => void;
@@ -13,6 +15,9 @@ export function UnderwaterMazePage({ onCoins, onBack }: UnderwaterMazePageProps)
   const [round, setRound] = useState(1);
   const [snapshot, setSnapshot] = useState<ReefSnapshot | null>(null);
   const [factIndex, setFactIndex] = useState(0);
+  // Phone: swim with a finger joystick or with the on-screen buttons (your choice).
+  const [controls, setControls] = useState<'buttons' | 'joystick'>(() => (storage.get('reefControls') === 'joystick' ? 'joystick' : 'buttons'));
+  const chooseControls = (mode: 'buttons' | 'joystick') => { setControls(mode); storage.set('reefControls', mode); };
   const mount = useRef<HTMLDivElement>(null);
   const engine = useRef<ReefEngine | null>(null);
   const paid = useRef(false);
@@ -131,14 +136,23 @@ export function UnderwaterMazePage({ onCoins, onBack }: UnderwaterMazePageProps)
 
       {snapshot?.message && <p className="reef-message">{snapshot.message}</p>}
 
-      {/* on-screen controls for touch */}
+      {/* Pick how to swim: on-screen buttons or a finger joystick (touch only). */}
+      <div className="reef-ctl-toggle">
+        <button className={controls === 'buttons' ? 'on' : ''} onClick={() => chooseControls('buttons')}>⬆ Buttons</button>
+        <button className={controls === 'joystick' ? 'on' : ''} onClick={() => chooseControls('joystick')}>🕹 Joystick</button>
+      </div>
+      {controls === 'joystick' && <Joystick />}
+
+      {/* on-screen controls */}
       <div className="reef-controls">
-        <div className="reef-dpad">
-          <button className="up" onPointerDown={touch('up', true)} onPointerUp={touch('up', false)} onPointerLeave={touch('up', false)}>▲</button>
-          <button className="left" onPointerDown={touch('left', true)} onPointerUp={touch('left', false)} onPointerLeave={touch('left', false)}>◀</button>
-          <button className="right" onPointerDown={touch('right', true)} onPointerUp={touch('right', false)} onPointerLeave={touch('right', false)}>▶</button>
-          <button className="down" onPointerDown={touch('down', true)} onPointerUp={touch('down', false)} onPointerLeave={touch('down', false)}>▼</button>
-        </div>
+        {controls === 'buttons'
+          ? <div className="reef-dpad">
+              <button className="up" onPointerDown={touch('up', true)} onPointerUp={touch('up', false)} onPointerLeave={touch('up', false)}>▲</button>
+              <button className="left" onPointerDown={touch('left', true)} onPointerUp={touch('left', false)} onPointerLeave={touch('left', false)}>◀</button>
+              <button className="right" onPointerDown={touch('right', true)} onPointerUp={touch('right', false)} onPointerLeave={touch('right', false)}>▶</button>
+              <button className="down" onPointerDown={touch('down', true)} onPointerUp={touch('down', false)} onPointerLeave={touch('down', false)}>▼</button>
+            </div>
+          : <div className="reef-joy-slot" />}
         <div className="reef-vert">
           <button className={`reef-bubble-btn ${shield > 0 ? 'active' : ''}`} disabled={!shieldReady && shield <= 0} onPointerDown={(event) => { event.preventDefault(); engine.current?.blowBubble(); }}>{shieldLabel}</button>
           <button onPointerDown={touch('rise', true)} onPointerUp={touch('rise', false)} onPointerLeave={touch('rise', false)}>🔼 Up</button>

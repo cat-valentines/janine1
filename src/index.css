@@ -1726,3 +1726,15 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
   .escape-ctl-toggle button { border: 0; border-radius: 999px; padding: 6px 11px; background: transparent; color: #cbd6ea; font-weight: 800; font-size: .74rem; }
   .escape-ctl-toggle button.on { background: #5f8fd0; color: #fff; }
 }
+
+/* ---- Underwater Maze: choose finger joystick or buttons (touch only). ---- */
+.reef-ctl-toggle { display: none; }
+.reef-joy-slot { width: 148px; height: 148px; }
+@media (hover: none) and (pointer: coarse) {
+  .reef-ctl-toggle { display: flex; position: absolute; bottom: 178px; left: 50%; transform: translateX(-50%); z-index: 5; gap: 3px; padding: 3px; border-radius: 999px; background: #04263fcc; }
+  .reef-ctl-toggle button { border: 0; border-radius: 999px; padding: 6px 12px; background: transparent; color: #cfeaff; font-weight: 800; font-size: .74rem; cursor: pointer; }
+  .reef-ctl-toggle button.on { background: #2b93d6; color: #fff; }
+  /* the reef area doesn't reach the screen bottom (fact strip below), so pin the
+     joystick inside the stage to line up with the other controls */
+  .reef-stage .joystick { position: absolute; left: 16px; bottom: 16px; z-index: 5; }
+}
