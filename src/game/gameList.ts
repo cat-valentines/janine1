@@ -1,6 +1,6 @@
 export type GameId =
   | 'tower' | 'hunger' | 'medicine' | 'runner' | 'drive'
-  | 'riddle' | 'pong' | 'fruit' | 'escape' | 'connector' | 'underwater' | 'blockup' | 'truthdare' | 'pi' | 'tongue' | 'friction';
+  | 'riddle' | 'pong' | 'fruit' | 'escape' | 'connector' | 'underwater' | 'blockup' | 'truthdare' | 'pi' | 'tongue' | 'friction' | 'human';
 
 export interface GameCard {
   id: GameId;
@@ -36,6 +36,7 @@ export const gameList: GameCard[] = [
   { id: 'pi', name: 'Pi', icon: 'π', kind: 'Puzzle', blurb: 'The calculator flashes the digits of π — 3, 1, 4, 1, 5, 9… — one at a time. Watch the pattern, then copy it back. It grows every round!', learn: 'The digits of π and how to spot and remember number patterns.' },
   { id: 'tongue', name: 'Tongue Twister', icon: '👅', kind: 'Puzzle', blurb: 'Say the tongue twister 3 times in 20 seconds! Tap record and the game listens to check you got it right. Great for talking clearly and reading fast.', learn: 'Speaking clearly and reading fast — say each tongue twister without tripping up.' },
   { id: 'friction', name: 'Slip & Grip', icon: '🧊', kind: 'Puzzle', blurb: 'Guide a purple block through 100 physics levels by switching friction: 🧊 ICE to slide and build speed, 🟪 GRIP to steer and stop. Cross gaps, ride platforms, bounce pads and dodge spikes!', learn: 'How friction works — low friction (ice) keeps you sliding, high friction (grip) lets you speed up, steer and stop.' },
+  { id: 'human', name: "Prove You're Human", icon: '🤖', kind: 'Puzzle', blurb: 'Chat your way past a suspicious robot gatekeeper. Convince it you\'re a REAL human — say human stuff like feelings, memories and jokes — to open the next of 200 gates. It gets much harder the deeper you go!' },
 ];
 
 export const gameById = (id: GameId) => gameList.find((game) => game.id === id);

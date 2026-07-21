@@ -50,6 +50,7 @@ import { TruthOrDarePage } from './TruthOrDarePage';
 import { PiPage } from './PiPage';
 const EscapeRoomPage = lazy(() => import('./EscapeRoomPage').then((m) => ({ default: m.EscapeRoomPage })));
 import { TongueTwisterPage } from './TongueTwisterPage';
+import { ProveHumanPage } from './ProveHumanPage';
 import { MoreGamesPage } from './MoreGamesPage';
 import type { GameId } from '../game/gameList';
 import { AccountSetupPage } from './AccountSetupPage';
@@ -80,6 +81,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const piOpen = path === '/play/pi';
   const tongueOpen = path === '/play/tongue';
   const frictionOpen = path === '/play/friction';
+  const humanOpen = path === '/play/human';
   const escapeRoomOpen = path === '/play/escaperoom';
   const medicineIsland = paramOf(path, '/play/medicine');
   const runnerIsland = paramOf(path, '/play/runner');
@@ -299,6 +301,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     if (id === 'pi') navigate('/play/pi');
     if (id === 'tongue') navigate('/play/tongue');
     if (id === 'friction') navigate('/play/friction');
+    if (id === 'human') navigate('/play/human');
   };
 
   if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => home()} />;
@@ -310,6 +313,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   if (piOpen) return <PiPage onScore={(digits) => award(Math.max(1, Math.round(digits / 4)))} onBack={() => home()} />;
   if (tongueOpen) return <TongueTwisterPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (frictionOpen) return <Suspense fallback={<main className="fric-page"><p className="world-loading">Chilling the ice…</p></main>}><FrictionPage onScore={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
+  if (humanOpen) return <ProveHumanPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (escapeRoomOpen) return <Suspense fallback={<main className="eroom-page"><p className="world-loading">Locking the door…</p></main>}><EscapeRoomPage onScore={(coins) => { award(coins); setCompletedQuests((q) => q + 1); }} onBack={() => home()} /></Suspense>;
   if (gruitsOpen) return <GruitsPage onScore={(points) => award(Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;
@@ -392,6 +396,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
         <button className="pi-button" onClick={() => navigate('/play/pi')}>π Pi <span>→</span></button>
         <button className="tongue-button" onClick={() => navigate('/play/tongue')}>👅 Tongue Twister <span>→</span></button>
         <button className="friction-button" onClick={() => navigate('/play/friction')}>🧊 Slip &amp; Grip <span>→</span></button>
+        <button className="human-button" onClick={() => navigate('/play/human')}>🤖 Prove You're Human <span>→</span></button>
       </div>
       <button className="more-button" onClick={() => navigate('/games')}>⊞ See all games <span>→</span></button>
       <Leaderboard />

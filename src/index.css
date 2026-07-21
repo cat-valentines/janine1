@@ -439,7 +439,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .games-sign { width: fit-content; margin: 6px auto 0; padding: 3px 14px; background: #fffaf0e8; border: 3px solid #6c5c4f; box-shadow: 3px 3px 0 #423b3566; color: #4f4054; font-family: "Courier New", monospace; font-size: .8rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
 
 /* The game shelf: one pill per game, same size, stacked, deepest green first. */
-.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .blockup-button, .truthdare-button, .pi-button, .tongue-button, .friction-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
+.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .blockup-button, .truthdare-button, .pi-button, .tongue-button, .friction-button, .human-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
 
 /* Game shelf as small two-column buttons (emoji + name kept, arrow hidden). */
 .game-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; width: min(100%, 460px); margin: 10px auto 14px; }
@@ -464,6 +464,45 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .tongue-button span { margin: 0; }
 .friction-button { background: linear-gradient(120deg, #a78bfa, #7c3aed); box-shadow: 0 7px 0 #5a29b4; }
 .friction-button span { margin: 0; }
+.human-button { background: linear-gradient(120deg, #5a6b82, #33465c); box-shadow: 0 7px 0 #22303f; }
+.human-button span { margin: 0; }
+
+/* ---- Prove You're Human (reverse Turing test chat) ---- */
+.human-page { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; padding: 10px; background: radial-gradient(120% 100% at 50% 0%, #2a3550, #171d2c); color: #e8ecf5; }
+.human-top { display: flex; align-items: center; gap: 10px; width: min(100%, 720px); margin: 0 auto; }
+.human-top > button { border: 0; border-radius: 10px; padding: 8px 12px; background: #46567a; color: #fff; font-weight: 800; cursor: pointer; }
+.human-gate { flex: 1; text-align: center; line-height: 1.1; }
+.human-gate b { font-size: 1rem; } .human-gate b small { color: #9fb0d0; font-weight: 700; }
+.human-gate span { display: block; font-size: .72rem; color: #9fb0d0; }
+.human-tries { display: flex; gap: 3px; }
+.human-tries i { font-style: normal; font-size: .95rem; color: #3a4666; }
+.human-tries i.on { color: #ff5a7a; }
+.human-goal { width: min(100%, 720px); margin: 8px auto; padding: 8px 12px; text-align: center; font-size: .82rem; background: #ffffff10; border: 1px solid #ffffff1c; border-radius: 12px; }
+.human-goal b { color: #ffd84a; }
+.human-chat { flex: 1; width: min(100%, 720px); margin: 0 auto; padding: 6px 4px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.human-msg { display: flex; align-items: flex-end; gap: 8px; max-width: 88%; }
+.human-msg.you { align-self: flex-end; flex-direction: row-reverse; }
+.human-msg.robot { align-self: flex-start; }
+.human-avatar { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: #26304a; font-size: 1.15rem; }
+.human-msg p { margin: 0; padding: 10px 13px; border-radius: 16px; line-height: 1.4; font-size: .92rem; }
+.human-msg.robot p { background: #2c3a58; border-bottom-left-radius: 5px; }
+.human-msg.you p { background: linear-gradient(120deg, #4c8bf0, #3f6fd0); color: #fff; border-bottom-right-radius: 5px; }
+.human-typing { display: flex; gap: 4px; }
+.human-typing i { width: 7px; height: 7px; border-radius: 50%; background: #9fb0d0; animation: human-blink 1s infinite; }
+.human-typing i:nth-child(2) { animation-delay: .15s; } .human-typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes human-blink { 0%, 60%, 100% { opacity: .3; } 30% { opacity: 1; } }
+.human-input { display: flex; gap: 8px; width: min(100%, 720px); margin: 8px auto 4px; }
+.human-input input { flex: 1; min-width: 0; padding: 12px 14px; border: 2px solid #46567a; border-radius: 14px; background: #1c2438; color: #fff; outline: none; font-size: .95rem; }
+.human-input input:focus { border-color: #6f8fd0; }
+.human-input button { flex: none; padding: 0 20px; border: 0; border-radius: 14px; background: #4c8bf0; color: #fff; font-weight: 800; cursor: pointer; }
+.human-input button:disabled { opacity: .45; cursor: default; }
+.human-page .human-over { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 18px; background: #0c1120cc; }
+.human-over-card { width: min(100%, 380px); padding: 24px; text-align: center; background: #212b42; border: 3px solid #46567a; border-radius: 20px; }
+.human-over-card.win { border-color: #4fd08a; }
+.human-over-card h2 { margin: 0 0 8px; }
+.human-over-card p { color: #c6d1e6; font-size: .9rem; }
+.human-over-card button { display: block; width: 100%; margin-top: 10px; padding: 12px; border: 0; border-radius: 12px; background: #4c8bf0; color: #fff; font-weight: 850; cursor: pointer; }
+.human-over-card button.ghost { background: #34405c; }
 .more-button { background: transparent; border: 3px solid #4f4054; box-shadow: 0 5px 0 #4f405433; color: #4f4054; margin-bottom: 38px; }
 .power-button span, .hunger-button span, .medicine-button span, .runner-button span, .drive-button span, .riddle-button span, .pong-button span, .gruits-button span, .escape-button span, .connector-button span, .underwater-button span, .more-button span { margin: 0; }
 .quest-pick { min-height: 100vh; padding: 16px; background: linear-gradient(#1c2a1e99, #1c2a1e99), url('/assets/pixel-magical-forest.png') center / cover fixed; }
