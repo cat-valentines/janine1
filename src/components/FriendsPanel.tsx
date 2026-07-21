@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react';
 import { loadFriendMessages, sendFriendMessage, type FriendMessage } from '../lib/friends';
-import { acceptFriend, addFriend, loadAllPlayers, loadMyFriends, removeFriend, searchPlayers, type FoundPlayer, type FriendRow } from '../lib/players';
+import { acceptFriend, addFriend, changeUsername, isTakenError, isUsernameFree, loadAllPlayers, loadMyFriends, loadMyStats, removeFriend, searchPlayers, USERNAME_RULE, type FoundPlayer, type FriendRow } from '../lib/players';
 import { inviteLink, inviteTargets, gameTargets, type InviteTarget } from '../game/inviteTargets';
 import { supabase } from '../lib/supabase';
 
 const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶' };
 
+/** An auto-generated "player_xxxxxxxx" name, or none — either way, invisible to friend search. */
+const isPlaceholderName = (name: string) => !name || /^player_[0-9a-f]{8}$/.test(name);
+
 export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => void }) {
   const [userId, setUserId] = useState('');
   const [myName, setMyName] = useState('a friend');
+  /** How you appear to other players in search — your public @handle. */
+  const [myHandle, setMyHandle] = useState('');
+  const [handleInput, setHandleInput] = useState('');
+  const [savingHandle, setSavingHandle] = useState(false);
   const [friends, setFriends] = useState<FriendRow[]>([]);
   const [selected, setSelected] = useState<FriendRow | null>(null);
   const [search, setSearch] = useState('');
@@ -34,12 +41,39 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) return;
-      setUserId(data.user.id);
-      setMyName((data.user.user_metadata.display_name as string | undefined) ?? 'a friend');
+      const user = data.user;
+      setUserId(user.id);
+      const authName = (user.user_metadata.display_name as string | undefined) ?? '';
+      setMyName(authName || 'a friend');
       refresh().catch(() => setNote('Friends are not online yet. The database update may still need to be applied.'));
       loadAllPlayers().then(setEveryone).catch(() => undefined);
+      // Read the name friends actually search by — the one in your profile row.
+      loadMyStats(user.id).then((stats) => {
+        const profileName = stats?.display_name ?? '';
+        setMyHandle(profileName);
+        // Self-heal: if your searchable name is still a placeholder but your
+        // account already has a real name, adopt it so friends can find you.
+        if (isPlaceholderName(profileName) && authName && !isPlaceholderName(authName)) {
+          changeUsername(user.id, authName).then(() => setMyHandle(authName)).catch(() => undefined);
+        }
+      }).catch(() => { if (authName && !isPlaceholderName(authName)) setMyHandle(authName); });
     });
   }, []);
+
+  const saveHandle = async () => {
+    const name = handleInput.trim();
+    if (!USERNAME_RULE.test(name)) { setNote('Usernames are 3–24 letters, numbers or _ (no spaces).'); return; }
+    setSavingHandle(true);
+    try {
+      if (await isUsernameFree(name) === false) { setNote(`@${name} is already taken — try another.`); setSavingHandle(false); return; }
+      await changeUsername(userId, name);
+      setMyHandle(name); setMyName(name); setHandleInput('');
+      setNote(`✅ You're now @${name} — your friends can find you!`);
+    } catch (error) {
+      setNote(isTakenError(error) ? `@${name} is already taken — try another.` : 'Could not save your username. Try again.');
+    }
+    setSavingHandle(false);
+  };
 
   useEffect(() => {
     setTray('none');
@@ -129,6 +163,13 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
   return <div className="friends-backdrop" onClick={onClose}><aside className="friends-panel" onClick={(event) => event.stopPropagation()}>
     <div className="shop-heading"><div><span className="card-kicker">Real players only</span><h2>Friends</h2></div><button onClick={onClose} aria-label="Close friends">×</button></div>
     {!userId ? <div className="friend-login-note"><span>🔐</span><h3>Log in to find friends</h3><p>Only signed-up Magical Islands players appear here.</p></div> : <>
+      {myHandle && !isPlaceholderName(myHandle)
+        ? <div className="friend-you"><span>👋</span><div><strong>Friends find you as <b>@{myHandle}</b></strong><small>Tell your friends this exact username so they can search and text you.</small></div></div>
+        : <div className="friend-you warn"><span>⚠️</span><div>
+            <strong>Set a username so friends can find you</strong>
+            <small>You don't have a public name yet, so you're hidden from search. Pick one and your friends can find and text you.</small>
+            <div className="handle-set"><input value={handleInput} onChange={(event) => setHandleInput(event.target.value)} placeholder="your_username" maxLength={24} onKeyDown={(event) => event.key === 'Enter' && saveHandle()} /><button disabled={savingHandle} onClick={saveHandle}>{savingHandle ? 'Saving…' : 'Save'}</button></div>
+          </div></div>}
       <div className="friend-search"><span>🔍</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search real players by username…" maxLength={24} /></div>
       {search.trim().length >= 2 && <section className="player-search-results"><h3>Player search</h3>{found.map((player) => { const connected = friends.some((friend) => friend.id === player.id); return <div className="player-result" key={player.id}><span>{icons[player.character_id] ?? '🙂'}</span><strong>@{player.name}<small>Level {player.level}</small></strong><button className={`friend-star ${connected ? 'starred' : ''}`} onClick={() => toggleStar(player)} title={connected ? 'Unfriend this player' : 'Add friend'} aria-label={connected ? `Unfriend ${player.name}` : `Friend ${player.name}`}>{connected ? '★' : '☆'}</button></div>; })}{!found.length && <p className="friend-empty">No matching signed-up players.</p>}</section>}
       <div className="friend-list">{friends.map((friend) => <div className="friend-row" key={friend.id}>

@@ -206,6 +206,18 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .market-listing { display: flex; justify-content: space-between; gap: 8px; padding: 8px; background: #fffaf1; border-radius: 9px; font-size: .8rem; }
 .friends-backdrop { position: fixed; inset: 0; z-index: 10; background: #27222d80; }
 .friends-panel { width: min(92vw, 410px); height: 100%; margin-left: auto; padding: 28px 22px; overflow-y: auto; background: var(--paper); box-shadow: -12px 0 40px #1e18253d; }
+/* "how friends find you" banner */
+.friend-you { display: flex; gap: 10px; margin-top: 16px; padding: 12px 14px; background: #eaf3ec; border: 1px solid #bcd9c2; border-radius: 14px; }
+.friend-you.warn { background: #fdf1df; border-color: #eccf9a; }
+.friend-you > span { font-size: 1.4rem; line-height: 1.2; }
+.friend-you strong { display: block; font-size: .9rem; color: #2b4a38; }
+.friend-you.warn strong { color: #8a5a12; }
+.friend-you b { color: var(--accent); }
+.friend-you small { display: block; margin-top: 3px; color: var(--ink-soft); font-size: .76rem; line-height: 1.45; }
+.handle-set { display: flex; gap: 7px; margin-top: 9px; }
+.handle-set input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid #d9b98a; border-radius: 10px; background: #fff; outline: none; color: #302d35; font-size: .86rem; }
+.handle-set button { flex: none; padding: 8px 14px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 800; font-size: .84rem; cursor: pointer; }
+.handle-set button:disabled { opacity: .6; cursor: default; }
 .friend-search { display: flex; align-items: center; gap: 8px; margin-top: 18px; padding: 9px 12px; background: #f3eee6; border: 2px solid #b9ad9c; border-radius: 13px; }
 .friend-search input { flex: 1; min-width: 0; border: 0; background: none; outline: none; color: #302d35; }
 .friend-search button { padding: 0 6px; border: 0; background: none; color: var(--ink-soft); font-size: 1.1rem; cursor: pointer; }
