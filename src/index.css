@@ -617,10 +617,13 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .market-live > div { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .market-live > div span { padding: 2px 8px; border-radius: 999px; background: #eef6ef; color: #2f5a3c; font-weight: 700; font-size: .66rem; }
 .market-live > small { display: block; margin-top: 4px; color: var(--ink-soft); font-size: .64rem; line-height: 1.35; }
-/* open/close store toggle */
+/* open/close store toggle + collapse */
 .stand-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.stand-head-btns { display: flex; align-items: center; gap: 6px; }
 .store-toggle { border: 0; border-radius: 999px; padding: 4px 11px; font-weight: 800; font-size: .72rem; cursor: pointer; background: #ded7ca; color: #7a6a55; }
 .store-toggle.open { background: #dff3e2; color: #2e7d46; }
+.panel-collapse { border: 0; border-radius: 8px; padding: 2px 9px; background: #ded7ca; color: #5d5148; font-weight: 900; font-size: .95rem; line-height: 1; cursor: pointer; }
+.stand-reopen { position: absolute; left: 12px; bottom: 12px; z-index: 6; padding: 10px 16px; border: 3px solid #5d5148; border-radius: 12px; background: #fffaf0f2; color: #3e2f22; font-weight: 850; box-shadow: 5px 5px 0 #2b241d66; cursor: pointer; }
 /* another player's stall — buy panel */
 .rival-panel { border-color: #7a5aa0; }
 .rival-goods { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px; margin-top: 8px; }
@@ -1659,4 +1662,16 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
   .login-button { right: 11px; }
   .signup-button { right: 84px; }
   .signed-in-name { top: 59px; right: 84px; left: auto; max-width: 38vw; font-size: .76rem; padding: 6px 10px; }
+}
+
+/* ---- Phone market: keep panels small so the game and controls stay visible ---- */
+@media (max-width: 650px) {
+  .stand-panel { width: min(92%, 320px); max-height: 46vh; left: 8px; bottom: 8px; padding: 10px; }
+  .market-live { top: 90px; right: 8px; width: min(44%, 152px); padding: 7px 9px; }
+  .market-live > strong { font-size: .72rem; }
+  .market-live > div span { font-size: .58rem; padding: 1px 6px; }
+  .market-live > small { font-size: .58rem; }
+  /* the collapsed "My stand" pill sits up top-centre, clear of the on-screen keypad */
+  .stand-reopen { left: 50%; bottom: auto; top: 52px; transform: translateX(-50%); padding: 8px 15px; font-size: .84rem; }
+  .rival-goods { grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); }
 }

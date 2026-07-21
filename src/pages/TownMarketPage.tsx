@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { TownEngine, type TownSnapshot } from '../game/townEngine';
 import { forageById, forageKinds, sellPrice, shopById, townHouses, townShops } from '../game/town';
 import { characterAssets } from '../game/characters';
+import { KeyPad } from '../components/KeyPad';
 import { heartbeat, leaveGame, playersInGame } from '../lib/presence';
 import { supabase } from '../lib/supabase';
 import type { FoundPlayer } from '../lib/players';
@@ -39,6 +40,8 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
   const [snapshot, setSnapshot] = useState<TownSnapshot | null>(null);
   const [standSet, setStandSet] = useState<Set<string>>(new Set());
   const [storeOpen, setStoreOpen] = useState(true);
+  // On phones the panel is collapsed by default so it never hides the game.
+  const [standOpen, setStandOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth > 700 : true));
   const [livePlayers, setLivePlayers] = useState<FoundPlayer[]>([]);
   const [myName, setMyName] = useState('');
   const mount = useRef<HTMLDivElement>(null);
@@ -181,6 +184,9 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
       <button className="quest-full" onClick={goFullscreen}>⛶ Fullscreen</button>
       <button className="quest-leave" onClick={onBack}>← Leave</button>
 
+      {/* Phone controls: arrows to walk, drag the view to look, tap to pick/interact. */}
+      <KeyPad dirs={['up', 'down', 'left', 'right']} actions={[{ codes: ['Space'], label: '⤴' }]} />
+
       {snapshot?.message && <p className="quest-message">{snapshot.message}</p>}
       {!shop && snapshot?.target && <p className="gather-prompt">{
         snapshot.target === 'tree' ? '🪓 Click to chop this tree'
@@ -240,10 +246,15 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
       </aside>}
 
       {/* Sell mode: your own market stand. Tick goods to lay out, then sell. */}
-      {sellMode && !shop && !snapshot?.atRival && <aside className="stand-panel">
+      {sellMode && !shop && !snapshot?.atRival && !standOpen && <button className="stand-reopen" onClick={() => setStandOpen(true)}>🧺 My stand</button>}
+
+      {sellMode && !shop && !snapshot?.atRival && standOpen && <aside className="stand-panel">
         <div className="stand-head">
           <strong>🧺 Your stand</strong>
-          <button className={`store-toggle ${storeOpen ? 'open' : ''}`} onClick={() => setStoreOpen((o) => !o)}>{storeOpen ? '🟢 Open' : '🔴 Closed'}</button>
+          <div className="stand-head-btns">
+            <button className={`store-toggle ${storeOpen ? 'open' : ''}`} onClick={() => setStoreOpen((o) => !o)}>{storeOpen ? '🟢 Open' : '🔴 Closed'}</button>
+            <button className="panel-collapse" onClick={() => setStandOpen(false)} aria-label="Hide stand">▾</button>
+          </div>
         </div>
         {!storeOpen
           ? <p className="stand-empty">Your store is <b>closed</b>. Go gather more supplies, then re-open whenever you like — your stand waits for you.</p>

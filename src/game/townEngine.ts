@@ -85,6 +85,9 @@ export class TownEngine {
   private walkPhase = 0;
   private keys = new Set<string>();
   private pointerLocked = false;
+  private dragging = false;
+  private lastPointer = { x: 0, y: 0 };
+  private dragMoved = false;
   private view: 'first' | 'third' = 'third';
 
   /** Walls to bump into. Doorways are simply left out of this list. */
@@ -629,10 +632,18 @@ export class TownEngine {
     if (event.code === 'KeyF') this.view = this.view === 'third' ? 'first' : 'third';
   };
   private onKeyUp = (event: KeyboardEvent) => this.keys.delete(event.code);
-  private onPointerDown = () => {
+  private onPointerDown = (event: PointerEvent) => {
+    this.dragging = true; this.dragMoved = false;
+    this.lastPointer = { x: event.clientX, y: event.clientY };
+    if (event.pointerType === 'touch') return;   // touch looks by dragging; taps gather on release
     if (!this.pointerLocked) this.renderer.domElement.requestPointerLock();
-    // Gather on the same click that grabs the mouse, rather than eating it.
+    // Mouse: gather on the same click that grabs the pointer.
     this.gather();
+  };
+  private onPointerUp = (event: PointerEvent) => {
+    // On phones a tap (no drag) is how you gather / interact.
+    if (this.dragging && event.pointerType === 'touch' && !this.dragMoved) this.gather();
+    this.dragging = false;
   };
 
   /** The nearest thing in front of you that can be gathered. */
@@ -720,9 +731,17 @@ export class TownEngine {
   }
 
   private onPointerMove = (event: PointerEvent) => {
-    if (!this.pointerLocked) return;
-    this.yaw -= event.movementX * 0.0024;
-    this.pitch = THREE.MathUtils.clamp(this.pitch - event.movementY * 0.0024, -1.2, 1.2);
+    if (this.pointerLocked) {   // desktop: mouse-look while pointer is captured
+      this.yaw -= event.movementX * 0.0024;
+      this.pitch = THREE.MathUtils.clamp(this.pitch - event.movementY * 0.0024, -1.2, 1.2);
+      return;
+    }
+    if (!this.dragging) return;   // phone: drag anywhere on the view to look around
+    const dx = event.clientX - this.lastPointer.x, dy = event.clientY - this.lastPointer.y;
+    this.lastPointer = { x: event.clientX, y: event.clientY };
+    if (Math.abs(dx) + Math.abs(dy) > 3) this.dragMoved = true;
+    this.yaw -= dx * 0.006;
+    this.pitch = THREE.MathUtils.clamp(this.pitch - dy * 0.006, -1.2, 1.2);
   };
   private onLockChange = () => { this.pointerLocked = document.pointerLockElement === this.renderer.domElement; };
 
@@ -732,6 +751,8 @@ export class TownEngine {
     window.addEventListener('keyup', this.onKeyUp);
     canvas.addEventListener('pointerdown', this.onPointerDown);
     canvas.addEventListener('pointermove', this.onPointerMove);
+    canvas.addEventListener('pointerup', this.onPointerUp);
+    canvas.addEventListener('pointercancel', this.onPointerUp);
     document.addEventListener('pointerlockchange', this.onLockChange);
   }
 
@@ -741,6 +762,8 @@ export class TownEngine {
     window.removeEventListener('keyup', this.onKeyUp);
     canvas.removeEventListener('pointerdown', this.onPointerDown);
     canvas.removeEventListener('pointermove', this.onPointerMove);
+    canvas.removeEventListener('pointerup', this.onPointerUp);
+    canvas.removeEventListener('pointercancel', this.onPointerUp);
     document.removeEventListener('pointerlockchange', this.onLockChange);
   }
 
