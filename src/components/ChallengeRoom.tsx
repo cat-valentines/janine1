@@ -6,8 +6,6 @@ import { getStars, STAR_GOAL } from '../lib/escapeStars';
 
 interface ChallengeRoomProps { onChallenge: () => void; inviteLink: string; message: string }
 
-const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶' };
-
 export function ChallengeRoom({ onChallenge, inviteLink, message }: ChallengeRoomProps) {
   const [friends, setFriends] = useState<FriendRow[]>([]);
   const [signedIn, setSignedIn] = useState(false);
@@ -31,7 +29,7 @@ export function ChallengeRoom({ onChallenge, inviteLink, message }: ChallengeRoo
       <div className="shared-goal"><div><strong>{stars.toLocaleString()} / {STAR_GOAL.toLocaleString()}</strong><small>Your stars</small></div><div className="goal-track"><i style={{ width: `${Math.min(100, (stars / STAR_GOAL) * 100)}%` }} /></div><span>Reward: 🏆 seasonal champion cup</span></div>
       <div className="friends">
         {signedIn && friends.length
-          ? friends.map((friend) => <span key={friend.id}>{icons[friend.character_id] ?? '🙂'} {friend.name} · Level {friend.level}</span>)
+          ? <span className="friends-count"><b>👥 {friends.length} {friends.length === 1 ? 'friend' : 'friends'}</b> ready — tap <b>Challenge Friends</b> to pick who plays.</span>
           : <span>{signedIn ? '👋 No friends yet — search a username in Friends.' : '🔐 Log in to challenge your real friends.'}</span>}
       </div>
       <div className="challenge-buttons">

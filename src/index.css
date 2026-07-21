@@ -94,6 +94,8 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .goal-track i { display: block; width: 43%; height: 100%; background: var(--accent); }
 .friends { display: flex; flex-wrap: wrap; gap: 8px; }
 .friends span { padding: 9px 12px; background: #f3efe7; border-radius: 99px; font-size: .83rem; }
+.friends .friends-count { padding: 4px 0; background: none; font-size: .84rem; line-height: 1.4; }
+.friends .friends-count b { color: #3e6e60; }
 .challenge-panel .primary-button { margin: 0; justify-self: end; }
 .challenge-buttons { display: flex; gap: 10px; justify-self: end; flex-wrap: wrap; }
 .challenge-buttons .primary-button { margin: 0; }
