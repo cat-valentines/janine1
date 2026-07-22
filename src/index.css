@@ -636,6 +636,16 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .store-toggle { border: 0; border-radius: 999px; padding: 4px 11px; font-weight: 800; font-size: .72rem; cursor: pointer; background: #ded7ca; color: #7a6a55; }
 .store-toggle.open { background: #dff3e2; color: #2e7d46; }
 .panel-collapse { border: 0; border-radius: 8px; padding: 2px 9px; background: #ded7ca; color: #5d5148; font-weight: 900; font-size: .95rem; line-height: 1; cursor: pointer; }
+/* Eat / Sell tabs inside your stand */
+.stand-tabs { display: flex; gap: 6px; margin: 8px 0; }
+.stand-tabs button { flex: 1; border: 2px solid #a99b8d; border-radius: 9px; padding: 7px 0; background: #f0ebe1; color: #7a6a55; font-weight: 850; font-size: .82rem; cursor: pointer; }
+.stand-tabs button.on { background: #5d5148; border-color: #5d5148; color: #fffaf0; }
+.stand-row.eat-row { grid-template-columns: 1fr auto; }
+/* Owner-only open/close switch that appears when you walk up to your own stand */
+.stand-owner-ctl { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 9px; flex-wrap: wrap; justify-content: center; max-width: 92vw; padding: 8px 14px; background: #fffaf0f2; border: 3px solid #5d5148; border-radius: 12px; box-shadow: 4px 5px 0 #2b241d66; }
+.stand-owner-ctl strong { font-family: "Courier New", monospace; font-size: .9rem; color: #3e2f22; }
+.stand-owner-ctl span { font-size: .68rem; color: var(--ink-soft); font-weight: 700; }
+.stand-owner-ctl .store-toggle { padding: 6px 14px; font-size: .8rem; }
 .stand-reopen { position: absolute; left: 12px; bottom: 12px; z-index: 6; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; max-width: min(92vw, 420px); padding: 8px 12px; border: 3px solid #5d5148; border-radius: 12px; background: #fffaf0f2; color: #3e2f22; font-weight: 850; box-shadow: 5px 5px 0 #2b241d66; cursor: pointer; }
 .reopen-food { padding: 2px 8px; border-radius: 999px; background: #eef0e6; font-weight: 800; font-size: .82rem; }
 .reopen-food.none { background: none; color: var(--ink-soft); font-weight: 600; font-size: .78rem; }
@@ -1738,6 +1748,15 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
   .escape-ctl-toggle { display: flex; position: fixed; right: 16px; bottom: 208px; z-index: 42; gap: 3px; padding: 3px; border-radius: 999px; background: #1c2333cc; }
   .escape-ctl-toggle button { border: 0; border-radius: 999px; padding: 6px 11px; background: transparent; color: #cbd6ea; font-weight: 800; font-size: .74rem; }
   .escape-ctl-toggle button.on { background: #5f8fd0; color: #fff; }
+}
+
+/* ---- Market: choose joystick or buttons to walk; ⤴ picks/interacts (touch only). ---- */
+.control-mode-toggle, .joy-action { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .control-mode-toggle { display: block; position: fixed; left: 50%; bottom: 156px; transform: translateX(-50%); z-index: 42; padding: 8px 15px; border: 0; border-radius: 999px; background: #1c2333dd; color: #fff; font-weight: 850; font-size: .82rem; box-shadow: 0 3px 0 #00000055; -webkit-tap-highlight-color: transparent; }
+  .control-mode-toggle:active { transform: translateX(-50%) translateY(2px); box-shadow: 0 1px 0 #00000055; }
+  .joy-action { display: block; position: fixed; right: 22px; bottom: 40px; z-index: 41; min-width: 72px; height: 64px; padding: 0 18px; border: 0; border-radius: 18px; background: #b45f55ee; color: #fff; font-size: 1.4rem; font-weight: 800; touch-action: none; -webkit-user-select: none; user-select: none; box-shadow: 0 3px 0 #7d3a34; -webkit-tap-highlight-color: transparent; }
+  .joy-action:active { transform: translateY(2px); box-shadow: 0 1px 0 #7d3a34; }
 }
 
 /* ---- Underwater Maze: choose finger joystick or buttons (touch only). ---- */

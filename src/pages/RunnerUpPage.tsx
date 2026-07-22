@@ -4,7 +4,7 @@ import { runnerThemes } from '../game/runner';
 import { characterAssets } from '../game/characters';
 import type { CharacterId } from '../game/types';
 
-const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Bao', tiger: 'Elena', piggy: 'Piggy' };
+const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy' };
 
 interface RunnerUpPageProps {
   character: CharacterId;

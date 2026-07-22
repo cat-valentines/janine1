@@ -9,7 +9,7 @@ const wornIcon = (id: string) => {
   return item && item.category === 'clothing' ? item.icon : null;
 };
 
-const characterNames: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo the penguin', toby: 'Toby the fox', ollie: 'Ollie the otter', coral: 'Coral the clownfish', biscuit: 'Biscuit the puppy', koala: 'Bridey the koala', teddy: 'Adi the teddy bear', panda: 'Bao the panda', tiger: 'Elena the tiger', piggy: 'Piggy the pig' };
+const characterNames: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo the penguin', toby: 'Toby the fox', ollie: 'Ollie the otter', coral: 'Coral the clownfish', biscuit: 'Biscuit the puppy', koala: 'Bridey the koala', teddy: 'Adi the teddy bear', panda: 'Scarlet the panda', tiger: 'Elena the tiger', piggy: 'Piggy the pig' };
 
 interface GameBoardProps {
   state: GameState;

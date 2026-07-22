@@ -7,7 +7,7 @@ import { CharacterCustomizer } from '../components/CharacterCustomizer';
 import { getStars, STAR_GOAL } from '../lib/escapeStars';
 import type { CharacterId, SettingId } from '../game/types';
 
-const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Bao', tiger: 'Elena', piggy: 'Piggy' };
+const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy' };
 const houseChoices: Array<[SettingId, string, string]> = [
   ['haunted', 'Friendly ghosts and shield charms', '👻'],
   ['secret', 'Keys, doors, and clues', '🗝️'],

@@ -3,6 +3,7 @@ import { TownEngine, type TownSnapshot } from '../game/townEngine';
 import { forageById, forageKinds, sellPrice, shopById, townHouses, townShops } from '../game/town';
 import { characterAssets } from '../game/characters';
 import { KeyPad } from '../components/KeyPad';
+import { Joystick } from '../components/Joystick';
 import { heartbeat, leaveGame, playersInGame } from '../lib/presence';
 import { supabase } from '../lib/supabase';
 import type { FoundPlayer } from '../lib/players';
@@ -11,6 +12,10 @@ import type { ShopItem } from '../shop/catalog';
 
 const CHAR_ICON: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷' };
 const charIcon = (id: string) => CHAR_ICON[id] ?? '🙂';
+// The joystick-mode "pick / interact" button fires the same Space key the games listen for.
+function fireKey(code: string, down: boolean) {
+  window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { code, key: code === 'Space' ? ' ' : code, bubbles: true }));
+}
 // A little stock every player's stall offers, so you can always buy from a neighbour.
 const RIVAL_GOODS: Array<{ id: string; price: number }> = [
   { id: 'berries', price: 4 }, { id: 'apple', price: 4 }, { id: 'fish', price: 8 }, { id: 'wood', price: 3 }, { id: 'mushroom', price: 4 },
@@ -40,6 +45,10 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
   const [snapshot, setSnapshot] = useState<TownSnapshot | null>(null);
   const [standSet, setStandSet] = useState<Set<string>>(new Set());
   const [storeOpen, setStoreOpen] = useState(true);
+  // Which tab of your stand is showing: sell your goods, or eat your food.
+  const [standTab, setStandTab] = useState<'sell' | 'eat'>('sell');
+  // How you walk on a phone: a thumb joystick, or the arrow buttons.
+  const [controls, setControls] = useState<'buttons' | 'joystick'>('buttons');
   // On phones the panel is collapsed by default so it never hides the game.
   const [standOpen, setStandOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth > 700 : true));
   const [livePlayers, setLivePlayers] = useState<FoundPlayer[]>([]);
@@ -148,6 +157,7 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
   }
 
   const packList = Object.entries(pack).filter(([id, n]) => n > 0 && forageKinds[id]);
+  const edibleList = packList.filter(([id]) => forageById(id)?.edible);
   const low = (snapshot?.energy ?? 100) < 30;
   const shop = snapshot?.inside ? shopById(snapshot.inside) : null;
   const house = snapshot?.atHouse ? townHouses.find((h) => h.id === snapshot.atHouse) : null;
@@ -184,8 +194,23 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
       <button className="quest-full" onClick={goFullscreen}>⛶ Fullscreen</button>
       <button className="quest-leave" onClick={onBack}>← Leave</button>
 
-      {/* Phone controls: arrows to walk, drag the view to look, tap to pick/interact. */}
-      <KeyPad dirs={['up', 'down', 'left', 'right']} actions={[{ codes: ['Space'], label: '⤴' }]} />
+      {/* Phone controls: pick a joystick OR the arrow buttons to walk; ⤴ to pick/interact. */}
+      <button className="control-mode-toggle" onClick={() => setControls((c) => (c === 'buttons' ? 'joystick' : 'buttons'))}>
+        {controls === 'buttons' ? '🕹️ Use joystick' : '🎮 Use buttons'}
+      </button>
+      {controls === 'buttons'
+        ? <KeyPad dirs={['up', 'down', 'left', 'right']} actions={[{ codes: ['Space'], label: '⤴' }]} />
+        : <>
+            <Joystick />
+            <button
+              className="joy-action" aria-hidden="true"
+              onPointerDown={(e) => { e.preventDefault(); fireKey('Space', true); }}
+              onPointerUp={() => fireKey('Space', false)}
+              onPointerLeave={() => fireKey('Space', false)}
+              onPointerCancel={() => fireKey('Space', false)}
+              onContextMenu={(e) => e.preventDefault()}
+            >⤴</button>
+          </>}
 
       {snapshot?.message && <p className="quest-message">{snapshot.message}</p>}
       {!shop && snapshot?.target && <p className="gather-prompt">{
@@ -253,6 +278,13 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
           : <span className="reopen-food none">no food yet — go gather!</span>}
       </button>}
 
+      {/* Owner-only: walk up to YOUR stand and you get an open/close switch right there. */}
+      {sellMode && !shop && snapshot?.atStall && <div className="stand-owner-ctl">
+        <strong>🧺 Your stand</strong>
+        <span>You're the owner</span>
+        <button className={`store-toggle ${storeOpen ? 'open' : ''}`} onClick={() => setStoreOpen((o) => !o)}>{storeOpen ? '🟢 Open — tap to close' : '🔴 Closed — tap to open'}</button>
+      </div>}
+
       {sellMode && !shop && !snapshot?.atRival && standOpen && <aside className="stand-panel">
         <div className="stand-head">
           <strong>🧺 Your stand</strong>
@@ -261,7 +293,14 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
             <button className="panel-collapse" onClick={() => setStandOpen(false)} aria-label="Hide stand">▾</button>
           </div>
         </div>
-        {!storeOpen
+
+        {/* Two tabs: sell your goods for gold, or eat your food to refill energy. */}
+        <div className="stand-tabs" role="tablist">
+          <button role="tab" className={standTab === 'sell' ? 'on' : ''} onClick={() => setStandTab('sell')}>🧺 Sell</button>
+          <button role="tab" className={standTab === 'eat' ? 'on' : ''} onClick={() => setStandTab('eat')}>🍎 Eat</button>
+        </div>
+
+        {standTab === 'sell' && (!storeOpen
           ? <p className="stand-empty">Your store is <b>closed</b>. Go gather more supplies, then re-open whenever you like — your stand waits for you.</p>
           : <>
             {snapshot?.atStall
@@ -278,12 +317,27 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
                   <label><input type="checkbox" checked={on} onChange={() => toggleStand(id)} /><span>{kind.icon}</span> {kind.name} <b>×{count}</b></label>
                   <span className="stand-price">🪙 {price}</span>
                   <button className="stand-sell" disabled={!on} onClick={() => sellOne(id)}>Sell</button>
-                  {kind.edible && <button className="stand-eat" onClick={() => { engine.current?.eat(id); onEat(id); }}>Eat</button>}
                 </div>;
               })}
             </div>
             {[...standSet].some((id) => (pack[id] ?? 0) > 0) && <button className="stand-sell-all" onClick={sellStand}>Sell everything on my stand 🪙</button>}
-          </>}
+          </>)}
+
+        {standTab === 'eat' && <>
+          <small>Eat food from your pack to refill your 🔋 battery — you can eat any time, even with your store closed.</small>
+          <div className="stand-items">
+            {edibleList.length === 0
+              ? <p className="stand-empty">No food to eat yet — pick 🫐 berries, 🍎 apples and 🍄 mushrooms or catch 🐟 fish in the forest, then come back.</p>
+              : edibleList.map(([id, count]) => {
+                const kind = forageById(id);
+                if (!kind) return null;
+                return <div className="stand-row eat-row" key={id}>
+                  <label title={kind.blurb}><span>{kind.icon}</span> {kind.name} <b>×{count}</b></label>
+                  <button className="stand-eat" onClick={() => { engine.current?.eat(id); onEat(id); }}>Eat</button>
+                </div>;
+              })}
+          </div>
+        </>}
       </aside>}
 
       {/* Standing at another live player's stall — buy their goods. */}
