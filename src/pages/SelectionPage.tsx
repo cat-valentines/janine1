@@ -15,7 +15,7 @@ import { navigate, paramOf, useRoute } from '../lib/router';
 import { ensureGuestAccount, isAnonymous } from '../lib/players';
 import { NotificationsPanel } from '../components/NotificationsPanel';
 import { countUnread, loadNotifications, loadSeenAt, markSeen, type NotificationItem } from '../lib/notifications';
-import { updateProfileSelection, addScore } from '../lib/gameData';
+import { updateProfileSelection, addScore, loadPlayStreak } from '../lib/gameData';
 import type { ShopItem } from '../shop/catalog';
 import { YourHousePage } from './YourHousePage';
 import { MapPage } from './MapPage';
@@ -164,6 +164,25 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
         if (saved.house_name) setHouseName(saved.house_name);
         if (saved.house_season) setHouseSeason(saved.house_season);
         if (saved.house_world) setOwnsHouse(true);
+      }).catch(() => undefined);
+    };
+    supabase.auth.getUser().then(({ data }) => pull(data.user?.id));
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => pull(session?.user?.id));
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  // The streak lives on the account too: pull it in on login so logging out and
+  // back in with the same account — or moving to another device — restores the
+  // streak you earned, instead of showing whatever this device last saw. The
+  // account is authoritative; if the read fails (offline) we keep the local copy.
+  useEffect(() => {
+    const pull = (id?: string) => {
+      if (!id) return;
+      loadPlayStreak(id).then((row) => {
+        if (!row) return;
+        setStreak(row.streak);
+        setDaysPlayed(row.days_played);
+        setLastPlayed(row.last_played ?? '');
       }).catch(() => undefined);
     };
     supabase.auth.getUser().then(({ data }) => pull(data.user?.id));

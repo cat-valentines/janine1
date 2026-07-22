@@ -51,6 +51,19 @@ export async function addScore(points: number, level?: number) {
 }
 
 export interface PlayDay { streak: number; longest_streak: number; days_played: number; last_played: string | null }
+export interface PlayStreak { streak: number; days_played: number; last_played: string | null }
+
+/**
+ * Reads your saved streak straight off the account — WITHOUT counting today as
+ * played. Call this on login so logging out and back in (or moving to another
+ * device) restores the streak you earned instead of showing this device's copy.
+ */
+export async function loadPlayStreak(userId: string) {
+  const { data, error } = await supabase.from('player_profiles')
+    .select('streak, days_played, last_played').eq('user_id', userId).maybeSingle();
+  if (error) throw error;
+  return (data ?? null) as PlayStreak | null;
+}
 
 /** Counts today as a day played, on the server's clock. Returns the new streak. */
 export async function recordPlayDay() {
