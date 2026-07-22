@@ -89,7 +89,9 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
 
   const [savedProfile] = useState(loadLocalProfile);
   const [character, setCharacter] = useState<CharacterId>(savedProfile.character);
-  const [setting, setSetting] = useState<SettingId>(savedProfile.setting);
+  // Tower Royal has a single theme — the Haunted House — so there is no house
+  // picker any more; everyone plays the one setting.
+  const [setting] = useState<SettingId>('haunted');
   const [inviteLink, setInviteLink] = useState('');
   const [challengeMessage, setChallengeMessage] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -383,7 +385,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     character={character}
     onChangeCharacter={setCharacter}
     onDone={(name) => { setUsername(name); setCharacterChosen(true); setSetup(null); }} />;
-  if (profileOpen || !characterChosen) return <ProfilePage character={character} setting={setting} firstTime={!characterChosen} ownedItems={ownedItems} onChangeCharacter={setCharacter} onChangeSetting={setSetting} onChangeAccessory={setAccessory} onBuyAccessory={(id, price) => { if (shopCoins < price) return; setShopCoins((total) => total - price); setOwnedItems((items) => [...items, id]); setAccessory(id); }} onChosen={() => { setCharacterChosen(true); makeGuestReal(); home(); }} coins={shopCoins} foodBalance={foodBalance} completedQuests={completedQuests} isMember={isMember} accessory={accessory} realName={realName} birthday={birthday} country={country} onSavePrivate={(fields) => { setRealName(fields.realName); setBirthday(fields.birthday); setCountry(fields.country); }} onBack={() => home()} />;
+  if (profileOpen || !characterChosen) return <ProfilePage character={character} setting={setting} firstTime={!characterChosen} ownedItems={ownedItems} onChangeCharacter={setCharacter} onChangeAccessory={setAccessory} onBuyAccessory={(id, price) => { if (shopCoins < price) return; setShopCoins((total) => total - price); setOwnedItems((items) => [...items, id]); setAccessory(id); }} onChosen={() => { setCharacterChosen(true); makeGuestReal(); home(); }} coins={shopCoins} foodBalance={foodBalance} completedQuests={completedQuests} isMember={isMember} accessory={accessory} realName={realName} birthday={birthday} country={country} onSavePrivate={(fields) => { setRealName(fields.realName); setBirthday(fields.birthday); setCountry(fields.country); }} onBack={() => home()} />;
   return (
     <main className="selection-page page-shell">
       <button className="menu-button" onClick={() => setMenuOpen(true)}>☰ Menu</button>

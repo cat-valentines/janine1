@@ -8,11 +8,6 @@ import { getStars, STAR_GOAL } from '../lib/escapeStars';
 import type { CharacterId, SettingId } from '../game/types';
 
 const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy' };
-const houseChoices: Array<[SettingId, string, string]> = [
-  ['haunted', 'Friendly ghosts and shield charms', '👻'],
-  ['secret', 'Keys, doors, and clues', '🗝️'],
-  ['power', 'Find a sparkling protection star', '⭐'],
-];
 const characterChoices: Array<[CharacterId, string]> = [
   ['cottontail', 'A cheerful little house explorer'],
   ['momo', 'Cheerful treasure penguin'],
@@ -41,7 +36,6 @@ interface ProfilePageProps {
   firstTime: boolean;
   ownedItems: string[];
   onChangeCharacter: (character: CharacterId) => void;
-  onChangeSetting: (setting: SettingId) => void;
   onChangeAccessory: (accessory: string) => void;
   onBuyAccessory: (id: string, price: number) => void;
   onChosen: () => void;
@@ -52,7 +46,7 @@ interface ProfilePageProps {
   onBack: () => void;
 }
 
-export function ProfilePage({ character, setting, coins, foodBalance, completedQuests, isMember, accessory, firstTime, ownedItems, onChangeCharacter, onChangeSetting, onChangeAccessory, onBuyAccessory, onChosen, realName, birthday, country, onSavePrivate, onBack }: ProfilePageProps) {
+export function ProfilePage({ character, setting, coins, foodBalance, completedQuests, isMember, accessory, firstTime, ownedItems, onChangeCharacter, onChangeAccessory, onBuyAccessory, onChosen, realName, birthday, country, onSavePrivate, onBack }: ProfilePageProps) {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [userId, setUserId] = useState('');
@@ -144,14 +138,6 @@ export function ProfilePage({ character, setting, coins, foodBalance, completedQ
       </div>
       {firstTime && <button className="profile-start" onClick={onChosen}>Play as {names[character]} <span>→</span></button>}
     </section>
-
-    {!firstTime && <section className="profile-section">
-      <h3>Your house</h3>
-      <p className="profile-hint">The house you explore when you press Start Adventure.</p>
-      <div className="choice-grid">
-        {houseChoices.map(([id, blurb, icon]) => <ChoiceCard key={id} title={houses[id]} description={blurb} icon={icon} selected={setting === id} onSelect={() => onChangeSetting(id)} />)}
-      </div>
-    </section>}
 
     {!firstTime && <section className="profile-section profile-styles">
       <h3>Royal Style Shop</h3>
