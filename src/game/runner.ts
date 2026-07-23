@@ -70,6 +70,18 @@ export const runnerThemes: Record<CharacterId, RunnerTheme> = {
     skyTop: '#7bcbd0', skyLow: '#d7f0d5', ground: '#4e9850', groundDark: '#347039', groundLine: '#28582f',
     obstacle: '#8b673b', obstacleDark: '#604629', decor: ['🦜', '🌺', '🌴'], far: '#75b86f',
   },
+  mila: {
+    name: 'The Strawberry Farm', icon: '🍓', skyTop: '#acdff1', skyLow: '#f8e5df', ground: '#74a952', groundDark: '#507b39', groundLine: '#3d602c',
+    obstacle: '#a56d43', obstacleDark: '#73482d', decor: ['🍓', '🌼', '🐄'], far: '#a9cf8b',
+  },
+  gabby: {
+    name: 'The Savanna', icon: '🦒', skyTop: '#f0c778', skyLow: '#f8e8bd', ground: '#b28d45', groundDark: '#81652f', groundLine: '#654d24',
+    obstacle: '#8d673c', obstacleDark: '#614528', decor: ['🌳', '🦒', '🌾'], far: '#d0b368',
+  },
+  amsaal: {
+    name: 'The Sunny Farm', icon: '🐥', skyTop: '#a9ddf0', skyLow: '#fff0bd', ground: '#93b650', groundDark: '#69863a', groundLine: '#51692c',
+    obstacle: '#b48147', obstacleDark: '#805a31', decor: ['🐥', '🌻', '🌾'], far: '#c5d786',
+  },
 };
 
 export type ObstacleKind = 'spike' | 'block' | 'spikes3';

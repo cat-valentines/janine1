@@ -10,7 +10,7 @@ import type { FoundPlayer } from '../lib/players';
 import type { CharacterId } from '../game/types';
 import type { ShopItem } from '../shop/catalog';
 
-const CHAR_ICON: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷' };
+const CHAR_ICON: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷', parrot: '🦜', mila: '🐄', gabby: '🦒', amsaal: '🐥' };
 const charIcon = (id: string) => CHAR_ICON[id] ?? '🙂';
 // The joystick-mode "pick / interact" button fires the same Space key the games listen for.
 function fireKey(code: string, down: boolean) {

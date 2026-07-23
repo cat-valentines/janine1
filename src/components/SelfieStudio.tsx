@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FriendRow } from '../lib/players';
 import { sendMediaTo } from '../lib/media';
+import { sendGroupMedia } from '../lib/groups';
 
-const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷' };
+const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷', parrot: '🦜', mila: '🐄', gabby: '🦒', amsaal: '🐥' };
 
 // Filters are plain CSS filter strings — applied live to the preview and baked into
 // the captured photo/video, so what you see is exactly what your friend gets.
@@ -17,15 +18,15 @@ const FILTERS = [
 ];
 const MAX_SECS = 8;
 
-interface Props { me: string; friend: FriendRow; friends: FriendRow[]; onSent: () => void; onClose: () => void }
+interface Props { me: string; friend?: FriendRow; group?: { id: string; name: string }; friends: FriendRow[]; onSent: () => void; onClose: () => void }
 
 interface Shot { url: string; blob: Blob; kind: 'photo' | 'video'; ext: string; type: string }
 
-export function SelfieStudio({ me, friend, friends, onSent, onClose }: Props) {
+export function SelfieStudio({ me, friend, group, friends, onSent, onClose }: Props) {
   const [mode, setMode] = useState<'photo' | 'video'>('photo');
   const [filter, setFilter] = useState('none');
   const [shot, setShot] = useState<Shot | null>(null);
-  const [recips, setRecips] = useState<Set<string>>(new Set([friend.id]));
+  const [recips, setRecips] = useState<Set<string>>(new Set(friend ? [friend.id] : []));
   const [toSelf, setToSelf] = useState(false);
   const [recording, setRecording] = useState(false);
   const [secs, setSecs] = useState(0);
@@ -127,6 +128,16 @@ export function SelfieStudio({ me, friend, friends, onSent, onClose }: Props) {
 
   const send = async () => {
     if (!shot) return;
+    if (group) {
+      setBusy(true); setErr('');
+      try {
+        await sendGroupMedia(group.id, me, shot.kind, shot.blob, shot.ext, shot.type);
+        if (toSelf) await sendMediaTo(me, me, shot.kind, shot.blob, shot.ext, shot.type);
+        setDone('Sent to the group! 🎉'); onSent(); window.setTimeout(onClose, 950);
+      } catch { setErr('Could not send — please try again.'); }
+      finally { setBusy(false); }
+      return;
+    }
     const targets = new Set(recips); if (toSelf) targets.add(me);
     if (!targets.size) { setErr('Pick a friend, or choose 🔒 Just me.'); return; }
     setBusy(true); setErr('');
@@ -142,7 +153,7 @@ export function SelfieStudio({ me, friend, friends, onSent, onClose }: Props) {
   return (
     <div className="quest-over" onClick={onClose}>
       <div className="selfie-studio" onClick={(e) => e.stopPropagation()}>
-        <div className="selfie-head"><strong>📸 Selfie for @{friend.name}</strong><button className="selfie-x" onClick={onClose} aria-label="Close">✕</button></div>
+        <div className="selfie-head"><strong>{group ? `📸 Photo for ${group.name}` : `📸 Selfie for @${friend?.name ?? 'a friend'}`}</strong><button className="selfie-x" onClick={onClose} aria-label="Close">✕</button></div>
 
         {!shot && <div className="selfie-tabs">
           <button className={mode === 'photo' ? 'on' : ''} onClick={() => setMode('photo')}>📷 Photo</button>
@@ -176,8 +187,10 @@ export function SelfieStudio({ me, friend, friends, onSent, onClose }: Props) {
             : <>
                 <div className="selfie-recips">
                   <p className="selfie-recips-title">Send to:</p>
-                  <label className={`selfie-recip ${toSelf ? 'on' : ''}`}><input type="checkbox" checked={toSelf} onChange={() => setToSelf((v) => !v)} /><span>🔒 Just me (private)</span></label>
-                  {mates.map((f) => <label key={f.id} className={`selfie-recip ${recips.has(f.id) ? 'on' : ''}`}><input type="checkbox" checked={recips.has(f.id)} onChange={() => toggleRecip(f.id)} /><span>{icons[f.character_id] ?? '🙂'} @{f.name}</span></label>)}
+                  {group
+                    ? <label className="selfie-recip on"><input type="checkbox" checked readOnly /><span>👥 {group.name} (everyone in the group)</span></label>
+                    : mates.map((f) => <label key={f.id} className={`selfie-recip ${recips.has(f.id) ? 'on' : ''}`}><input type="checkbox" checked={recips.has(f.id)} onChange={() => toggleRecip(f.id)} /><span>{icons[f.character_id] ?? '🙂'} @{f.name}</span></label>)}
+                  <label className={`selfie-recip ${toSelf ? 'on' : ''}`}><input type="checkbox" checked={toSelf} onChange={() => setToSelf((v) => !v)} /><span>🔒 Also save to just me</span></label>
                 </div>
                 <div className="selfie-actions">
                   <button className="ghost" onClick={retake}>↺ Retake</button>

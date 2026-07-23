@@ -22,6 +22,19 @@ export async function sendMediaTo(me: string, recipient: string, kind: MediaKind
   return path;
 }
 
+/** Upload group media to  groups/<gid>/<me>/<id>.<ext>  and return its storage path. */
+export async function uploadGroupMedia(gid: string, me: string, blob: Blob, ext: string, contentType: string) {
+  const path = `groups/${gid}/${me}/${newId()}.${ext}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType, upsert: false });
+  if (error) throw error;
+  return path;
+}
+
+/** Save any media you can see (yours or a friend's) into your own private "Just me" gallery. */
+export async function saveMediaPrivate(me: string, kind: MediaKind, sourcePath: string) {
+  return resendMedia(me, me, kind, sourcePath);
+}
+
 /** A short-lived signed URL to actually display a private media file. */
 export async function mediaSignedUrl(path: string) {
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, WEEK);

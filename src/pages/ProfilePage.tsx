@@ -7,7 +7,7 @@ import { CharacterCustomizer } from '../components/CharacterCustomizer';
 import { getStars, STAR_GOAL } from '../lib/escapeStars';
 import type { CharacterId, SettingId } from '../game/types';
 
-const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly' };
+const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal' };
 const characterChoices: Array<[CharacterId, string]> = [
   ['cottontail', 'A cheerful little house explorer'],
   ['momo', 'Cheerful treasure penguin'],
@@ -21,6 +21,9 @@ const characterChoices: Array<[CharacterId, string]> = [
   ['tiger', 'A bouncy little striped tiger'],
   ['piggy', 'A happy, chubby little pig'],
   ['parrot', 'A colorful little parrot who walks on two legs'],
+  ['mila', 'A sweet little cow holding her favorite strawberry'],
+  ['gabby', 'A cheerful, chubby little giraffe'],
+  ['amsaal', 'A sunny yellow chick with tiny walking feet'],
 ];
 const houses: Record<SettingId, string> = { haunted: 'Haunted House', secret: 'Secret Rooms', power: 'Power House' };
 const today = new Date().toISOString().slice(0, 10);

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { loadFriendMessages, sendFriendMessage, parseMedia, loadSavedSelfies, type FriendMessage, type MediaKind } from '../lib/friends';
-import { mediaSignedUrl, resendMedia } from '../lib/media';
+import { mediaSignedUrl, resendMedia, saveMediaPrivate } from '../lib/media';
+import { createGroup, loadMyGroups, loadGroupMessages, sendGroupText, clearedAt, clearGroupView, type ChatGroup, type GroupMessage } from '../lib/groups';
 import { acceptFriend, addFriend, changeUsername, isTakenError, isUsernameFree, loadAllPlayers, loadMyFriends, loadMyStats, removeFriend, searchPlayers, USERNAME_RULE, type FoundPlayer, type FriendRow } from '../lib/players';
 import { inviteLink, inviteTargets, gameTargets, type InviteTarget } from '../game/inviteTargets';
 import { SelfieStudio } from './SelfieStudio';
 import { supabase } from '../lib/supabase';
 
-const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷' };
+const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷', parrot: '🦜', mila: '🐄', gabby: '🦒', amsaal: '🐥' };
 
 /** An auto-generated "player_xxxxxxxx" name, or none — either way, invisible to friend search. */
 const isPlaceholderName = (name: string) => !name || /^player_[0-9a-f]{8}$/.test(name);
@@ -43,6 +44,16 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
   const [planDate, setPlanDate] = useState('');
   const [planTime, setPlanTime] = useState('');
   const [inviteFriends, setInviteFriends] = useState<Set<string>>(new Set());
+  // ---- Group chats ----
+  const [groups, setGroups] = useState<ChatGroup[]>([]);
+  const [groupsOpen, setGroupsOpen] = useState(false);
+  const [makeGroupOpen, setMakeGroupOpen] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [groupPick, setGroupPick] = useState<Set<string>>(new Set());
+  const [activeGroup, setActiveGroup] = useState<ChatGroup | null>(null);
+  const [groupMsgs, setGroupMsgs] = useState<GroupMessage[]>([]);
+  const [groupText, setGroupText] = useState('');
+  const [groupSelfie, setGroupSelfie] = useState(false);
 
   const refresh = () => loadMyFriends().then((rows) => { setFriends(rows); setSelected((current) => current ? rows.find((row) => row.id === current.id) ?? null : null); });
   const openChat = (id: string) => loadFriendMessages(id).then(setChat).catch(() => setChat([]));
@@ -183,6 +194,39 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
 
   const openGallery = () => { loadSavedSelfies(userId).then(setSaved).catch(() => setSaved([])); setGalleryOpen(true); };
 
+  // ---- Group chats ----
+  const nameOf = (id: string) => id === userId ? 'You' : (friends.find((f) => f.id === id)?.name ?? everyone.find((p) => p.id === id)?.name ?? 'a friend');
+  const iconOf = (id: string) => { const c = friends.find((f) => f.id === id)?.character_id ?? everyone.find((p) => p.id === id)?.character_id; return icons[c ?? ''] ?? '🙂'; };
+
+  const openGroups = () => { loadMyGroups().then(setGroups).catch(() => setGroups([])); setGroupsOpen(true); };
+  const openGroup = (group: ChatGroup) => {
+    setActiveGroup(group); setGroupsOpen(false);
+    loadGroupMessages(group.id).then(setGroupMsgs).catch(() => setGroupMsgs([]));
+  };
+  const refreshGroup = () => { if (activeGroup) loadGroupMessages(activeGroup.id).then(setGroupMsgs).catch(() => undefined); };
+  const createGroupNow = async () => {
+    const name = groupName.trim();
+    if (name.length < 1 || groupPick.size === 0) { setNote('Name your group and pick at least one friend.'); return; }
+    try {
+      const gid = await createGroup(name, userId, [...groupPick]);
+      setMakeGroupOpen(false); setGroupName(''); setGroupPick(new Set());
+      const fresh = await loadMyGroups(); setGroups(fresh);
+      const made = fresh.find((g) => g.id === gid); if (made) openGroup(made);
+    } catch { setNote('Could not create the group — the database update may still be applying.'); }
+  };
+  const sendGroupMsg = async () => {
+    if (!activeGroup || !groupText.trim()) return;
+    try { await sendGroupText(activeGroup.id, userId, groupText); setGroupText(''); refreshGroup(); }
+    catch { setNote('Message not sent.'); }
+  };
+  const clearGroup = () => { if (activeGroup) { clearGroupView(activeGroup.id); setGroupMsgs((cur) => [...cur]); } };
+  const saveMedia = async (kind: MediaKind, path: string) => {
+    try { await saveMediaPrivate(userId, kind, path); setNote('💾 Saved to your private selfies.'); }
+    catch { setNote('Could not save that — please try again.'); }
+  };
+
+  const groupToggle = (id: string) => setGroupPick((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
   return <div className="friends-backdrop" onClick={onClose}><aside className="friends-panel" onClick={(event) => event.stopPropagation()}>
     <div className="shop-heading"><div><span className="card-kicker">Real players only</span><h2>Friends</h2></div><button onClick={onClose} aria-label="Close friends">×</button></div>
     {!userId ? <div className="friend-login-note"><span>🔐</span><h3>Log in to find friends</h3><p>Only signed-up Magical Islands players appear here.</p></div> : <>
@@ -217,6 +261,11 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
           <button className="friend-star" onClick={() => friendNow(player)} title={`Add @${player.name}`} aria-label={`Add ${player.name}`}>☆</button>
         </div>)}
         {everyone.filter((player) => !friends.some((friend) => friend.id === player.id)).length === 0 && <p className="friend-empty">Everyone signed up is already your friend! 🎉</p>}
+      </section>}
+
+      {query.length < 2 && <section className="group-cta">
+        <button className="group-open-btn" onClick={openGroups}>👥 Group Chats</button>
+        <button className="group-make-btn" onClick={() => { setGroupName(''); setGroupPick(new Set()); setMakeGroupOpen(true); }}>➕ Make a Group Chat</button>
       </section>}
 
       {selected && <><article className="friend-profile"><div className="friend-avatar">{icons[selected.character_id] ?? '🙂'}</div><div><p className="card-kicker">Real player profile</p><h3>@{selected.name}</h3><p>⭐ Level {selected.level}</p><p>🤝 Your friend</p></div></article>
@@ -269,7 +318,7 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
           {showChat && <div className="chat-box"><h3>Chat with {selected.name}</h3>{chat.map((item) => {
             const media = parseMedia(item.message);
             const mine = item.sender_id === userId;
-            if (media) return <ChatMedia key={item.id} mine={mine} kind={media.kind} path={media.path} onResend={mine ? () => setResend({ kind: media.kind, path: media.path }) : undefined} />;
+            if (media) return <ChatMedia key={item.id} mine={mine} kind={media.kind} path={media.path} onSave={() => saveMedia(media.kind, media.path)} onResend={mine ? () => setResend({ kind: media.kind, path: media.path }) : undefined} />;
             return <p className={mine ? 'chat-mine' : ''} key={item.id}>{item.message}</p>;
           })}{!chat.length && <p className="friend-empty">Say hi! @{selected.name} gets a 🔔 when you text.</p>}<div><input value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && send()} placeholder="Write a message…" maxLength={500} autoFocus /><button onClick={send}>Send</button></div></div>}
         </>}
@@ -295,17 +344,80 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
           <button className="ghost" onClick={() => setGalleryOpen(false)}>Close</button>
         </div>
       </div>}
+
+      {/* Make a group chat: name it and pick from your friends */}
+      {makeGroupOpen && <div className="quest-over" onClick={() => setMakeGroupOpen(false)}>
+        <div className="group-make" onClick={(e) => e.stopPropagation()}>
+          <h3>➕ Make a group chat</h3>
+          <input className="group-name-input" value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Group name (e.g. Best Friends)" maxLength={60} autoFocus />
+          <p className="group-make-sub">Add friends — only players you've friended can join.</p>
+          <div className="group-pick-list">
+            {friends.filter((f) => f.status === 'accepted').map((f) => <label key={f.id} className={`selfie-recip ${groupPick.has(f.id) ? 'on' : ''}`}>
+              <input type="checkbox" checked={groupPick.has(f.id)} onChange={() => groupToggle(f.id)} /><span>{icons[f.character_id] ?? '🙂'} @{f.name}</span>
+            </label>)}
+            {friends.filter((f) => f.status === 'accepted').length === 0 && <p className="friend-empty">Add some friends first, then make a group.</p>}
+          </div>
+          <div className="selfie-actions">
+            <button className="ghost" onClick={() => setMakeGroupOpen(false)}>Cancel</button>
+            <button className="selfie-send" onClick={createGroupNow} disabled={!groupName.trim() || groupPick.size === 0}>Create ({groupPick.size})</button>
+          </div>
+        </div>
+      </div>}
+
+      {/* Your group chats */}
+      {groupsOpen && <div className="quest-over" onClick={() => setGroupsOpen(false)}>
+        <div className="group-list" onClick={(e) => e.stopPropagation()}>
+          <h3>👥 Your group chats</h3>
+          {groups.length ? <div className="group-list-rows">{groups.map((g) => <button key={g.id} className="group-list-row" onClick={() => openGroup(g)}>
+            <span>👥</span><strong>{g.name}</strong>{g.owner_id === userId && <small>owner</small>}
+          </button>)}</div> : <p className="friend-empty">No group chats yet — tap “Make a Group Chat”.</p>}
+          <button className="ghost" onClick={() => setGroupsOpen(false)}>Close</button>
+        </div>
+      </div>}
+
+      {/* An open group chat */}
+      {activeGroup && <div className="quest-over" onClick={() => { setActiveGroup(null); }}>
+        <div className="group-chat" onClick={(e) => e.stopPropagation()}>
+          <div className="group-chat-top">
+            <button className="group-back" onClick={() => { setActiveGroup(null); setGroupsOpen(true); }}>←</button>
+            <strong>👥 {activeGroup.name}</strong>
+            <button className="group-clear" onClick={clearGroup} title="Clear these messages from your view">🧹 Clear</button>
+          </div>
+          <div className="group-chat-body">
+            {(() => { const cut = clearedAt(activeGroup.id); const shown = groupMsgs.filter((m) => !cut || m.created_at > cut);
+              return shown.length ? shown.map((item) => {
+                const media = parseMedia(item.message);
+                const mine = item.sender_id === userId;
+                if (media) return <ChatMedia key={item.id} mine={mine} kind={media.kind} path={media.path} label={nameOf(item.sender_id)} onSave={() => saveMedia(media.kind, media.path)} onResend={mine ? () => setResend({ kind: media.kind, path: media.path }) : undefined} />;
+                return <p className={`group-msg ${mine ? 'chat-mine' : ''}`} key={item.id}><b>{iconOf(item.sender_id)} {nameOf(item.sender_id)}</b>{item.message}</p>;
+              }) : <p className="friend-empty">No messages here yet. Say hi, or send a photo! 📸</p>;
+            })()}
+          </div>
+          <div className="group-chat-input">
+            <button className="group-photo-btn" onClick={() => setGroupSelfie(true)} title="Send a photo or video">📸</button>
+            <input value={groupText} onChange={(e) => setGroupText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendGroupMsg()} placeholder="Message the group…" maxLength={4000} />
+            <button className="group-send" onClick={sendGroupMsg}>Send</button>
+          </div>
+        </div>
+      </div>}
+
+      {groupSelfie && activeGroup && <SelfieStudio me={userId} group={{ id: activeGroup.id, name: activeGroup.name }} friends={friends}
+        onSent={refreshGroup} onClose={() => setGroupSelfie(false)} />}
     </>}
   </aside></div>;
 }
 
 /** Renders a photo/video chat message by resolving its private storage path to a signed URL. */
-function ChatMedia({ mine, kind, path, onResend }: { mine: boolean; kind: MediaKind; path: string; onResend?: () => void }) {
+function ChatMedia({ mine, kind, path, label, onResend, onSave }: { mine: boolean; kind: MediaKind; path: string; label?: string; onResend?: () => void; onSave?: () => void }) {
   const [url, setUrl] = useState('');
   useEffect(() => { let live = true; mediaSignedUrl(path).then((u) => { if (live) setUrl(u); }); return () => { live = false; }; }, [path]);
   return <div className={`chat-media ${mine ? 'chat-mine' : ''}`}>
+    {label && <small className="chat-media-who">{label}</small>}
     {!url ? <span className="chat-media-load">📷 loading…</span>
       : kind === 'photo' ? <img src={url} alt="selfie" /> : <video src={url} controls playsInline />}
-    {onResend && <button className="chat-resend" onClick={onResend}>↗ Send to another friend</button>}
+    <div className="chat-media-btns">
+      {onSave && <button className="chat-save" onClick={onSave}>💾 Save</button>}
+      {onResend && <button className="chat-resend" onClick={onResend}>↗ Send to a friend</button>}
+    </div>
   </div>;
 }
