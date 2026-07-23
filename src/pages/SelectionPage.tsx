@@ -14,7 +14,7 @@ import { loadLocalProfile, saveLocalProfile } from '../lib/localProfile';
 import { navigate, paramOf, useRoute } from '../lib/router';
 import { ensureGuestAccount, isAnonymous } from '../lib/players';
 import { NotificationsPanel } from '../components/NotificationsPanel';
-import { countUnread, loadNotifications, loadSeenAt, markSeen, type NotificationItem } from '../lib/notifications';
+import { countUnread, loadNotifications, loadSeenAt, markSeen, clearNotifications, type NotificationItem } from '../lib/notifications';
 import { updateProfileSelection, addScore, loadPlayStreak } from '../lib/gameData';
 import type { ShopItem } from '../shop/catalog';
 import { YourHousePage } from './YourHousePage';
@@ -425,7 +425,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <PlayersDirectory onOpenFriends={() => setFriendsOpen(true)} />
       <ChallengeRoom onChallenge={createFriendChallenge} inviteLink={inviteLink} message={challengeMessage} />
       {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); navigate('/market'); }} onSellItems={() => { setMenuOpen(false); navigate('/market/sell'); }} onOpenHouse={() => { setMenuOpen(false); navigate('/house'); }} onOpenMap={() => { setMenuOpen(false); navigate('/map'); }} onInviteFriend={() => { setMenuOpen(false); setFriendsOpen(true); }} />}
-      {notifOpen && <NotificationsPanel items={notifs} signedIn={signedIn} seenAt={notifSeen} onClose={() => setNotifOpen(false)} onOpenFriends={() => { setNotifOpen(false); setFriendsOpen(true); }} />}
+      {notifOpen && <NotificationsPanel items={notifs} signedIn={signedIn} seenAt={notifSeen} onClose={() => setNotifOpen(false)} onOpenFriends={() => { setNotifOpen(false); setFriendsOpen(true); }} onClearAll={() => { clearNotifications(); setNotifs([]); }} />}
       {friendsOpen && <FriendsPanel onClose={() => setFriendsOpen(false)} onShare={() => { createFriendChallenge(); setFriendsOpen(false); }} />}
       {authMode && <div className="auth-backdrop" onClick={() => setAuthMode(null)}><div className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="auth-close" onClick={() => setAuthMode(null)}>×</button><Auth key={authMode} initialMode={authMode} /></div></div>}
     </main>

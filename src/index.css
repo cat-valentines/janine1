@@ -364,12 +364,15 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .selfie-tabs button { flex: 1; padding: 9px 0; border: 0; border-radius: 10px; background: #2a2444; color: #b6acdb; font-weight: 850; cursor: pointer; }
 .selfie-tabs button.on { background: #7c5cff; color: #fff; }
 .selfie-stage { position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 46vh; margin: 0 auto; background: #000; border-radius: 16px; overflow: hidden; display: grid; place-items: center; }
-.selfie-stage video, .selfie-stage img { width: 100%; height: 100%; object-fit: cover; }
+.selfie-stage video, .selfie-stage img, .selfie-stage .selfie-cam { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.selfie-stage .selfie-src { transform: scaleX(-1); }   /* mirror the (covered) live source */
 .selfie-rec { position: absolute; top: 10px; left: 10px; padding: 4px 10px; border-radius: 999px; background: #d33; color: #fff; font-weight: 850; font-size: .74rem; animation: portal-glow 1s infinite alternate; }
 .selfie-err { position: absolute; inset: auto 10px 10px; margin: 0; padding: 8px 10px; background: #3a1c2f; color: #ffd7e6; border-radius: 10px; font-size: .76rem; font-weight: 700; text-align: center; }
 .selfie-filters { display: flex; gap: 7px; margin: 12px 0 4px; overflow-x: auto; padding-bottom: 4px; }
 .selfie-filters button { flex: none; width: 58px; border: 0; background: none; color: #cbc2ee; font-weight: 800; font-size: .68rem; cursor: pointer; }
 .selfie-filters button i { display: block; width: 100%; height: 40px; margin-bottom: 4px; border-radius: 9px; border: 2px solid transparent; background: linear-gradient(135deg, #ff9a9e, #a1c4fd 55%, #84fab0); }
+.selfie-filters button .filter-emoji { display: block; width: 100%; height: 40px; margin-bottom: 4px; border-radius: 9px; border: 2px solid transparent; background: #2a2444; font-size: 24px; line-height: 40px; text-align: center; }
+.selfie-filters button.on .filter-emoji { border-color: #7c5cff; }
 .selfie-filters button.on { color: #fff; }
 .selfie-filters button.on i { border-color: #7c5cff; }
 .selfie-capture { display: grid; margin-top: 12px; }
@@ -1232,6 +1235,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .notif-badge { position: absolute; top: -3px; right: -3px; display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 4px; background: #e0452f; border: 2px solid #fff; border-radius: 999px; color: #fff; font-size: .7rem; font-style: normal; font-weight: 900; }
 .notif-panel { width: min(94vw, 420px); max-height: 88vh; margin-left: auto; padding: 16px; overflow-y: auto; background: var(--paper); border-left: 4px solid #68574d; }
 .notif-empty { padding: 20px 8px; text-align: center; color: var(--ink-soft); font-size: .86rem; }
+.notif-clear-all { display: block; margin: 6px 0 2px auto; padding: 6px 13px; border: 0; border-radius: 999px; background: #efe7ea; color: #8a5f74; font-weight: 800; font-size: .76rem; cursor: pointer; }
 .notif-list { display: grid; gap: 8px; margin-top: 10px; list-style: none; }
 .notif-item { position: relative; padding: 11px 12px 11px 14px; background: #f6f0e6; border: 2px solid #e0d6c6; border-radius: 10px; }
 .notif-item.unread { background: #fff6e6; border-color: #e6b877; }

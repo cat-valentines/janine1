@@ -45,11 +45,20 @@ export async function loadNotifications(userId: string): Promise<NotificationIte
       text: invite ? msg.message : `💬 @${nameOf(msg.sender_id)} texted you: ${msg.message}` });
   });
 
-  return items.sort((a, b) => (a.at < b.at ? 1 : -1));
+  const cleared = loadClearedAt();
+  return items
+    .filter((item) => !cleared || item.at > cleared)   // "Clear all" hides everything up to now
+    .sort((a, b) => (a.at < b.at ? 1 : -1));
 }
 
 const SEEN_KEY = 'magic-islands-notif-seen';
 export const loadSeenAt = () => storage.get(SEEN_KEY) ?? '';
 export const markSeen = () => storage.set(SEEN_KEY, new Date().toISOString());
+
+// "Clear all": a per-device timestamp; notifications older than it are hidden.
+// New friend adds / messages after this still come through.
+const CLEARED_KEY = 'magic-islands-notif-cleared';
+export const loadClearedAt = () => storage.get(CLEARED_KEY) ?? '';
+export const clearNotifications = () => storage.set(CLEARED_KEY, new Date().toISOString());
 export const countUnread = (items: NotificationItem[], seenAt: string) =>
   items.filter((item) => !seenAt || item.at > seenAt).length;

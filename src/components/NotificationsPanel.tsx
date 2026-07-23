@@ -6,6 +6,7 @@ interface NotificationsPanelProps {
   seenAt: string;
   onClose: () => void;
   onOpenFriends: () => void;
+  onClearAll: () => void;
 }
 
 /** Friendly relative time, e.g. "2h ago". */
@@ -17,13 +18,15 @@ function ago(at: string) {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-export function NotificationsPanel({ items, signedIn, seenAt, onClose, onOpenFriends }: NotificationsPanelProps) {
+export function NotificationsPanel({ items, signedIn, seenAt, onClose, onOpenFriends, onClearAll }: NotificationsPanelProps) {
   return <div className="friends-backdrop" onClick={onClose}>
     <aside className="notif-panel" onClick={(event) => event.stopPropagation()}>
       <div className="shop-heading">
         <div><span className="card-kicker">Friend updates & invites</span><h2>🔔 Notifications</h2></div>
         <button onClick={onClose} aria-label="Close notifications">×</button>
       </div>
+
+      {signedIn && items.length > 0 && <button className="notif-clear-all" onClick={onClearAll}>🧹 Clear all</button>}
 
       {!signedIn
         ? <div className="friend-login-note"><span>🔐</span><h3>Log in to see your notifications</h3><p>When a friend adds you or invites you to play, it shows up here.</p></div>
