@@ -119,22 +119,24 @@ function drawGoogly(ctx: CanvasRenderingContext2D, S: number) {
 
 const FILTERS: Filt[] = [
   { id: 'none', label: 'None', css: 'none' },
+  // Fun face filters first, so they're front-and-centre on a phone.
+  { id: 'dog', label: 'Doggo', icon: '🐶', draw: drawDog },
+  { id: 'cat', label: 'Kitty', icon: '🐱', draw: drawCat },
+  { id: 'bunny', label: 'Bunny', icon: '🐰', draw: drawBunny },
+  { id: 'makeup', label: 'Makeup', icon: '💄', draw: drawMakeup },
+  { id: 'shades', label: 'Shades', icon: '😎', draw: drawShades },
+  { id: 'clown', label: 'Clown', icon: '🤡', draw: drawClown },
+  { id: 'disguise', label: 'Silly', icon: '🥸', draw: drawDisguise },
+  { id: 'hearts', label: 'Love', icon: '😍', draw: drawHearts },
+  { id: 'crown', label: 'Queen', icon: '👑', draw: drawCrown },
+  { id: 'googly', label: 'Googly', icon: '👀', draw: drawGoogly },
+  // Colour filters after.
   { id: 'warm', label: 'Warm', css: 'sepia(.45) saturate(1.4) contrast(1.05)' },
   { id: 'cool', label: 'Cool', css: 'hue-rotate(-18deg) saturate(1.3) brightness(1.05)' },
   { id: 'mono', label: 'B&W', css: 'grayscale(1) contrast(1.12)' },
   { id: 'vivid', label: 'Vivid', css: 'saturate(1.9) contrast(1.1)' },
   { id: 'dream', label: 'Dreamy', css: 'brightness(1.15) saturate(1.2) blur(.7px)' },
   { id: 'retro', label: 'Retro', css: 'sepia(.4) hue-rotate(-12deg) saturate(1.5) contrast(1.15)' },
-  { id: 'dog', label: 'Doggo', icon: '🐶', draw: drawDog },
-  { id: 'cat', label: 'Kitty', icon: '🐱', draw: drawCat },
-  { id: 'bunny', label: 'Bunny', icon: '🐰', draw: drawBunny },
-  { id: 'makeup', label: 'Makeup', icon: '💄', draw: drawMakeup },
-  { id: 'shades', label: 'Cool 😎', icon: '😎', draw: drawShades },
-  { id: 'clown', label: 'Clown', icon: '🤡', draw: drawClown },
-  { id: 'disguise', label: 'Silly', icon: '🥸', draw: drawDisguise },
-  { id: 'hearts', label: 'Love', icon: '😍', draw: drawHearts },
-  { id: 'crown', label: 'Queen', icon: '👑', draw: drawCrown },
-  { id: 'googly', label: 'Googly', icon: '👀', draw: drawGoogly },
 ];
 const MAX_SECS = 8;
 const CANVAS = 600;
@@ -303,11 +305,14 @@ export function SelfieStudio({ me, friend, group, friends, onSent, onClose }: Pr
           {err && <p className="selfie-err">{err}</p>}
         </div>
 
-        {!shot && <div className="selfie-filters">
-          {FILTERS.map((f) => <button key={f.id} className={filter === f.id ? 'on' : ''} onClick={() => setFilter(f.id)}>
-            {f.icon ? <span className="filter-emoji">{f.icon}</span> : <i style={{ filter: f.css === 'none' ? 'none' : f.css }} />}{f.label}
-          </button>)}
-        </div>}
+        {!shot && <>
+          <p className="selfie-filters-hint">🎭 Filters — swipe for dog, cat, makeup &amp; more →</p>
+          <div className="selfie-filters">
+            {FILTERS.map((f) => <button key={f.id} className={filter === f.id ? 'on' : ''} onClick={() => setFilter(f.id)}>
+              {f.icon ? <span className="filter-emoji">{f.icon}</span> : <i style={{ filter: f.css === 'none' ? 'none' : f.css }} />}{f.label}
+            </button>)}
+          </div>
+        </>}
 
         {!shot
           ? <div className="selfie-capture">

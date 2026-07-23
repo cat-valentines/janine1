@@ -368,7 +368,9 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .selfie-stage .selfie-src { transform: scaleX(-1); }   /* mirror the (covered) live source */
 .selfie-rec { position: absolute; top: 10px; left: 10px; padding: 4px 10px; border-radius: 999px; background: #d33; color: #fff; font-weight: 850; font-size: .74rem; animation: portal-glow 1s infinite alternate; }
 .selfie-err { position: absolute; inset: auto 10px 10px; margin: 0; padding: 8px 10px; background: #3a1c2f; color: #ffd7e6; border-radius: 10px; font-size: .76rem; font-weight: 700; text-align: center; }
-.selfie-filters { display: flex; gap: 7px; margin: 12px 0 4px; overflow-x: auto; padding-bottom: 4px; }
+.selfie-filters-hint { margin: 12px 0 5px; color: #cbc2ee; font-size: .74rem; font-weight: 700; }
+.selfie-filters { display: flex; gap: 7px; margin: 0 0 4px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
+.selfie-filters button { scroll-snap-align: start; }
 .selfie-filters button { flex: none; width: 58px; border: 0; background: none; color: #cbc2ee; font-weight: 800; font-size: .68rem; cursor: pointer; }
 .selfie-filters button i { display: block; width: 100%; height: 40px; margin-bottom: 4px; border-radius: 9px; border: 2px solid transparent; background: linear-gradient(135deg, #ff9a9e, #a1c4fd 55%, #84fab0); }
 .selfie-filters button .filter-emoji { display: block; width: 100%; height: 40px; margin-bottom: 4px; border-radius: 9px; border: 2px solid transparent; background: #2a2444; font-size: 24px; line-height: 40px; text-align: center; }
