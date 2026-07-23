@@ -46,6 +46,25 @@ function readSeen(): SeenMap { try { return JSON.parse(storage.get(CHAT_SEEN_KEY
 export function chatSeenAt(friendId: string): string { return readSeen()[friendId] ?? ''; }
 export function markChatSeen(friendId: string) { const all = readSeen(); all[friendId] = new Date().toISOString(); storage.set(CHAT_SEEN_KEY, JSON.stringify(all)); }
 
+// A one-time baseline set the first time unread-tracking runs on this device.
+// Without it, EVERY message you'd already read long ago would look "unread" and
+// light the dot. Only messages newer than this baseline (or your last chat open)
+// count as unread.
+const BASELINE_KEY = 'chatUnreadBaseline';
+function unreadBaseline(): string {
+  let base = storage.get(BASELINE_KEY);
+  if (!base) { base = new Date().toISOString(); storage.set(BASELINE_KEY, base); }
+  return base;
+}
+
+/** True only when `lastAt` (a friend's newest message to you) is newer than both the
+ *  baseline and the last time you opened their chat. */
+export function messageUnread(lastAt: string | undefined, seenAt: string): boolean {
+  if (!lastAt) return false;
+  const floor = seenAt > unreadBaseline() ? seenAt : unreadBaseline();
+  return lastAt > floor;
+}
+
 /** The time of the newest message each friend sent YOU — used to show unread dots. */
 export async function loadIncomingLatest(me: string): Promise<Record<string, string>> {
   const { data, error } = await supabase.from('friend_messages').select('sender_id, created_at')

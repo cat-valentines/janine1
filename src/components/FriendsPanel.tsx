@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { loadFriendMessages, sendFriendMessage, parseMedia, loadSavedSelfies, markChatSeen, chatSeenAt, loadIncomingLatest, type FriendMessage, type MediaKind } from '../lib/friends';
+import { loadFriendMessages, sendFriendMessage, parseMedia, loadSavedSelfies, markChatSeen, chatSeenAt, messageUnread, loadIncomingLatest, type FriendMessage, type MediaKind } from '../lib/friends';
 import { mediaSignedUrl, resendMedia, saveMediaPrivate } from '../lib/media';
 import { createGroup, loadMyGroups, loadGroupMessages, sendGroupText, clearedAt, clearGroupView, type ChatGroup, type GroupMessage } from '../lib/groups';
 import { acceptFriend, addFriend, changeUsername, isTakenError, isUsernameFree, loadAllPlayers, loadMyFriends, loadMyStats, removeFriend, searchPlayers, USERNAME_RULE, type FoundPlayer, type FriendRow } from '../lib/players';
@@ -58,7 +58,7 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
   // Unread: newest message time each friend sent me, vs when I last opened their chat.
   const [lastFrom, setLastFrom] = useState<Record<string, string>>({});
   const [reads, setReads] = useState<Record<string, string>>({});
-  const hasUnread = (friendId: string) => !!lastFrom[friendId] && lastFrom[friendId] > (reads[friendId] ?? chatSeenAt(friendId));
+  const hasUnread = (friendId: string) => messageUnread(lastFrom[friendId], reads[friendId] ?? chatSeenAt(friendId));
 
   const refresh = () => loadMyFriends().then((rows) => { setFriends(rows); setSelected((current) => current ? rows.find((row) => row.id === current.id) ?? null : null); });
   const refreshUnread = (id: string) => loadIncomingLatest(id).then(setLastFrom).catch(() => undefined);
