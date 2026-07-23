@@ -308,7 +308,58 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .membership-button { display: block; margin: 16px auto 0; padding: 10px 14px; border: 3px solid #655345; background: #ead39e; color: #493f45; box-shadow: 4px 4px 0 #806d59; font-weight: 850; }
 .friend-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .friend-actions button { padding: 9px; border: 0; border-radius: 10px; background: #3e6e60; color: white; font-weight: 700; cursor: pointer; }
-.call-status { margin: 10px 0; color: #3e6e60; font-weight: 800; }
+.friend-actions .selfie-btn { background: #b45f9a; }
+.my-selfies-btn { width: 100%; margin-bottom: 12px; padding: 9px; border: 2px dashed #c7b3d6; border-radius: 12px; background: #f7f1fb; color: #7a4f8f; font-weight: 800; font-size: .84rem; cursor: pointer; }
+
+/* Chat photo/video bubbles */
+.chat-media { width: fit-content; max-width: 82%; margin: 8px 0; }
+.chat-media.chat-mine { margin-left: auto; }
+.chat-media img, .chat-media video { display: block; width: 100%; max-width: 240px; border-radius: 12px; border: 3px solid #fff; box-shadow: 0 2px 8px #0002; }
+.chat-media-load { display: inline-block; padding: 20px 26px; background: #fff; border-radius: 12px; color: var(--ink-soft); font-size: .8rem; }
+.chat-resend { margin-top: 4px; padding: 5px 10px; border: 0; border-radius: 999px; background: #b45f9a; color: #fff; font-weight: 800; font-size: .72rem; cursor: pointer; }
+
+/* Selfie studio + forward/gallery modals (fixed over the whole screen) */
+.friends-panel .quest-over { position: fixed; z-index: 30; padding: 14px; background: #140d20cc; }
+.selfie-studio { width: min(94vw, 420px); max-height: 94vh; overflow-y: auto; padding: 16px; background: #1c1830; border: 1px solid #453b6e; border-radius: 20px; color: #efeaff; }
+.selfie-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.selfie-head strong { font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.selfie-x { flex: none; width: 32px; height: 32px; border: 0; border-radius: 50%; background: #33294f; color: #efeaff; font-size: 1rem; cursor: pointer; }
+.selfie-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.selfie-tabs button { flex: 1; padding: 9px 0; border: 0; border-radius: 10px; background: #2a2444; color: #b6acdb; font-weight: 850; cursor: pointer; }
+.selfie-tabs button.on { background: #7c5cff; color: #fff; }
+.selfie-stage { position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 46vh; margin: 0 auto; background: #000; border-radius: 16px; overflow: hidden; display: grid; place-items: center; }
+.selfie-stage video, .selfie-stage img { width: 100%; height: 100%; object-fit: cover; }
+.selfie-rec { position: absolute; top: 10px; left: 10px; padding: 4px 10px; border-radius: 999px; background: #d33; color: #fff; font-weight: 850; font-size: .74rem; animation: portal-glow 1s infinite alternate; }
+.selfie-err { position: absolute; inset: auto 10px 10px; margin: 0; padding: 8px 10px; background: #3a1c2f; color: #ffd7e6; border-radius: 10px; font-size: .76rem; font-weight: 700; text-align: center; }
+.selfie-filters { display: flex; gap: 7px; margin: 12px 0 4px; overflow-x: auto; padding-bottom: 4px; }
+.selfie-filters button { flex: none; width: 58px; border: 0; background: none; color: #cbc2ee; font-weight: 800; font-size: .68rem; cursor: pointer; }
+.selfie-filters button i { display: block; width: 100%; height: 40px; margin-bottom: 4px; border-radius: 9px; border: 2px solid transparent; background: linear-gradient(135deg, #ff9a9e, #a1c4fd 55%, #84fab0); }
+.selfie-filters button.on { color: #fff; }
+.selfie-filters button.on i { border-color: #7c5cff; }
+.selfie-capture { display: grid; margin-top: 12px; }
+.selfie-shutter { padding: 14px; border: 0; border-radius: 14px; background: #7c5cff; color: #fff; font-weight: 850; font-size: 1rem; cursor: pointer; }
+.selfie-shutter small { font-weight: 700; opacity: .8; }
+.selfie-shutter.rec { background: #d33; }
+.selfie-shutter:disabled { opacity: .5; cursor: default; }
+.selfie-recips { margin-top: 12px; }
+.selfie-recips-title { margin: 0 0 7px; font-weight: 800; color: #cbc2ee; font-size: .82rem; }
+.selfie-recip { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-bottom: 6px; background: #2a2444; border: 2px solid transparent; border-radius: 10px; font-size: .84rem; cursor: pointer; }
+.selfie-recip.on { border-color: #7c5cff; background: #332a55; }
+.selfie-recip input { accent-color: #7c5cff; }
+.selfie-actions { display: flex; gap: 8px; margin-top: 12px; }
+.selfie-actions .ghost { flex: none; padding: 12px 16px; border: 2px solid #453b6e; border-radius: 12px; background: none; color: #cbc2ee; font-weight: 800; cursor: pointer; }
+.selfie-send { flex: 1; padding: 12px; border: 0; border-radius: 12px; background: #4bd07b; color: #05230f; font-weight: 900; cursor: pointer; }
+.selfie-send:disabled { opacity: .6; cursor: default; }
+.selfie-sent { margin: 14px 0 0; text-align: center; color: #8bf0a8; font-weight: 850; }
+.selfie-safe { margin: 12px 0 0; color: #a99ed6; font-size: .72rem; line-height: 1.45; text-align: center; }
+.resend-pick, .selfie-gallery { width: min(94vw, 400px); max-height: 90vh; overflow-y: auto; padding: 18px; background: #1c1830; border: 1px solid #453b6e; border-radius: 18px; color: #efeaff; text-align: center; }
+.resend-pick h3, .selfie-gallery h3 { margin: 0 0 4px; }
+.resend-sub { margin: 0 0 12px; color: #a99ed6; font-size: .76rem; }
+.resend-list { display: grid; gap: 7px; margin-bottom: 12px; }
+.resend-list button { padding: 11px; border: 0; border-radius: 11px; background: #2a2444; color: #efeaff; font-weight: 800; cursor: pointer; }
+.selfie-gallery-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
+.selfie-gallery-grid .chat-media { max-width: 100%; margin: 0; }
+.resend-pick .ghost, .selfie-gallery .ghost { padding: 10px 18px; border: 2px solid #453b6e; border-radius: 11px; background: none; color: #cbc2ee; font-weight: 800; cursor: pointer; }
 .friend-note { margin: 0 0 14px; padding: 9px 11px; background: #eaf1e6; border-left: 4px solid #3e6e60; border-radius: 8px; color: #33564a; font-size: .82rem; font-weight: 700; }
 .chat-box { margin-top: 20px; padding: 14px; background: #f3eee6; border-radius: 16px; }
 .chat-box p { width: fit-content; max-width: 100%; margin: 8px 0; padding: 8px 10px; overflow-wrap: anywhere; background: white; border-radius: 10px; font-size: .85rem; }

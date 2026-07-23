@@ -7,7 +7,7 @@ import { CharacterCustomizer } from '../components/CharacterCustomizer';
 import { getStars, STAR_GOAL } from '../lib/escapeStars';
 import type { CharacterId, SettingId } from '../game/types';
 
-const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Parrot' };
+const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly' };
 const characterChoices: Array<[CharacterId, string]> = [
   ['cottontail', 'A cheerful little house explorer'],
   ['momo', 'Cheerful treasure penguin'],

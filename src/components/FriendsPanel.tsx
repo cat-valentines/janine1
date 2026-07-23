@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { loadFriendMessages, sendFriendMessage, type FriendMessage } from '../lib/friends';
+import { loadFriendMessages, sendFriendMessage, parseMedia, loadSavedSelfies, type FriendMessage, type MediaKind } from '../lib/friends';
+import { mediaSignedUrl, resendMedia } from '../lib/media';
 import { acceptFriend, addFriend, changeUsername, isTakenError, isUsernameFree, loadAllPlayers, loadMyFriends, loadMyStats, removeFriend, searchPlayers, USERNAME_RULE, type FoundPlayer, type FriendRow } from '../lib/players';
 import { inviteLink, inviteTargets, gameTargets, type InviteTarget } from '../game/inviteTargets';
+import { SelfieStudio } from './SelfieStudio';
 import { supabase } from '../lib/supabase';
 
 const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷' };
@@ -25,7 +27,13 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
   const [chat, setChat] = useState<FriendMessage[]>([]);
   const [message, setMessage] = useState('');
   const [note, setNote] = useState('');
-  const [calling, setCalling] = useState(false);
+  /** The Selfie camera studio, open for the selected friend. */
+  const [selfieOpen, setSelfieOpen] = useState(false);
+  /** A media message you're forwarding to another friend (only your own media). */
+  const [resend, setResend] = useState<{ kind: MediaKind; path: string } | null>(null);
+  /** The "🔒 Just me" private selfie gallery. */
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [saved, setSaved] = useState<FriendMessage[]>([]);
   /** The chat opens only when you tap 💬 Text on a friend's profile. */
   const [showChat, setShowChat] = useState(false);
   const [pendingAction, setPendingAction] = useState<null | 'chat' | 'invite'>(null);
@@ -163,9 +171,22 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
     catch { setNote('Message not sent.'); }
   };
 
+  const doResend = async (friend: FriendRow) => {
+    if (!resend) return;
+    try {
+      await resendMedia(userId, friend.id, resend.kind, resend.path);
+      setNote(`Sent your ${resend.kind} to @${friend.name}! 🎉`);
+      setResend(null);
+      if (selected) openChat(selected.id);
+    } catch { setNote('Could not forward that — please try again.'); }
+  };
+
+  const openGallery = () => { loadSavedSelfies(userId).then(setSaved).catch(() => setSaved([])); setGalleryOpen(true); };
+
   return <div className="friends-backdrop" onClick={onClose}><aside className="friends-panel" onClick={(event) => event.stopPropagation()}>
     <div className="shop-heading"><div><span className="card-kicker">Real players only</span><h2>Friends</h2></div><button onClick={onClose} aria-label="Close friends">×</button></div>
     {!userId ? <div className="friend-login-note"><span>🔐</span><h3>Log in to find friends</h3><p>Only signed-up Magical Islands players appear here.</p></div> : <>
+      <button className="my-selfies-btn" onClick={openGallery}>🔒 My private selfies</button>
       {myHandle && !isPlaceholderName(myHandle) && !editingHandle
         ? <div className="friend-you"><span>👋</span><div>
             <strong>Friends find you as <b>@{myHandle}</b></strong>
@@ -205,9 +226,8 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
             <button className={showChat ? 'on' : ''} onClick={() => { const next = !showChat; setShowChat(next); if (next) openChat(selected.id); }}>💬 Text</button>
             <button className={tray === 'now' ? 'on' : ''} onClick={() => openTray('now')}>🎮 Invite to Play</button>
             <button className={tray === 'plan' ? 'on' : ''} onClick={() => openTray('plan')}>📅 Plan a Play Date</button>
-            <button onClick={() => setCalling((active) => !active)}>🎙️ {calling ? 'End Call' : 'Live Talk'}</button>
+            <button className="selfie-btn" onClick={() => setSelfieOpen(true)}>📸 Selfie</button>
           </div>
-          {calling && <p className="call-status">Live party open with @{selected.name}</p>}
 
           {tray === 'now' && <div className="invite-tray">
             <p className="invite-tray-title">Who's coming?</p>
@@ -246,9 +266,46 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
             <button className="invite-send" onClick={sendPlan}>📅 Send to {inviteFriends.size || 'no'} {inviteFriends.size === 1 ? 'friend' : 'friends'}</button>
           </div>}
 
-          {showChat && <div className="chat-box"><h3>Chat with {selected.name}</h3>{chat.map((item) => <p className={item.sender_id === userId ? 'chat-mine' : ''} key={item.id}>{item.message}</p>)}{!chat.length && <p className="friend-empty">Say hi! @{selected.name} gets a 🔔 when you text.</p>}<div><input value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && send()} placeholder="Write a message…" maxLength={500} autoFocus /><button onClick={send}>Send</button></div></div>}
+          {showChat && <div className="chat-box"><h3>Chat with {selected.name}</h3>{chat.map((item) => {
+            const media = parseMedia(item.message);
+            const mine = item.sender_id === userId;
+            if (media) return <ChatMedia key={item.id} mine={mine} kind={media.kind} path={media.path} onResend={mine ? () => setResend({ kind: media.kind, path: media.path }) : undefined} />;
+            return <p className={mine ? 'chat-mine' : ''} key={item.id}>{item.message}</p>;
+          })}{!chat.length && <p className="friend-empty">Say hi! @{selected.name} gets a 🔔 when you text.</p>}<div><input value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && send()} placeholder="Write a message…" maxLength={500} autoFocus /><button onClick={send}>Send</button></div></div>}
         </>}
       </>}{note && <p className="friend-note">{note}</p>}
+
+      {selfieOpen && selected && <SelfieStudio me={userId} friend={selected} friends={friends}
+        onSent={() => { if (selected) openChat(selected.id); }} onClose={() => setSelfieOpen(false)} />}
+
+      {resend && <div className="quest-over" onClick={() => setResend(null)}>
+        <div className="resend-pick" onClick={(e) => e.stopPropagation()}>
+          <h3>↗ Send this {resend.kind} to…</h3>
+          <p className="resend-sub">Only you can forward your own photos and videos.</p>
+          <div className="resend-list">{friends.filter((f) => f.status === 'accepted').map((f) => <button key={f.id} onClick={() => doResend(f)}>{icons[f.character_id] ?? '🙂'} @{f.name}</button>)}</div>
+          <button className="ghost" onClick={() => setResend(null)}>Cancel</button>
+        </div>
+      </div>}
+
+      {galleryOpen && <div className="quest-over" onClick={() => setGalleryOpen(false)}>
+        <div className="selfie-gallery" onClick={(e) => e.stopPropagation()}>
+          <h3>🔒 Just me — your private selfies</h3>
+          {saved.length ? <div className="selfie-gallery-grid">{saved.map((item) => { const m = parseMedia(item.message); return m ? <ChatMedia key={item.id} mine kind={m.kind} path={m.path} onResend={() => { setGalleryOpen(false); setResend({ kind: m.kind, path: m.path }); }} /> : null; })}</div>
+            : <p className="friend-empty">No private selfies yet. Take one and choose 🔒 Just me.</p>}
+          <button className="ghost" onClick={() => setGalleryOpen(false)}>Close</button>
+        </div>
+      </div>}
     </>}
   </aside></div>;
+}
+
+/** Renders a photo/video chat message by resolving its private storage path to a signed URL. */
+function ChatMedia({ mine, kind, path, onResend }: { mine: boolean; kind: MediaKind; path: string; onResend?: () => void }) {
+  const [url, setUrl] = useState('');
+  useEffect(() => { let live = true; mediaSignedUrl(path).then((u) => { if (live) setUrl(u); }); return () => { live = false; }; }, [path]);
+  return <div className={`chat-media ${mine ? 'chat-mine' : ''}`}>
+    {!url ? <span className="chat-media-load">📷 loading…</span>
+      : kind === 'photo' ? <img src={url} alt="selfie" /> : <video src={url} controls playsInline />}
+    {onResend && <button className="chat-resend" onClick={onResend}>↗ Send to another friend</button>}
+  </div>;
 }
