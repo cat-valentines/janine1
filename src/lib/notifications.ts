@@ -24,7 +24,7 @@ const looksLikeInvite = (message: string) => /invited you|play date|come play|�
 export async function loadNotifications(userId: string): Promise<NotificationItem[]> {
   const [friends, conns, msgs] = await Promise.all([
     loadMyFriends().catch(() => []),
-    supabase.from('friend_connections').select('requester_id, created_at')
+    supabase.from('friend_connections').select('requester_id, status, created_at')
       .eq('friend_id', userId).order('created_at', { ascending: false }).limit(20),
     supabase.from('friend_messages').select('id, sender_id, message, created_at')
       .eq('recipient_id', userId).order('created_at', { ascending: false }).limit(30),
@@ -34,9 +34,12 @@ export async function loadNotifications(userId: string): Promise<NotificationIte
   const items: NotificationItem[] = [];
 
   (conns.data ?? []).forEach((row) => {
-    const conn = row as { requester_id: string; created_at: string };
+    const conn = row as { requester_id: string; status: string; created_at: string };
+    const pending = conn.status === 'pending';
     items.push({ id: `friend-${conn.requester_id}`, kind: 'friend', at: conn.created_at, friendId: conn.requester_id,
-      text: `🤝 @${nameOf(conn.requester_id)} added you as a friend!` });
+      text: pending
+        ? `👋 @${nameOf(conn.requester_id)} wants to be your friend — tap to accept or decline`
+        : `🤝 @${nameOf(conn.requester_id)} is now your friend!` });
   });
 
   (msgs.data ?? []).forEach((row) => {

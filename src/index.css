@@ -254,6 +254,12 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .friend-row > button:first-child { flex: 1; min-width: 0; }
 .friend-row strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .friend-accept { flex: none; padding: 9px 11px; border: 0; border-radius: 10px; background: #3e6e60; color: white; font-size: .78rem; font-weight: 800; cursor: pointer; }
+.friend-decline { flex: none; padding: 9px 11px; border: 0; border-radius: 10px; background: #c26b6b; color: white; font-size: .78rem; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.friend-request-choice { margin: 12px 0; padding: 14px; background: #f3eef6; border: 2px solid #d9c9e6; border-radius: 14px; }
+.friend-request-choice p { margin: 0 0 10px; color: #4a3a58; font-size: .9rem; line-height: 1.45; }
+.friend-request-btns { display: flex; gap: 8px; }
+.friend-accept-big { flex: 1; padding: 12px; border: 0; border-radius: 12px; background: #3e6e60; color: #fff; font-weight: 850; cursor: pointer; }
+.friend-decline-big { flex: 1; padding: 12px; border: 0; border-radius: 12px; background: #e9e0ef; color: #7a5f8f; font-weight: 850; cursor: pointer; }
 .friend-quick { flex: none; padding: 8px 9px; border: 0; border-radius: 10px; color: #fff; font-size: .7rem; font-weight: 800; cursor: pointer; white-space: nowrap; }
 .friend-quick.text { background: #4a7fb5; }
 .friend-quick.invite { background: #7c5aa0; }

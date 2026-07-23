@@ -129,13 +129,18 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
   }, [query, userId]);
 
   const friendNow = async (player: FoundPlayer) => {
-    try { await addFriend(userId, player.id); setNote(`🎉 You and @${player.name} are friends now!`); setFound((rows) => rows.filter((row) => row.id !== player.id)); await refresh(); }
-    catch { setNote('Could not add that friend.'); }
+    try { await addFriend(userId, player.id); setNote(`👋 Friend request sent to @${player.name}! They choose whether to accept.`); setFound((rows) => rows.filter((row) => row.id !== player.id)); await refresh(); }
+    catch { setNote('Could not send that friend request.'); }
   };
 
   const unfriend = async (player: { id: string; name: string }) => {
     try { await removeFriend(userId, player.id); setSelected((current) => current?.id === player.id ? null : current); await refresh(); setNote(`@${player.name} was removed from your friends.`); }
     catch { setNote('Could not remove that friend.'); }
+  };
+
+  const decline = async (friend: { id: string; name: string }) => {
+    try { await removeFriend(userId, friend.id); setSelected((current) => current?.id === friend.id ? null : current); await refresh(); setNote(`Declined @${friend.name}'s friend request.`); }
+    catch { setNote('Could not decline that request.'); }
   };
 
   const toggleStar = (player: FoundPlayer) => {
@@ -256,13 +261,18 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
       <div className="friend-search"><span>🔍</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search real players by username…" maxLength={24} /></div>
       {query.length >= 2 && <section className="player-search-results"><h3>Player search</h3>{found.map((player) => { const connected = friends.some((friend) => friend.id === player.id); return <div className="player-result" key={player.id}><span>{icons[player.character_id] ?? '🙂'}</span><strong>@{player.name}<small>Level {player.level}</small></strong><button className={`friend-star ${connected ? 'starred' : ''}`} onClick={() => toggleStar(player)} title={connected ? 'Unfriend this player' : 'Add friend'} aria-label={connected ? `Unfriend ${player.name}` : `Friend ${player.name}`}>{connected ? '★' : '☆'}</button></div>; })}{!found.length && <p className="friend-empty">No matching signed-up players.</p>}</section>}
       <div className="friend-list">{friends.map((friend) => <div className="friend-row" key={friend.id}>
-        <button className={selected?.id === friend.id ? 'selected' : ''} onClick={() => setSelected(friend)}><span>{icons[friend.character_id] ?? '🙂'}</span><strong>{friend.name}<small>{friend.status === 'accepted' ? `Level ${friend.level}` : 'Wants to be your friend'}</small></strong></button>
+        <button className={selected?.id === friend.id ? 'selected' : ''} onClick={() => setSelected(friend)}><span>{icons[friend.character_id] ?? '🙂'}</span><strong>{friend.name}<small>{friend.status === 'accepted' ? `Level ${friend.level}` : friend.incoming ? 'Wants to be your friend' : 'Request sent — waiting'}</small></strong></button>
         {friend.status === 'accepted' && <>
           <button className="friend-quick text" onClick={() => { setPendingAction('chat'); setSelected(friend); setShowChat(true); openChat(friend.id); }} title={`Text @${friend.name}`}>💬 Text</button>
           <button className="friend-quick invite" onClick={() => { setPendingAction('invite'); setSelected(friend); openTray('now'); }} title={`Invite @${friend.name}`}>🎮 Invite</button>
         </>}
-        {friend.status === 'pending' && friend.incoming && <button className="friend-accept" onClick={() => accept(friend)}>✓ Accept</button>}
-        <button className="friend-star starred" onClick={() => unfriend(friend)} title="Unfriend this player" aria-label={`Unfriend ${friend.name}`}>★</button>
+        {friend.status === 'pending' && friend.incoming && <>
+          <button className="friend-accept" onClick={() => accept(friend)}>✓ Accept</button>
+          <button className="friend-decline" onClick={() => decline(friend)}>✗ Decline</button>
+        </>}
+        {friend.status === 'accepted'
+          ? <button className="friend-star starred" onClick={() => unfriend(friend)} title="Unfriend this player" aria-label={`Unfriend ${friend.name}`}>★</button>
+          : !friend.incoming && <button className="friend-decline" onClick={() => decline(friend)} title="Cancel this request">✗ Cancel</button>}
       </div>)}{!friends.length && <p className="friend-empty">No friends yet. Add someone from the list below.</p>}</div>
 
       {query.length < 2 && <section className="all-players">
@@ -280,7 +290,21 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
         <button className="group-make-btn" onClick={() => { setGroupName(''); setGroupPick(new Set()); setMakeGroupOpen(true); }}>➕ Make a Group Chat</button>
       </section>}
 
-      {selected && <><article className="friend-profile"><div className="friend-avatar">{icons[selected.character_id] ?? '🙂'}</div><div><p className="card-kicker">Real player profile</p><h3>@{selected.name}</h3><p>⭐ Level {selected.level}</p><p>🤝 Your friend</p></div></article>
+      {selected && <><article className="friend-profile"><div className="friend-avatar">{icons[selected.character_id] ?? '🙂'}</div><div><p className="card-kicker">Real player profile</p><h3>@{selected.name}</h3><p>⭐ Level {selected.level}</p>
+        <p>{selected.status === 'accepted' ? '🤝 Your friend' : selected.incoming ? '👋 Wants to be your friend' : '⏳ Friend request sent'}</p></div></article>
+
+        {selected.status === 'pending' && selected.incoming && <div className="friend-request-choice">
+          <p>👋 <b>@{selected.name}</b> wants to be your friend. Do you want to be friends?</p>
+          <div className="friend-request-btns">
+            <button className="friend-accept-big" onClick={() => accept(selected)}>✓ Yes, accept</button>
+            <button className="friend-decline-big" onClick={() => decline(selected)}>✗ No thanks</button>
+          </div>
+        </div>}
+
+        {selected.status === 'pending' && !selected.incoming && <div className="friend-request-choice">
+          <p>⏳ Waiting for <b>@{selected.name}</b> to accept your friend request.</p>
+          <button className="friend-decline-big" onClick={() => decline(selected)}>Cancel request</button>
+        </div>}
 
         {selected.status === 'accepted' && <>
           <div className="friend-actions">

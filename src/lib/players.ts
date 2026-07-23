@@ -35,18 +35,28 @@ export async function loadMyFriends() {
 }
 
 /**
- * Friends someone straight away — no "request pending" step. Kids just want to
- * add each other and play, so the connection goes in already accepted.
+ * Send a friend REQUEST. The other player gets a notification and chooses to
+ * accept or decline — nobody is added without their say-so. If they had already
+ * asked to be your friend, this accepts that instead, so a mutual add becomes
+ * friends right away.
  */
 export async function addFriend(requesterId: string, friendId: string) {
-  const { error } = await supabase.from('friend_connections')
-    .insert({ requester_id: requesterId, friend_id: friendId, status: 'accepted' });
-  if (error && error.code !== '23505') throw error;
-  // If a row already existed as pending (from before), make it accepted too.
-  if (error?.code === '23505') {
-    await supabase.from('friend_connections').update({ status: 'accepted' })
-      .or(`and(requester_id.eq.${requesterId},friend_id.eq.${friendId}),and(requester_id.eq.${friendId},friend_id.eq.${requesterId})`);
+  const pair = `and(requester_id.eq.${requesterId},friend_id.eq.${friendId}),and(requester_id.eq.${friendId},friend_id.eq.${requesterId})`;
+  const { data: existing } = await supabase.from('friend_connections')
+    .select('requester_id, friend_id, status').or(pair);
+  if (existing && existing.length) {
+    // They already asked YOU → accept it (instant friends). Otherwise leave the
+    // existing request/friendship exactly as it is.
+    const theyAsked = existing.some((row) => (row as { requester_id: string }).requester_id === friendId);
+    if (theyAsked) {
+      await supabase.from('friend_connections').update({ status: 'accepted' })
+        .eq('requester_id', friendId).eq('friend_id', requesterId);
+    }
+    return;
   }
+  const { error } = await supabase.from('friend_connections')
+    .insert({ requester_id: requesterId, friend_id: friendId, status: 'pending' });
+  if (error && error.code !== '23505') throw error;
 }
 
 export async function acceptFriend(myId: string, requesterId: string) {
