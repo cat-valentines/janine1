@@ -175,6 +175,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .invite-card .form button { padding: 12px; border: 0; border-radius: 12px; background: var(--accent); color: white; font-weight: 800; }
 .menu-button { position: fixed; top: 22px; left: 22px; z-index: 6; padding: 11px 16px; border: 0; border-radius: 14px; background: #403744; color: white; font-weight: 800; box-shadow: 0 5px 14px #261f2930; cursor: pointer; }
 .friends-button { position: fixed; top: 22px; right: 22px; z-index: 6; padding: 11px 16px; border: 0; border-radius: 14px; background: #3e6e60; color: white; font-weight: 800; box-shadow: 0 5px 14px #261f2930; cursor: pointer; }
+.friends-unread-dot { position: absolute; top: -5px; right: -5px; width: 15px; height: 15px; background: #e0452f; border: 2px solid #fff; border-radius: 50%; }
 .profile-button { position: fixed; top: 17px; left: 124px; z-index: 6; display: grid; width: 52px; height: 52px; padding: 0; place-items: center; overflow: hidden; border: 3px solid #68574d; border-radius: 50%; background: #fff3cd; box-shadow: 0 5px 14px #261f2930; cursor: pointer; }
 .profile-button img { width: 38px; height: 38px; object-fit: contain; image-rendering: pixelated; }
 .crown-button { position: fixed; top: 17px; left: 186px; z-index: 6; display: grid; width: 52px; height: 52px; padding: 0; place-items: center; border: 3px solid #68574d; border-radius: 50%; background: #efe8dc; color: #9a8f7d; font-size: 1.5rem; box-shadow: 0 5px 14px #261f2930; cursor: pointer; }
@@ -260,7 +261,9 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .friend-request-btns { display: flex; gap: 8px; }
 .friend-accept-big { flex: 1; padding: 12px; border: 0; border-radius: 12px; background: #3e6e60; color: #fff; font-weight: 850; cursor: pointer; }
 .friend-decline-big { flex: 1; padding: 12px; border: 0; border-radius: 12px; background: #e9e0ef; color: #7a5f8f; font-weight: 850; cursor: pointer; }
-.friend-quick { flex: none; padding: 8px 9px; border: 0; border-radius: 10px; color: #fff; font-size: .7rem; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.friend-quick { position: relative; flex: none; padding: 8px 9px; border: 0; border-radius: 10px; color: #fff; font-size: .7rem; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.friend-quick.text.has-unread { box-shadow: 0 0 0 2px #e0452f55; }
+.unread-dot { position: absolute; top: -5px; right: -5px; width: 13px; height: 13px; background: #e0452f; border: 2px solid #fff; border-radius: 50%; }
 .friend-quick.text { background: #4a7fb5; }
 .friend-quick.invite { background: #7c5aa0; }
 .friend-list button > span { font-size: 1.6rem; }

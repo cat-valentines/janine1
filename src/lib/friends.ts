@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { storage } from './storage';
 
 export interface FriendMessage {
   id: string; sender_id: string; recipient_id: string; message: string; created_at: string;
@@ -35,6 +36,27 @@ export function parseMedia(message: string): { kind: MediaKind; path: string } |
   const path = rest.slice(sep + 2);
   if ((kind === 'photo' || kind === 'video') && path) return { kind, path };
   return null;
+}
+
+// ---- Unread tracking: which friends have texted you since you last looked ----
+// A per-device record of when you last opened each friend's chat.
+const CHAT_SEEN_KEY = 'chatSeenAt';
+type SeenMap = Record<string, string>;
+function readSeen(): SeenMap { try { return JSON.parse(storage.get(CHAT_SEEN_KEY) ?? '{}') as SeenMap; } catch { return {}; } }
+export function chatSeenAt(friendId: string): string { return readSeen()[friendId] ?? ''; }
+export function markChatSeen(friendId: string) { const all = readSeen(); all[friendId] = new Date().toISOString(); storage.set(CHAT_SEEN_KEY, JSON.stringify(all)); }
+
+/** The time of the newest message each friend sent YOU — used to show unread dots. */
+export async function loadIncomingLatest(me: string): Promise<Record<string, string>> {
+  const { data, error } = await supabase.from('friend_messages').select('sender_id, created_at')
+    .eq('recipient_id', me).order('created_at', { ascending: false }).limit(200);
+  if (error) return {};
+  const latest: Record<string, string> = {};
+  (data ?? []).forEach((row) => {
+    const r = row as { sender_id: string; created_at: string };
+    if (r.sender_id !== me && !latest[r.sender_id]) latest[r.sender_id] = r.created_at;
+  });
+  return latest;
 }
 
 /** Selfies you saved privately to yourself (sender === recipient === you). */

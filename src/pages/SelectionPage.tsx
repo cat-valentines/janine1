@@ -55,6 +55,7 @@ import { MoreGamesPage } from './MoreGamesPage';
 import type { GameId } from '../game/gameList';
 import { AccountSetupPage } from './AccountSetupPage';
 import { loadAccountState } from '../lib/players';
+import { chatSeenAt, loadIncomingLatest } from '../lib/friends';
 
 export function SelectionPage({ onStart }: { onStart: (selection: GameSelection) => void }) {
   const path = useRoute();
@@ -110,6 +111,8 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifs, setNotifs] = useState<NotificationItem[]>([]);
   const [notifSeen, setNotifSeen] = useState(loadSeenAt);
+  /** Newest message time each friend sent me — drives the red dot on the Friends button. */
+  const [msgLatest, setMsgLatest] = useState<Record<string, string>>({});
   const [worldMode, setWorldMode] = useState<'build' | 'walk'>('build');
   const [foodBalance] = useState(savedProfile.foodBalance);
   const [shopCoins, setShopCoins] = useState(savedProfile.shopCoins);
@@ -243,15 +246,16 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     // Dev-only: lets the headless test push real-shaped notifications in.
     if (import.meta.env.DEV) (window as unknown as { __notifTest: unknown }).__notifTest = { setNotifs, setSignedIn };
     let stop = false;
-    // Refresh on a timer so a friend's text lights up the 🔔 without a reload.
+    // Refresh on a timer so a friend's text lights up the 🔔 (and the Friends dot).
     const pull = () => supabase.auth.getUser().then(({ data }) => {
       if (!data.user || stop) return;
       loadNotifications(data.user.id).then((items) => { if (!stop) setNotifs(items); }).catch(() => undefined);
+      loadIncomingLatest(data.user.id).then((map) => { if (!stop) setMsgLatest(map); }).catch(() => undefined);
     });
     pull();
     const id = setInterval(pull, 20000);
     return () => { stop = true; clearInterval(id); };
-  }, []);
+  }, [friendsOpen]);
 
   // Just detect whether you're signed in — visiting the site no longer touches
   // your streak. (Streaks are earned by playing; see markPlayedToday.)
@@ -391,7 +395,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   return (
     <main className="selection-page page-shell">
       <button className="menu-button" onClick={() => setMenuOpen(true)}>☰ Menu</button>
-      <button className="friends-button" onClick={() => setFriendsOpen(true)}>Friends ☺</button>
+      <button className="friends-button" onClick={() => setFriendsOpen(true)}>Friends ☺{signedIn && Object.entries(msgLatest).some(([id, at]) => at > chatSeenAt(id)) && <i className="friends-unread-dot" />}</button>
       <button className="profile-button" onClick={() => navigate('/profile')} title="My profile" aria-label="My profile"><img src={characterAssets[character]} alt="" /></button>
       <button className={`crown-button ${isMember ? 'is-member' : ''}`} onClick={() => navigate('/royal')} title="Royal Membership" aria-label="Royal Membership">♛</button>
       <button className={`streak-button ${playedToday ? 'burning' : ''}`} onClick={() => navigate('/streak')} title={playedToday ? '🔥 Your streak is lit for today!' : 'Play a game today to light your streak'} aria-label="Your daily streak"><span>🔥</span><b>{streak}</b></button>

@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { loadMyFriends } from './players';
+import { loadMyFriends, loadAllPlayers } from './players';
 import { parseMedia } from './friends';
 import { storage } from './storage';
 
@@ -22,15 +22,21 @@ const looksLikeInvite = (message: string) => /invited you|play date|come play|ðŸ
  * returns [] if the tables are not reachable, so the bell just stays quiet.
  */
 export async function loadNotifications(userId: string): Promise<NotificationItem[]> {
-  const [friends, conns, msgs] = await Promise.all([
+  const [friends, everyone, conns, msgs] = await Promise.all([
     loadMyFriends().catch(() => []),
+    loadAllPlayers().catch(() => []),
     supabase.from('friend_connections').select('requester_id, status, created_at')
       .eq('friend_id', userId).order('created_at', { ascending: false }).limit(20),
     supabase.from('friend_messages').select('id, sender_id, message, created_at')
       .eq('recipient_id', userId).order('created_at', { ascending: false }).limit(30),
   ]);
 
-  const nameOf = (id: string) => friends.find((friend) => friend.id === id)?.name ?? 'a player';
+  // Resolve names from friends AND every signed-up player, so a sender is always
+  // named (never a vague "a player sent you a photo").
+  const names = new Map<string, string>();
+  everyone.forEach((player) => names.set(player.id, player.name));
+  friends.forEach((friend) => names.set(friend.id, friend.name));
+  const nameOf = (id: string) => names.get(id) ?? 'a player';
   const items: NotificationItem[] = [];
 
   (conns.data ?? []).forEach((row) => {

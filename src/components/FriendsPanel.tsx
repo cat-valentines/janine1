@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { loadFriendMessages, sendFriendMessage, parseMedia, loadSavedSelfies, type FriendMessage, type MediaKind } from '../lib/friends';
+import { loadFriendMessages, sendFriendMessage, parseMedia, loadSavedSelfies, markChatSeen, chatSeenAt, loadIncomingLatest, type FriendMessage, type MediaKind } from '../lib/friends';
 import { mediaSignedUrl, resendMedia, saveMediaPrivate } from '../lib/media';
 import { createGroup, loadMyGroups, loadGroupMessages, sendGroupText, clearedAt, clearGroupView, type ChatGroup, type GroupMessage } from '../lib/groups';
 import { acceptFriend, addFriend, changeUsername, isTakenError, isUsernameFree, loadAllPlayers, loadMyFriends, loadMyStats, removeFriend, searchPlayers, USERNAME_RULE, type FoundPlayer, type FriendRow } from '../lib/players';
@@ -55,9 +55,18 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
   const [groupMsgs, setGroupMsgs] = useState<GroupMessage[]>([]);
   const [groupText, setGroupText] = useState('');
   const [groupSelfie, setGroupSelfie] = useState(false);
+  // Unread: newest message time each friend sent me, vs when I last opened their chat.
+  const [lastFrom, setLastFrom] = useState<Record<string, string>>({});
+  const [reads, setReads] = useState<Record<string, string>>({});
+  const hasUnread = (friendId: string) => !!lastFrom[friendId] && lastFrom[friendId] > (reads[friendId] ?? chatSeenAt(friendId));
 
   const refresh = () => loadMyFriends().then((rows) => { setFriends(rows); setSelected((current) => current ? rows.find((row) => row.id === current.id) ?? null : null); });
-  const openChat = (id: string) => loadFriendMessages(id).then(setChat).catch(() => setChat([]));
+  const refreshUnread = (id: string) => loadIncomingLatest(id).then(setLastFrom).catch(() => undefined);
+  const openChat = (id: string) => {
+    markChatSeen(id);
+    setReads((prev) => ({ ...prev, [id]: new Date().toISOString() }));
+    return loadFriendMessages(id).then(setChat).catch(() => setChat([]));
+  };
 
   // Tapped a notification → jump straight to that friend and open their chat.
   useEffect(() => {
@@ -78,6 +87,7 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
       const authName = (user.user_metadata.display_name as string | undefined) ?? '';
       setMyName(authName || 'a friend');
       refresh().catch(() => setNote('Friends are not online yet. The database update may still need to be applied.'));
+      refreshUnread(user.id);
       loadAllPlayers().then(setEveryone).catch(() => undefined);
       // Read the name friends actually search by — the one in your profile row.
       loadMyStats(user.id).then((stats) => {
@@ -263,7 +273,7 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
       <div className="friend-list">{friends.map((friend) => <div className="friend-row" key={friend.id}>
         <button className={selected?.id === friend.id ? 'selected' : ''} onClick={() => setSelected(friend)}><span>{icons[friend.character_id] ?? '🙂'}</span><strong>{friend.name}<small>{friend.status === 'accepted' ? `Level ${friend.level}` : friend.incoming ? 'Wants to be your friend' : 'Request sent — waiting'}</small></strong></button>
         {friend.status === 'accepted' && <>
-          <button className="friend-quick text" onClick={() => { setPendingAction('chat'); setSelected(friend); setShowChat(true); openChat(friend.id); }} title={`Text @${friend.name}`}>💬 Text</button>
+          <button className={`friend-quick text ${hasUnread(friend.id) ? 'has-unread' : ''}`} onClick={() => { setPendingAction('chat'); setSelected(friend); setShowChat(true); openChat(friend.id); }} title={hasUnread(friend.id) ? `@${friend.name} texted you` : `Text @${friend.name}`}>💬 Text{hasUnread(friend.id) && <i className="unread-dot" />}</button>
           <button className="friend-quick invite" onClick={() => { setPendingAction('invite'); setSelected(friend); openTray('now'); }} title={`Invite @${friend.name}`}>🎮 Invite</button>
         </>}
         {friend.status === 'pending' && friend.incoming && <>
