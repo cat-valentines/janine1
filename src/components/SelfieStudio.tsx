@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 import type { FriendRow } from '../lib/players';
 import { sendMediaTo } from '../lib/media';
 import { sendGroupMedia } from '../lib/groups';
@@ -140,9 +141,25 @@ const FILTERS: Filt[] = [
 ];
 const MAX_SECS = 8;
 const CANVAS = 600;
+const GIF_SIZE = 320, GIF_FPS = 10, GIF_FRAMES = 20;   // ~2s looping GIF
+
+/** Turn captured RGBA frames into an animated GIF blob (gifenc, no worker needed). */
+function encodeGif(frames: Uint8ClampedArray[], size: number) {
+  const enc = GIFEncoder();
+  const delay = Math.round(1000 / GIF_FPS);
+  for (const data of frames) {
+    const palette = quantize(data, 256);
+    const index = applyPalette(data, palette);
+    enc.writeFrame(index, size, size, { palette, delay });
+  }
+  enc.finish();
+  return new Blob([new Uint8Array(enc.bytes())], { type: 'image/gif' });
+}
+const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 
 interface Props { me: string; friend?: FriendRow; group?: { id: string; name: string }; friends: FriendRow[]; onSent: () => void; onClose: () => void }
 interface Shot { url: string; blob: Blob; kind: 'photo' | 'video'; ext: string; type: string }
+type Mode = 'photo' | 'video' | 'gif';
 
 function drawFrame(c: HTMLCanvasElement, v: HTMLVideoElement, filt: Filt) {
   const S = c.width; const ctx = c.getContext('2d'); if (!ctx) return;
@@ -159,12 +176,13 @@ function drawFrame(c: HTMLCanvasElement, v: HTMLVideoElement, filt: Filt) {
 }
 
 export function SelfieStudio({ me, friend, group, friends, onSent, onClose }: Props) {
-  const [mode, setMode] = useState<'photo' | 'video'>('photo');
+  const [mode, setMode] = useState<Mode>('photo');
   const [filter, setFilter] = useState('none');
   const [shot, setShot] = useState<Shot | null>(null);
   const [recips, setRecips] = useState<Set<string>>(new Set(friend ? [friend.id] : []));
   const [toSelf, setToSelf] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [gifMaking, setGifMaking] = useState(false);
   const [secs, setSecs] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -177,6 +195,7 @@ export function SelfieStudio({ me, friend, group, friends, onSent, onClose }: Pr
   const chunks = useRef<Blob[]>([]);
   const loopRaf = useRef(0);
   const timer = useRef(0);
+  const gifAbort = useRef(false);
   const shotRef = useRef<Shot | null>(null); shotRef.current = shot;
   const filtRef = useRef<Filt>(FILTERS[0]); filtRef.current = FILTERS.find((f) => f.id === filter) ?? FILTERS[0];
 
@@ -184,6 +203,7 @@ export function SelfieStudio({ me, friend, group, friends, onSent, onClose }: Pr
 
   const stopCamera = () => {
     window.clearTimeout(timer.current);
+    gifAbort.current = true;
     if (recRef.current && recRef.current.state !== 'inactive') { try { recRef.current.stop(); } catch { /* ignore */ } }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
@@ -258,6 +278,32 @@ export function SelfieStudio({ me, friend, group, friends, onSent, onClose }: Pr
 
   const stopVideo = () => { window.clearTimeout(timer.current); if (recRef.current && recRef.current.state !== 'inactive') recRef.current.stop(); };
 
+  // GIF: sample the (already filtered) preview canvas ~10 fps for 2s, then encode.
+  const startGif = async () => {
+    const c = canvasRef.current, v = videoRef.current;
+    if (!c || !v || v.readyState < 2) { setErr('Camera not ready yet — give it a second.'); return; }
+    gifAbort.current = false;
+    setErr(''); setRecording(true); setSecs(0);
+    const g = document.createElement('canvas'); g.width = GIF_SIZE; g.height = GIF_SIZE;
+    const gctx = g.getContext('2d'); if (!gctx) { setRecording(false); return; }
+    const frames: Uint8ClampedArray[] = [];
+    for (let i = 0; i < GIF_FRAMES; i += 1) {
+      if (gifAbort.current) { setRecording(false); return; }
+      gctx.drawImage(c, 0, 0, GIF_SIZE, GIF_SIZE);          // c is kept fresh by the render loop
+      frames.push(gctx.getImageData(0, 0, GIF_SIZE, GIF_SIZE).data);
+      setSecs(Math.round(((i + 1) / GIF_FRAMES) * (GIF_FRAMES / GIF_FPS) * 10) / 10);
+      await sleep(1000 / GIF_FPS);
+    }
+    setRecording(false);
+    setGifMaking(true);
+    await sleep(30);                                         // let the "Making GIF…" state paint
+    try {
+      const blob = encodeGif(frames, GIF_SIZE);
+      if (!gifAbort.current) setShot({ url: URL.createObjectURL(blob), blob, kind: 'photo', ext: 'gif', type: 'image/gif' });
+    } catch { setErr('Could not make the GIF — try again.'); }
+    finally { setGifMaking(false); setSecs(0); }
+  };
+
   const retake = () => { if (shot) URL.revokeObjectURL(shot.url); setShot(null); };
   const toggleRecip = (id: string) => setRecips((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
@@ -293,6 +339,7 @@ export function SelfieStudio({ me, friend, group, friends, onSent, onClose }: Pr
         {!shot && <div className="selfie-tabs">
           <button className={mode === 'photo' ? 'on' : ''} onClick={() => setMode('photo')}>📷 Photo</button>
           <button className={mode === 'video' ? 'on' : ''} onClick={() => setMode('video')}>🎬 Video</button>
+          <button className={mode === 'gif' ? 'on' : ''} onClick={() => setMode('gif')}>🔁 GIF</button>
         </div>}
 
         <div className="selfie-stage">
@@ -301,7 +348,8 @@ export function SelfieStudio({ me, friend, group, friends, onSent, onClose }: Pr
           {!shot && <canvas className="selfie-cam" ref={canvasRef} width={CANVAS} height={CANVAS} />}
           {shot?.kind === 'photo' && <img src={shot.url} alt="Your selfie" />}
           {shot?.kind === 'video' && <video src={shot.url} controls playsInline />}
-          {recording && <span className="selfie-rec">● REC {secs}s</span>}
+          {recording && <span className="selfie-rec">{mode === 'gif' ? `🔁 GIF ${secs}s` : `● REC ${secs}s`}</span>}
+          {gifMaking && <span className="selfie-making">✨ Making your GIF…</span>}
           {err && <p className="selfie-err">{err}</p>}
         </div>
 
@@ -318,9 +366,11 @@ export function SelfieStudio({ me, friend, group, friends, onSent, onClose }: Pr
           ? <div className="selfie-capture">
               {mode === 'photo'
                 ? <button className="selfie-shutter" onClick={takePhoto} disabled={!!err}>◉ Take photo</button>
-                : recording
-                  ? <button className="selfie-shutter rec" onClick={stopVideo}>■ Stop · {secs}s</button>
-                  : <button className="selfie-shutter" onClick={startVideo} disabled={!!err}>● Record <small>(max {MAX_SECS}s)</small></button>}
+                : mode === 'gif'
+                  ? <button className="selfie-shutter gif" onClick={startGif} disabled={!!err || recording || gifMaking}>{recording ? `🔁 Recording… ${secs}s` : gifMaking ? '✨ Making GIF…' : '🔁 Make a GIF'}</button>
+                  : recording
+                    ? <button className="selfie-shutter rec" onClick={stopVideo}>■ Stop · {secs}s</button>
+                    : <button className="selfie-shutter" onClick={startVideo} disabled={!!err}>● Record <small>(max {MAX_SECS}s)</small></button>}
             </div>
           : done
             ? <p className="selfie-sent">{done}</p>

@@ -373,6 +373,8 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .selfie-stage video, .selfie-stage img, .selfie-stage .selfie-cam { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .selfie-stage .selfie-src { transform: scaleX(-1); }   /* mirror the (covered) live source */
 .selfie-rec { position: absolute; top: 10px; left: 10px; padding: 4px 10px; border-radius: 999px; background: #d33; color: #fff; font-weight: 850; font-size: .74rem; animation: portal-glow 1s infinite alternate; }
+.selfie-making { position: absolute; inset: auto 0 12px; margin: 0 auto; width: fit-content; padding: 7px 14px; border-radius: 999px; background: #7c5cffee; color: #fff; font-weight: 850; font-size: .82rem; }
+.selfie-shutter.gif { background: linear-gradient(120deg, #b45f9a, #7c5cff); box-shadow: 0 6px 0 #4f3b8a; }
 .selfie-err { position: absolute; inset: auto 10px 10px; margin: 0; padding: 8px 10px; background: #3a1c2f; color: #ffd7e6; border-radius: 10px; font-size: .76rem; font-weight: 700; text-align: center; }
 .selfie-filters-hint { margin: 12px 0 5px; color: #cbc2ee; font-size: .74rem; font-weight: 700; }
 .selfie-filters { display: flex; gap: 7px; margin: 0 0 4px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
