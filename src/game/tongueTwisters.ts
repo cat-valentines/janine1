@@ -8,16 +8,51 @@
  */
 
 export const TWISTERS: string[] = [
+  // classics
   'She sells sea shells by the sea shore',
   'Peter Piper picked a peck of pickled peppers',
-  'Red lorry yellow lorry',
-  'Fuzzy Wuzzy was a bear',
+  'How much wood would a woodchuck chuck if a woodchuck could chuck wood',
+  'Betty bought a bit of butter but the butter was bitter',
   'A proper copper coffee pot',
-  'Six slippery snails slid slowly seaward',
-  'Betty bought a bit of butter',
+  'Red lorry yellow lorry',
   'Unique New York',
   'Truly rural',
+  'Fuzzy Wuzzy was a bear',
   'Freshly fried flying fish',
+  'Round the rugged rock the ragged rascal ran',
+  'Which witch is which',
+  'I scream you scream we all scream for ice cream',
+  'Rubber baby buggy bumpers',
+  'Give papa a cup of proper coffee in a copper coffee cup',
+  // animals
+  'A big black bug bit a big black bear',
+  'Six slippery snails slid slowly seaward',
+  'A skunk sat on a stump and thunk the stump stunk',
+  'Kitty caught the kitten in the kitchen',
+  'Two tiny tigers take two taxis to town',
+  'Wayne went to Wales to watch walruses',
+  'Eleven benevolent elephants',
+  'The blue bluebird blinks',
+  'Nine nice night nurses nursing nicely',
+  'If a dog chews shoes whose shoes does he choose',
+  // food
+  'Fresh fried fish',
+  'Betty bought a bit of butter',
+  'How can a clam cram in a clean cream can',
+  'Cooks cook cupcakes quickly',
+  'Fred fed Ted bread and Ted fed Fred bread',
+  'The great Greek grape growers grow great Greek grapes',
+  // silly & fast
+  'Four furious friends fought for the phone',
+  'Thin sticks thick bricks',
+  'Black background brown background',
+  'Send toast to ten tense stout saints',
+  'Snap crackle pop',
+  'Wristwatch strap',
+  'Toy boat toy boat toy boat',
+  'Lesser leather never weathered wetter weather better',
+  'Can you can a can as a canner can can a can',
+  'Six sticky skeletons',
 ];
 
 /** lower-case, letters and numbers only, single-spaced. */

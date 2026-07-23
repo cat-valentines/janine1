@@ -32,7 +32,11 @@ export function TongueTwisterPage({ onScore, onBack }: { onScore: (coins: number
   const finalText = useRef('');
   const listening = useRef(false);
   const finished = useRef(false);
-  const repsRef = useRef(0);
+  // Reps can come from two places: the mic auto-detecting a full pass, and the
+  // player tapping "I said it!". We take the max of the two so they never double
+  // up — and so the check marks ALWAYS work, even where the mic can't listen.
+  const speechRepsRef = useRef(0);
+  const manualRepsRef = useRef(0);
   const twisterRef = useRef(twister);
   twisterRef.current = twister;
 
@@ -44,7 +48,7 @@ export function TongueTwisterPage({ onScore, onBack }: { onScore: (coins: number
     listening.current = false;
     stopTimer();
     try { rec.current?.stop(); } catch { /* already stopped */ }
-    const success = won || repsRef.current >= GOAL;
+    const success = won || Math.max(speechRepsRef.current, manualRepsRef.current) >= GOAL;
     setPhase(success ? 'won' : 'timeup');
     if (success) {
       setReps(GOAL);
@@ -53,13 +57,20 @@ export function TongueTwisterPage({ onScore, onBack }: { onScore: (coins: number
     }
   };
 
-  const bump = (n: number) => { repsRef.current = n; setReps(n); if (n >= GOAL) endRound(true); };
+  const applyReps = () => {
+    const n = Math.max(speechRepsRef.current, manualRepsRef.current);
+    setReps(n);
+    if (n >= GOAL) endRound(true);
+  };
+  // The tap-to-count button — the reliable way that works on every device.
+  const manualSaid = () => { if (finished.current) return; manualRepsRef.current += 1; applyReps(); };
 
   const startListening = () => {
     finished.current = false;
     listening.current = true;
     finalText.current = '';
-    repsRef.current = 0;
+    speechRepsRef.current = 0;
+    manualRepsRef.current = 0;
     setHeard(''); setReps(0); setError(''); setTimeLeft(SECONDS); setPhase('listening');
 
     if (supported) {
@@ -79,12 +90,15 @@ export function TongueTwisterPage({ onScore, onBack }: { onScore: (coins: number
           }
           const full = `${finalText.current} ${interim}`.trim();
           setHeard(full);
-          bump(countReps(twisterRef.current, full));
+          speechRepsRef.current = countReps(twisterRef.current, full);
+          applyReps();
         };
         r.onerror = (event) => {
           if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-            setError('Please allow the microphone, then tap Record again.');
-            endRound(false);
+            // Mic blocked — don't end the round; the player can still tap "I said it!".
+            listening.current = false;   // stop the auto-restart loop
+            try { r.stop(); } catch { /* ok */ }
+            setError('🎙️ Mic is off — no problem, just tap “I said it!” each time.');
           }
           // no-speech / aborted / network: onend will restart while time remains
         };
@@ -142,17 +156,18 @@ export function TongueTwisterPage({ onScore, onBack }: { onScore: (coins: number
       <div className="tt-bar"><i style={{ width: `${phase === 'listening' ? pct : 100}%` }} /></div>
 
       {phase === 'ready' && <>
-        {supported
-          ? <button className="tt-record" onClick={startListening}>🎙️ Record</button>
-          : <button className="tt-record practice" onClick={startListening}>▶️ Start (practice)</button>}
-        {!supported && <p className="tt-note">🔇 This device can't check your speech, so this is practice mode: read it aloud and tap “Said it!” each time.</p>}
+        <button className="tt-record" onClick={startListening}>{supported ? '🎙️ Start' : '▶️ Start'}</button>
+        <p className="tt-note">{supported
+          ? 'Say the twister 3 times. The mic listens, and you can also tap “✅ I said it!” each time.'
+          : '🔊 Read it aloud and tap “✅ I said it!” each time you finish.'}</p>
       </>}
 
       {phase === 'listening' && <>
+        <button className="tt-record said" onClick={manualSaid}>✅ I said it! <small>{reps}/{GOAL}</small></button>
         {supported
-          ? <button className="tt-record live" onClick={() => endRound()}>🔴 Listening… tap to stop</button>
-          : <button className="tt-record said" onClick={() => bump(reps + 1)}>✅ Said it!</button>}
-        {supported && <p className="tt-heard">{heard ? `“${heard}”` : 'Say the tongue twister out loud…'}</p>}
+          ? <p className="tt-heard">{heard ? `🎙️ heard: “${heard}”` : '🎙️ Listening… say it out loud, or tap the button each time.'}</p>
+          : <p className="tt-note">Say it out loud, then tap the button each time.</p>}
+        <button className="tt-stop" onClick={() => endRound()}>⏹ Stop</button>
       </>}
 
       {error && <p className="tt-error">{error}</p>}

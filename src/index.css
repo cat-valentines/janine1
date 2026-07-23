@@ -41,6 +41,8 @@ button:hover { transform: translateY(-2px); }
 .tt-record:active { transform: translateY(3px); box-shadow: 0 3px 0 #b83668; }
 .tt-record.live { background: linear-gradient(120deg, #ff5d6c, #e01e3c); box-shadow: 0 6px 0 #a3122a; animation: tt-pulse 1s infinite; }
 .tt-record.said { background: linear-gradient(120deg, #4fce7a, #2fa85c); box-shadow: 0 6px 0 #1f7a41; }
+.tt-record.said small { font-size: .8rem; opacity: .85; font-weight: 800; }
+.tt-stop { margin-top: 10px; padding: 8px 16px; border: 2px solid #e0b3c6; border-radius: 999px; background: none; color: #a3466a; font-weight: 800; font-size: .82rem; cursor: pointer; }
 .tt-record.practice { background: linear-gradient(120deg, #8aa0ff, #5b73e8); box-shadow: 0 6px 0 #3f52c4; }
 @keyframes tt-pulse { 50% { filter: brightness(1.12); } }
 .tt-heard { margin: 14px 0 0; min-height: 1.4em; padding: 10px 12px; background: #fff3f8; border-radius: 12px; color: #7a4560; font-style: italic; }
