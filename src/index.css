@@ -281,7 +281,8 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .customizer-card { display: grid; grid-template-columns: 180px 1fr; align-items: center; gap: 24px; }
 .customizer-preview { position: relative; display: grid; min-height: 150px; place-items: center; background: #dfe8d8; border: 4px solid #68574d; image-rendering: pixelated; }
 .customizer-preview img { width: 125px; height: 125px; object-fit: contain; }
-.customizer-preview > span { position: absolute; top: 4px; left: 50%; translate: -50%; font-size: 2.4rem; }
+/* a medium flower clip that sits on top of the character's head */
+.customizer-preview > span { position: absolute; top: 14px; left: 50%; translate: -50%; font-size: 2rem; filter: drop-shadow(0 1px 1px #0003); }
 .customizer-card h2 { margin: 4px 0; font-family: "Courier New", monospace; }
 .customizer-card p { color: var(--ink-soft); }
 .accessory-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }

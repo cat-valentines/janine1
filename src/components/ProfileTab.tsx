@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { characterAssets } from '../game/characters';
 import { islands } from '../game/islands';
 import { itemById } from '../shop/catalog';
+import { accessoryById } from '../game/accessories';
 import type { CharacterId, SettingId } from '../game/types';
 
 const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal' };
@@ -52,7 +53,7 @@ export function ProfileTab(props: ProfileTabProps) {
   // Where you live: the furthest island you have unlocked so far.
   const unlocked = islands.filter((island) => completedQuests >= island.questsNeeded && (!island.membersOnly || isMember));
   const home = unlocked[unlocked.length - 1] ?? islands[0];
-  const worn = itemById(accessory);
+  const worn = accessoryById(accessory) ?? itemById(accessory);
 
   const badges = [
     { got: completedQuests >= 1, icon: '⭐', label: 'First quest done' },
