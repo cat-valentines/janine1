@@ -6,6 +6,7 @@ interface NotificationsPanelProps {
   seenAt: string;
   onClose: () => void;
   onOpenFriends: () => void;
+  onOpenFriend: (friendId: string) => void;
   onClearAll: () => void;
 }
 
@@ -18,7 +19,7 @@ function ago(at: string) {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-export function NotificationsPanel({ items, signedIn, seenAt, onClose, onOpenFriends, onClearAll }: NotificationsPanelProps) {
+export function NotificationsPanel({ items, signedIn, seenAt, onClose, onOpenFriends, onOpenFriend, onClearAll }: NotificationsPanelProps) {
   return <div className="friends-backdrop" onClick={onClose}>
     <aside className="notif-panel" onClick={(event) => event.stopPropagation()}>
       <div className="shop-heading">
@@ -35,10 +36,13 @@ export function NotificationsPanel({ items, signedIn, seenAt, onClose, onOpenFri
           : <ul className="notif-list">
             {items.map((item) => {
               const isNew = !seenAt || item.at > seenAt;
-              return <li className={`notif-item ${item.kind} ${isNew ? 'unread' : ''}`} key={item.id}>
-                {isNew && <i className="notif-dot" aria-label="new" />}
-                <p>{item.text}</p>
-                <small>{ago(item.at)}</small>
+              return <li key={item.id}>
+                <button className={`notif-item ${item.kind} ${isNew ? 'unread' : ''}`} onClick={() => item.friendId && onOpenFriend(item.friendId)} title="Tap to open the chat and reply">
+                  {isNew && <i className="notif-dot" aria-label="new" />}
+                  <p>{item.text}</p>
+                  <span className="notif-reply">💬 Reply →</span>
+                  <small>{ago(item.at)}</small>
+                </button>
               </li>;
             })}
           </ul>}

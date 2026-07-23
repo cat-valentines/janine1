@@ -96,6 +96,8 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const [challengeMessage, setChallengeMessage] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
+  /** When you tap a notification, open Friends straight into this friend's chat. */
+  const [pendingFriend, setPendingFriend] = useState('');
   const [authMode, setAuthMode] = useState<'signin' | 'signup' | null>(null);
   const [characterChosen, setCharacterChosen] = useState(savedProfile.characterChosen);
   const [supplies, setSupplies] = useState(savedProfile.supplies);
@@ -425,8 +427,8 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <PlayersDirectory onOpenFriends={() => setFriendsOpen(true)} />
       <ChallengeRoom onChallenge={createFriendChallenge} inviteLink={inviteLink} message={challengeMessage} />
       {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); navigate('/market'); }} onSellItems={() => { setMenuOpen(false); navigate('/market/sell'); }} onOpenHouse={() => { setMenuOpen(false); navigate('/house'); }} onOpenMap={() => { setMenuOpen(false); navigate('/map'); }} onInviteFriend={() => { setMenuOpen(false); setFriendsOpen(true); }} />}
-      {notifOpen && <NotificationsPanel items={notifs} signedIn={signedIn} seenAt={notifSeen} onClose={() => setNotifOpen(false)} onOpenFriends={() => { setNotifOpen(false); setFriendsOpen(true); }} onClearAll={() => { clearNotifications(); setNotifs([]); }} />}
-      {friendsOpen && <FriendsPanel onClose={() => setFriendsOpen(false)} onShare={() => { createFriendChallenge(); setFriendsOpen(false); }} />}
+      {notifOpen && <NotificationsPanel items={notifs} signedIn={signedIn} seenAt={notifSeen} onClose={() => setNotifOpen(false)} onOpenFriends={() => { setNotifOpen(false); setFriendsOpen(true); }} onOpenFriend={(fid) => { setNotifOpen(false); setPendingFriend(fid); setFriendsOpen(true); }} onClearAll={() => { clearNotifications(); setNotifs([]); }} />}
+      {friendsOpen && <FriendsPanel initialFriendId={pendingFriend} onClose={() => { setFriendsOpen(false); setPendingFriend(''); }} onShare={() => { createFriendChallenge(); setFriendsOpen(false); }} />}
       {authMode && <div className="auth-backdrop" onClick={() => setAuthMode(null)}><div className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="auth-close" onClick={() => setAuthMode(null)}>×</button><Auth key={authMode} initialMode={authMode} /></div></div>}
     </main>
   );

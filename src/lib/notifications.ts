@@ -1,11 +1,14 @@
 import { supabase } from './supabase';
 import { loadMyFriends } from './players';
+import { parseMedia } from './friends';
 import { storage } from './storage';
 
 export interface NotificationItem {
   id: string;
   kind: 'friend' | 'invite' | 'message';
   text: string;
+  /** The other player (who texted / added you), so the panel can open their chat. */
+  friendId: string;
   /** ISO timestamp — used to sort, and to tell what is unread. */
   at: string;
 }
@@ -32,17 +35,20 @@ export async function loadNotifications(userId: string): Promise<NotificationIte
 
   (conns.data ?? []).forEach((row) => {
     const conn = row as { requester_id: string; created_at: string };
-    items.push({ id: `friend-${conn.requester_id}`, kind: 'friend', at: conn.created_at,
+    items.push({ id: `friend-${conn.requester_id}`, kind: 'friend', at: conn.created_at, friendId: conn.requester_id,
       text: `🤝 @${nameOf(conn.requester_id)} added you as a friend!` });
   });
 
   (msgs.data ?? []).forEach((row) => {
     const msg = row as { id: string; sender_id: string; message: string; created_at: string };
+    const media = parseMedia(msg.message);
     const invite = looksLikeInvite(msg.message);
-    // Invites already name the sender inside the message; a plain text does not,
-    // so say who it is from — "💬 @lily texted you: hi".
-    items.push({ id: msg.id, kind: invite ? 'invite' : 'message', at: msg.created_at,
-      text: invite ? msg.message : `💬 @${nameOf(msg.sender_id)} texted you: ${msg.message}` });
+    // Invites already name the sender inside the message; a plain text/photo does
+    // not, so say who it is from — "💬 @lily texted you: hi".
+    const text = media ? `📷 @${nameOf(msg.sender_id)} sent you a ${media.kind}`
+      : invite ? msg.message
+        : `💬 @${nameOf(msg.sender_id)} texted you: ${msg.message}`;
+    items.push({ id: msg.id, kind: invite ? 'invite' : 'message', at: msg.created_at, friendId: msg.sender_id, text });
   });
 
   const cleared = loadClearedAt();

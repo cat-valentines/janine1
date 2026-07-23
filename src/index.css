@@ -1236,12 +1236,15 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .notif-panel { width: min(94vw, 420px); max-height: 88vh; margin-left: auto; padding: 16px; overflow-y: auto; background: var(--paper); border-left: 4px solid #68574d; }
 .notif-empty { padding: 20px 8px; text-align: center; color: var(--ink-soft); font-size: .86rem; }
 .notif-clear-all { display: block; margin: 6px 0 2px auto; padding: 6px 13px; border: 0; border-radius: 999px; background: #efe7ea; color: #8a5f74; font-weight: 800; font-size: .76rem; cursor: pointer; }
-.notif-list { display: grid; gap: 8px; margin-top: 10px; list-style: none; }
-.notif-item { position: relative; padding: 11px 12px 11px 14px; background: #f6f0e6; border: 2px solid #e0d6c6; border-radius: 10px; }
+.notif-list { display: grid; gap: 8px; margin-top: 10px; list-style: none; padding: 0; }
+.notif-item { position: relative; display: block; width: 100%; text-align: left; padding: 11px 12px 11px 14px; background: #f6f0e6; border: 2px solid #e0d6c6; border-radius: 10px; cursor: pointer; font: inherit; }
+.notif-item:hover { background: #fdf6ea; border-color: #d9b98a; }
+.notif-item:active { transform: translateY(1px); }
 .notif-item.unread { background: #fff6e6; border-color: #e6b877; }
 .notif-item.invite { border-left: 5px solid #7a4a9e; }
 .notif-item.friend { border-left: 5px solid #2f6b45; }
 .notif-item p { color: #3d3226; font-size: .84rem; line-height: 1.45; word-break: break-word; }
+.notif-reply { display: inline-block; margin-top: 6px; color: #7a4a9e; font-size: .72rem; font-weight: 800; }
 .notif-item small { display: block; margin-top: 4px; color: var(--ink-soft); font-size: .68rem; }
 .notif-dot { position: absolute; top: 12px; right: 12px; width: 9px; height: 9px; background: #e0452f; border-radius: 50%; }
 .notif-friends-link { width: 100%; margin-top: 12px; padding: 10px; border: 2px dashed #7a4a9e; border-radius: 10px; background: #f3eef6; color: #5a3a72; font-weight: 800; font-size: .8rem; cursor: pointer; }

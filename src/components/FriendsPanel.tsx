@@ -12,8 +12,9 @@ const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: 
 /** An auto-generated "player_xxxxxxxx" name, or none — either way, invisible to friend search. */
 const isPlaceholderName = (name: string) => !name || /^player_[0-9a-f]{8}$/.test(name);
 
-export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => void }) {
+export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void; onShare: () => void; initialFriendId?: string }) {
   const [userId, setUserId] = useState('');
+  const [openedInitial, setOpenedInitial] = useState(false);
   const [myName, setMyName] = useState('a friend');
   /** How you appear to other players in search — your public @handle. */
   const [myHandle, setMyHandle] = useState('');
@@ -57,6 +58,17 @@ export function FriendsPanel({ onClose }: { onClose: () => void; onShare: () => 
 
   const refresh = () => loadMyFriends().then((rows) => { setFriends(rows); setSelected((current) => current ? rows.find((row) => row.id === current.id) ?? null : null); });
   const openChat = (id: string) => loadFriendMessages(id).then(setChat).catch(() => setChat([]));
+
+  // Tapped a notification → jump straight to that friend and open their chat.
+  useEffect(() => {
+    if (openedInitial || !initialFriendId || !friends.length) return;
+    const friend = friends.find((row) => row.id === initialFriendId);
+    if (!friend) return;
+    setSelected(friend);
+    if (friend.status === 'accepted') { setPendingAction('chat'); setShowChat(true); openChat(friend.id); }
+    setOpenedInitial(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [friends, initialFriendId, openedInitial]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
