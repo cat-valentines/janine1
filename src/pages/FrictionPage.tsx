@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { FrictionEngine, type FrictionSnapshot } from '../game/frictionEngine';
+import { TOTAL_LEVELS } from '../game/frictionGen';
 import { KeyPad } from '../components/KeyPad';
 import { storage } from '../lib/storage';
 
@@ -8,6 +9,7 @@ const MAX_KEY = 'frictionMax';   // highest level number the player has reached
 export function FrictionPage({ onScore, onBack }: { onScore: (coins: number) => void; onBack: () => void }) {
   const [snap, setSnap] = useState<FrictionSnapshot | null>(null);
   const [levelsOpen, setLevelsOpen] = useState(false);
+  const [jump, setJump] = useState('');
   const [maxLevel, setMaxLevel] = useState(() => Math.max(1, Number(storage.get(MAX_KEY) || 1)));
   const mount = useRef<HTMLCanvasElement>(null);
   const engine = useRef<FrictionEngine | null>(null);
@@ -38,9 +40,13 @@ export function FrictionPage({ onScore, onBack }: { onScore: (coins: number) => 
 
   const ice = snap?.mode === 'ice';
   const done = snap?.status === 'complete';
-  const total = snap?.total ?? 100;
+  const total = snap?.total ?? TOTAL_LEVELS;
 
   const jumpTo = (n: number) => { engine.current?.goto(n - 1); setLevelsOpen(false); };
+  const goToTyped = () => { const n = Math.floor(Number(jump)); if (n >= 1 && n <= maxLevel) { jumpTo(n); setJump(''); } };
+  // Only render a window of the most recent unlocked levels — 5000 buttons would be far too many.
+  const WINDOW = 120;
+  const winStart = Math.max(1, maxLevel - WINDOW + 1);
 
   return <main className="fric-page">
     <header className="fric-top">
@@ -68,15 +74,21 @@ export function FrictionPage({ onScore, onBack }: { onScore: (coins: number) => 
     {levelsOpen && <div className="quest-over" onClick={() => setLevelsOpen(false)}>
       <div className="fric-levelsel" onClick={(e) => e.stopPropagation()}>
         <h2>Pick a level</h2>
-        <p className="fric-levelsel-sub">Unlocked: {maxLevel} / {total}</p>
+        <p className="fric-levelsel-sub">Unlocked: {maxLevel} / {total.toLocaleString()}</p>
+        <div className="fric-jump">
+          <input type="number" min={1} max={maxLevel} value={jump} placeholder={`Level 1–${maxLevel}`}
+            onChange={(e) => setJump(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') goToTyped(); }} />
+          <button onClick={goToTyped}>Go</button>
+        </div>
         <div className="fric-levelgrid">
-          {Array.from({ length: total }, (_, i) => {
-            const n = i + 1;
-            const locked = n > maxLevel;
-            return <button key={n} className={`fric-lvlbtn ${n === snap?.level ? 'on' : ''} ${locked ? 'locked' : ''}`}
-              disabled={locked} onClick={() => jumpTo(n)}>{locked ? '🔒' : n}</button>;
+          {winStart > 1 && <><button className="fric-lvlbtn" onClick={() => jumpTo(1)}>1</button><span className="fric-ellipsis">…</span></>}
+          {Array.from({ length: maxLevel - winStart + 1 }, (_, i) => {
+            const n = winStart + i;
+            return <button key={n} className={`fric-lvlbtn ${n === snap?.level ? 'on' : ''}`} onClick={() => jumpTo(n)}>{n}</button>;
           })}
         </div>
+        <p className="fric-levelsel-hint">Type any number up to {maxLevel} to jump there. Clear levels to unlock more — all the way to {total.toLocaleString()}!</p>
         <button className="fric-close" onClick={() => setLevelsOpen(false)}>Close</button>
       </div>
     </div>}

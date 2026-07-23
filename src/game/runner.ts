@@ -65,6 +65,11 @@ export const runnerThemes: Record<CharacterId, RunnerTheme> = {
     skyTop: '#bfe6f2', skyLow: '#f4ecd6', ground: '#9ab04a', groundDark: '#6f8433', groundLine: '#546327',
     obstacle: '#b07a4a', obstacleDark: '#7d552f', decor: ['🌽', '🐷', '🚜'], far: '#c2c88f',
   },
+  parrot: {
+    name: 'The Rainforest', icon: '🦜',
+    skyTop: '#7bcbd0', skyLow: '#d7f0d5', ground: '#4e9850', groundDark: '#347039', groundLine: '#28582f',
+    obstacle: '#8b673b', obstacleDark: '#604629', decor: ['🦜', '🌺', '🌴'], far: '#75b86f',
+  },
 };
 
 export type ObstacleKind = 'spike' | 'block' | 'spikes3';

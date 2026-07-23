@@ -4,7 +4,7 @@ import { characterAssets } from '../game/characters';
 import { ChoiceCard } from '../components/ChoiceCard';
 import type { CharacterId } from '../game/types';
 
-const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy' };
+const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Parrot' };
 const choices: Array<[CharacterId, string]> = [
   ['cottontail', 'A cheerful little house explorer'],
   ['momo', 'Cheerful treasure penguin'],
@@ -12,6 +12,7 @@ const choices: Array<[CharacterId, string]> = [
   ['ollie', 'A cuddly, chubby river otter'],
   ['coral', 'A bubbly little clownfish explorer'],
   ['biscuit', 'A loyal floppy-eared puppy'],
+  ['parrot', 'A colorful little two-legged parrot'],
 ];
 
 interface AccountSetupPageProps {

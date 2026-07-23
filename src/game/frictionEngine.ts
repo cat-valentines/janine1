@@ -1,5 +1,5 @@
-import { PHYS, VW, VH, BLOCK, type Rect, type Surface, type Mover } from './friction';
-import { LEVELS } from './frictionLevels';
+import { PHYS, VW, VH, BLOCK, type Rect, type Surface, type Mover, type Level } from './friction';
+import { getLevel, TOTAL_LEVELS } from './frictionGen';
 
 type Solid = { x: number; y: number; w: number; h: number; kind: 'ground' | 'pad' | 'mover'; surface: Surface; delta?: number; axis?: 'x' | 'y' };
 
@@ -24,6 +24,7 @@ export class FrictionEngine {
   private opts: Options;
 
   private lvl = 0;
+  private L: Level = getLevel(0);   // the current level (curated or generated), cached per load
   private mode: 'grip' | 'ice' = 'grip';
   private deaths = 0;
   private status: FrictionSnapshot['status'] = 'play';
@@ -66,7 +67,7 @@ export class FrictionEngine {
 
   private load(i: number) {
     this.lvl = i;
-    const L = LEVELS[i];
+    const L = this.L = getLevel(i);
     this.b = { x: L.start.x, y: L.start.y, vx: 0, vy: 0, ground: false };
     this.mode = 'grip';
     this.trail = [];
@@ -79,7 +80,7 @@ export class FrictionEngine {
   }
 
   /** Jump to a specific level (used by the level dots). */
-  goto(i: number) { if (i >= 0 && i < LEVELS.length) { this.paid = this.paid && i === LEVELS.length - 1; this.load(i); } }
+  goto(i: number) { if (i >= 0 && i < TOTAL_LEVELS) { this.paid = this.paid && i === TOTAL_LEVELS - 1; this.load(i); } }
   restart() { this.load(this.lvl); }
   replayAll() { this.deaths = 0; this.paid = false; this.load(0); }
   /** Flip friction mode — called by the big on-screen button and the F key. */
@@ -107,7 +108,7 @@ export class FrictionEngine {
   private update(dt: number) {
     if (this.status !== 'play') return;
     if (this.winPause > 0) { this.winPause -= dt; return; }
-    const L = LEVELS[this.lvl];
+    const L = this.L;
     const ice = this.mode === 'ice';
     this.lt += dt;
 
@@ -168,7 +169,7 @@ export class FrictionEngine {
     if (this.b.y > VH + 80) { this.die(); return; }
 
     if (overlap(box(), L.goal)) {
-      if (this.lvl >= LEVELS.length - 1) { this.status = 'complete'; if (!this.paid) { this.paid = true; this.scored(14 + Math.max(0, 10 - this.deaths)); } }
+      if (this.lvl >= TOTAL_LEVELS - 1) { this.status = 'complete'; if (!this.paid) { this.paid = true; this.scored(14 + Math.max(0, 10 - this.deaths)); } }
       else { this.winPause = 0.35; this.load(this.lvl + 1); }
     }
     if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 3);
@@ -187,7 +188,7 @@ export class FrictionEngine {
   private draw() {
     const ctx = this.ctx;
     if (!this.w || !this.h) { this.resize(); if (!this.w) return; }
-    const L = LEVELS[this.lvl];
+    const L = this.L;
     const s = Math.min(this.w / VW, this.h / VH);
     const ox = (this.w - VW * s) / 2, oy = (this.h - VH * s) / 2;
 
@@ -327,9 +328,9 @@ export class FrictionEngine {
   };
 
   private emit() {
-    const L = LEVELS[this.lvl];
+    const L = this.L;
     const snap: FrictionSnapshot = {
-      level: this.lvl + 1, total: LEVELS.length, title: L.title, hint: L.hint,
+      level: this.lvl + 1, total: TOTAL_LEVELS, title: L.title, hint: L.hint,
       mode: this.mode, deaths: this.deaths, status: this.status,
     };
     const sig = [snap.level, snap.mode, snap.deaths, snap.status].join('|');

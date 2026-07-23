@@ -18,6 +18,7 @@ export const characterCollectibles: Record<CharacterId, CharacterCollectible> = 
   panda: { asset: '/assets/pixel-bamboo.png', singular: 'bamboo', plural: 'bamboo' },
   tiger: { asset: '/assets/pixel-bone.png', singular: 'bone', plural: 'bones' },
   piggy: { asset: '/assets/pixel-apple.png', singular: 'apple', plural: 'apples' },
+  parrot: { asset: '/assets/pixel-apple.png', singular: 'fruit', plural: 'fruit' },
 };
 
 export const characterAssets: Record<CharacterId, string> = {
@@ -25,4 +26,5 @@ export const characterAssets: Record<CharacterId, string> = {
   ollie: '/assets/pixel-otter.png', coral: '/assets/pixel-clownfish.png', biscuit: '/assets/pixel-dog.png',
   koala: '/assets/pixel-koala.png', teddy: '/assets/pixel-teddy.png', panda: '/assets/pixel-panda.png',
   tiger: '/assets/pixel-tiger.png', piggy: '/assets/pixel-piggy.png',
+  parrot: '/assets/pixel-parrot.png',
 };
