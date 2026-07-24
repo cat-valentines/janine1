@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { addFriend, loadAllPlayers, loadMyFriends, type FoundPlayer } from '../lib/players';
 import { supabase } from '../lib/supabase';
 
-const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷', parrot: '🦜', mila: '🐄', gabby: '🦒', amsaal: '🐥' };
+const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷', parrot: '🦜', mila: '🐄', gabby: '🦒', amsaal: '🐥', misha: '🐄' };
 
 /**
  * An open, browsable list of everyone signed up — right on the home page, so

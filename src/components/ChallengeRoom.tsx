@@ -7,7 +7,7 @@ import { getStars, STAR_GOAL } from '../lib/escapeStars';
 
 interface ChallengeRoomProps { onChallenge: () => void; inviteLink: string; message: string }
 
-const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷', parrot: '🦜', mila: '🐄', gabby: '🦒', amsaal: '🐥' };
+const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷', parrot: '🦜', mila: '🐄', gabby: '🦒', amsaal: '🐥', misha: '🐄' };
 
 export function ChallengeRoom({ onChallenge, inviteLink, message }: ChallengeRoomProps) {
   const [friends, setFriends] = useState<FriendRow[]>([]);

@@ -82,6 +82,10 @@ export const runnerThemes: Record<CharacterId, RunnerTheme> = {
     name: 'The Sunny Farm', icon: '🐥', skyTop: '#a9ddf0', skyLow: '#fff0bd', ground: '#93b650', groundDark: '#69863a', groundLine: '#51692c',
     obstacle: '#b48147', obstacleDark: '#805a31', decor: ['🐥', '🌻', '🌾'], far: '#c5d786',
   },
+  misha: {
+    name: 'The Strawberry Garden', icon: '🍓', skyTop: '#f3bfd6', skyLow: '#fff0e8', ground: '#82ad63', groundDark: '#5c8046', groundLine: '#466437',
+    obstacle: '#b9786f', obstacleDark: '#825049', decor: ['🍓', '🌸', '🐄'], far: '#b9d394',
+  },
 };
 
 export type ObstacleKind = 'spike' | 'block' | 'spikes3';

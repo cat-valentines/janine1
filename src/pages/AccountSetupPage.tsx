@@ -4,7 +4,7 @@ import { characterAssets } from '../game/characters';
 import { ChoiceCard } from '../components/ChoiceCard';
 import type { CharacterId } from '../game/types';
 
-const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal' };
+const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal', misha: 'Misha' };
 const choices: Array<[CharacterId, string]> = [
   ['cottontail', 'A cheerful little house explorer'],
   ['momo', 'Cheerful treasure penguin'],
@@ -16,6 +16,7 @@ const choices: Array<[CharacterId, string]> = [
   ['mila', 'A sweet cow holding a strawberry'],
   ['gabby', 'A cheerful little giraffe'],
   ['amsaal', 'A sunny yellow chick'],
+  ['misha', 'A light-pink strawberry cow'],
 ];
 
 interface AccountSetupPageProps {

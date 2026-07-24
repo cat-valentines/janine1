@@ -4,7 +4,7 @@ import type { FriendRow } from '../lib/players';
 import { sendMediaTo } from '../lib/media';
 import { sendGroupMedia } from '../lib/groups';
 
-const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷', parrot: '🦜', mila: '🐄', gabby: '🦒', amsaal: '🐥' };
+const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷', parrot: '🦜', mila: '🐄', gabby: '🦒', amsaal: '🐥', misha: '🐄' };
 
 // ---- Filters --------------------------------------------------------------
 // Two kinds: colour filters (a CSS filter string baked into the frame) and fun

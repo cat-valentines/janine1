@@ -7,7 +7,7 @@ import { inviteLink, inviteTargets, gameTargets, type InviteTarget } from '../ga
 import { SelfieStudio } from './SelfieStudio';
 import { supabase } from '../lib/supabase';
 
-const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷', parrot: '🦜', mila: '🐄', gabby: '🦒', amsaal: '🐥' };
+const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷', parrot: '🦜', mila: '🐄', gabby: '🦒', amsaal: '🐥', misha: '🐄' };
 
 /** An auto-generated "player_xxxxxxxx" name, or none — either way, invisible to friend search. */
 const isPlaceholderName = (name: string) => !name || /^player_[0-9a-f]{8}$/.test(name);

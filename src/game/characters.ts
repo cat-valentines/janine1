@@ -22,6 +22,7 @@ export const characterCollectibles: Record<CharacterId, CharacterCollectible> = 
   mila: { asset: '/assets/pixel-apple.png', singular: 'strawberry', plural: 'strawberries' },
   gabby: { asset: '/assets/pixel-leaf.png', singular: 'leaf', plural: 'leaves' },
   amsaal: { asset: '/assets/pixel-apple.png', singular: 'seed', plural: 'seeds' },
+  misha: { asset: '/assets/pixel-apple.png', singular: 'strawberry', plural: 'strawberries' },
 };
 
 export const characterAssets: Record<CharacterId, string> = {
@@ -31,4 +32,5 @@ export const characterAssets: Record<CharacterId, string> = {
   tiger: '/assets/pixel-tiger.png', piggy: '/assets/pixel-piggy.png',
   parrot: '/assets/pixel-parrot.png',
   mila: '/assets/pixel-mila.png', gabby: '/assets/pixel-gabby.png', amsaal: '/assets/pixel-amsaal.png',
+  misha: '/assets/pixel-misha.png',
 };
