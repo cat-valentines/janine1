@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { loadFriendMessages, sendFriendMessage, parseMedia, loadSavedSelfies, markChatSeen, chatSeenAt, messageUnread, loadIncomingLatest, type FriendMessage, type MediaKind } from '../lib/friends';
 import { mediaSignedUrl, resendMedia, saveMediaPrivate } from '../lib/media';
-import { createGroup, loadMyGroups, loadGroupMessages, sendGroupText, clearedAt, clearGroupView, type ChatGroup, type GroupMessage } from '../lib/groups';
+import { createGroup, loadMyGroups, loadGroupMessages, loadGroupMemberIds, addGroupMember, sendGroupText, clearedAt, clearGroupView, type ChatGroup, type GroupMessage } from '../lib/groups';
 import { acceptFriend, addFriend, changeUsername, isTakenError, isUsernameFree, loadAllPlayers, loadMyFriends, loadMyStats, removeFriend, searchPlayers, USERNAME_RULE, type FoundPlayer, type FriendRow } from '../lib/players';
 import { inviteLink, inviteTargets, gameTargets, type InviteTarget } from '../game/inviteTargets';
 import { SelfieStudio } from './SelfieStudio';
@@ -55,6 +55,8 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
   const [groupMsgs, setGroupMsgs] = useState<GroupMessage[]>([]);
   const [groupText, setGroupText] = useState('');
   const [groupSelfie, setGroupSelfie] = useState(false);
+  const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
+  const [addOpen, setAddOpen] = useState(false);
   // Unread: newest message time each friend sent me, vs when I last opened their chat.
   const [lastFrom, setLastFrom] = useState<Record<string, string>>({});
   const [reads, setReads] = useState<Record<string, string>>({});
@@ -226,9 +228,19 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
   const iconOf = (id: string) => { const c = friends.find((f) => f.id === id)?.character_id ?? everyone.find((p) => p.id === id)?.character_id; return icons[c ?? ''] ?? '🙂'; };
 
   const openGroups = () => { loadMyGroups().then(setGroups).catch(() => setGroups([])); setGroupsOpen(true); };
+  const loadMembers = (gid: string) => loadGroupMemberIds(gid).then(setGroupMemberIds).catch(() => setGroupMemberIds([]));
   const openGroup = (group: ChatGroup) => {
-    setActiveGroup(group); setGroupsOpen(false);
+    setActiveGroup(group); setGroupsOpen(false); setAddOpen(false);
     loadGroupMessages(group.id).then(setGroupMsgs).catch(() => setGroupMsgs([]));
+    loadMembers(group.id);
+  };
+  const addToGroup = async (friend: FriendRow) => {
+    if (!activeGroup) return;
+    try {
+      await addGroupMember(activeGroup.id, friend.id);
+      setNote(`➕ Added @${friend.name} to ${activeGroup.name}!`);
+      loadMembers(activeGroup.id);
+    } catch { setNote('Could not add them — try again.'); }
   };
   const refreshGroup = () => { if (activeGroup) loadGroupMessages(activeGroup.id).then(setGroupMsgs).catch(() => undefined); };
   const createGroupNow = async () => {
@@ -427,7 +439,8 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
           <div className="group-chat-top">
             <button className="group-back" onClick={() => { setActiveGroup(null); setGroupsOpen(true); }}>←</button>
             <strong>👥 {activeGroup.name}</strong>
-            <button className="group-clear" onClick={clearGroup} title="Clear these messages from your view">🧹 Clear</button>
+            <button className="group-add" onClick={() => setAddOpen(true)} title="Add players to this group">＋</button>
+            <button className="group-clear" onClick={clearGroup} title="Clear these messages from your view">🧹</button>
           </div>
           <div className="group-chat-body">
             {(() => { const cut = clearedAt(activeGroup.id); const shown = groupMsgs.filter((m) => !cut || m.created_at > cut);
@@ -444,6 +457,20 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
             <input value={groupText} onChange={(e) => setGroupText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendGroupMsg()} placeholder="Message the group…" maxLength={4000} />
             <button className="group-send" onClick={sendGroupMsg}>Send</button>
           </div>
+        </div>
+      </div>}
+
+      {addOpen && activeGroup && <div className="quest-over" onClick={() => setAddOpen(false)}>
+        <div className="group-add-pick" onClick={(e) => e.stopPropagation()}>
+          <h3>➕ Add players to {activeGroup.name}</h3>
+          <p className="resend-sub">Add your friends to the group chat.</p>
+          {(() => {
+            const canAdd = friends.filter((f) => f.status === 'accepted' && !groupMemberIds.includes(f.id));
+            return canAdd.length
+              ? <div className="group-add-list">{canAdd.map((f) => <button key={f.id} onClick={() => addToGroup(f)}><span>{icons[f.character_id] ?? '🙂'} @{f.name}</span><b>＋ Add</b></button>)}</div>
+              : <p className="friend-empty">All your friends are already in this group! 🎉</p>;
+          })()}
+          <button className="ghost" onClick={() => setAddOpen(false)}>Done</button>
         </div>
       </div>}
 

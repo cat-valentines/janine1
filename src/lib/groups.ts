@@ -56,6 +56,12 @@ export async function leaveGroup(gid: string, userId: string) {
   if (error) throw error;
 }
 
+/** Add another player to a group (any member can add their friends). */
+export async function addGroupMember(gid: string, userId: string) {
+  const { error } = await supabase.from('chat_group_members').insert({ group_id: gid, user_id: userId });
+  if (error && error.code !== '23505') throw error;   // 23505 = already a member, fine
+}
+
 // ---- "Clear my view": a per-device timestamp; messages older than it are hidden ----
 const CLEAR_KEY = 'groupClearedAt';
 type ClearMap = Record<string, string>;
