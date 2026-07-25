@@ -52,6 +52,7 @@ const EscapeRoomPage = lazy(() => import('./EscapeRoomPage').then((m) => ({ defa
 import { TongueTwisterPage } from './TongueTwisterPage';
 import { ProveHumanPage } from './ProveHumanPage';
 import { MoreGamesPage } from './MoreGamesPage';
+import { SongStudioPage } from './SongStudioPage';
 import type { GameId } from '../game/gameList';
 import { AccountSetupPage } from './AccountSetupPage';
 import { loadAccountState } from '../lib/players';
@@ -83,6 +84,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const tongueOpen = path === '/play/tongue';
   const frictionOpen = path === '/play/friction';
   const humanOpen = path === '/play/human';
+  const songOpen = path === '/play/song';
   const escapeRoomOpen = path === '/play/escaperoom';
   const medicineIsland = paramOf(path, '/play/medicine');
   const runnerIsland = paramOf(path, '/play/runner');
@@ -330,6 +332,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     if (id === 'tongue') navigate('/play/tongue');
     if (id === 'friction') navigate('/play/friction');
     if (id === 'human') navigate('/play/human');
+    if (id === 'song') navigate('/play/song');
   };
 
   if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => home()} />;
@@ -342,6 +345,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   if (tongueOpen) return <TongueTwisterPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (frictionOpen) return <Suspense fallback={<main className="fric-page"><p className="world-loading">Chilling the ice…</p></main>}><FrictionPage onScore={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
   if (humanOpen) return <ProveHumanPage onScore={(coins) => award(coins)} onBack={() => home()} />;
+  if (songOpen) return <SongStudioPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (escapeRoomOpen) return <Suspense fallback={<main className="eroom-page"><p className="world-loading">Locking the door…</p></main>}><EscapeRoomPage onScore={(coins) => { award(coins); setCompletedQuests((q) => q + 1); }} onBack={() => home()} /></Suspense>;
   if (gruitsOpen) return <GruitsPage onScore={(points) => award(Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;
