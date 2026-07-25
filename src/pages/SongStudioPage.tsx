@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { SongEngine, GENRES, MOODS, type Genre, type Mood, type SongSpec } from '../game/songEngine';
+import { SongEngine, GENRES, MOODS, INSTRUMENTS, type Genre, type Mood, type Instrument, type SongSpec } from '../game/songEngine';
 import { createSong, updateSong, deleteSong, loadMySongs, loadPublicSongs, uploadSongAudio, songAudioUrl, generateLyrics, type Song } from '../lib/songs';
 import { loadAllPlayers, type FoundPlayer } from '../lib/players';
 import { supabase } from '../lib/supabase';
@@ -19,6 +19,7 @@ export function SongStudioPage({ onScore, onBack }: { onScore: (coins: number) =
   const [tab, setTab] = useState<'make' | 'mine' | 'discover'>('make');
   const [genre, setGenre] = useState<Genre>('pop');
   const [mood, setMood] = useState<Mood>('happy');
+  const [instrument, setInstrument] = useState<Instrument>('auto');
   const [tempo, setTempo] = useState(112);
   const [seed, setSeed] = useState(rand);
   const [playing, setPlaying] = useState(false);      // the "make" beat is playing
@@ -58,7 +59,7 @@ export function SongStudioPage({ onScore, onBack }: { onScore: (coins: number) =
   useEffect(() => { if (userId && tab === 'mine') loadMySongs(userId).then(setMine).catch(() => undefined); }, [userId, tab]);
   useEffect(() => { if (tab === 'discover') loadPublicSongs().then(setDiscover).catch(() => undefined); }, [tab]);
 
-  const spec = (): SongSpec => ({ genre, mood, tempo, seed, bars: 8 });
+  const spec = (): SongSpec => ({ genre, mood, tempo, seed, bars: 8, instrument });
   const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? 'a player';
   const iconOf = (id: string) => icons[players.find((p) => p.id === id)?.character_id ?? ''] ?? '🎵';
 
@@ -70,7 +71,7 @@ export function SongStudioPage({ onScore, onBack }: { onScore: (coins: number) =
     engine.current?.play(spec(), voice, () => setPlaying(false));
     setPlaying(true);
   };
-  const newBeat = () => { const s = rand(); setSeed(s); stopAll(); setTimeout(() => { engine.current?.play({ genre, mood, tempo, seed: s, bars: 8 }, voice, () => setPlaying(false)); setPlaying(true); }, 40); };
+  const newBeat = () => { const s = rand(); setSeed(s); stopAll(); setTimeout(() => { engine.current?.play({ genre, mood, tempo, seed: s, bars: 8, instrument }, voice, () => setPlaying(false)); setPlaying(true); }, 40); };
   const pickGenre = (g: Genre) => { setGenre(g); const t = GENRES.find((x) => x.id === g)?.tempo ?? tempo; setTempo(t); stopAll(); };
 
   const writeLyrics = async () => {
@@ -110,7 +111,7 @@ export function SongStudioPage({ onScore, onBack }: { onScore: (coins: number) =
     if (!title.trim()) { setNote('Give your song a title first.'); return; }
     stopAll(); setSaving(true); setNote('');
     try {
-      const song = await createSong(userId, { title: title.trim(), genre, mood, tempo, seed, bars: 8, lyrics, is_public: isPublic });
+      const song = await createSong(userId, { title: title.trim(), genre, mood, tempo, seed, bars: 8, instrument, lyrics, is_public: isPublic });
       if (voice) { const wav = await SongEngine.renderWav(spec(), voice); const path = await uploadSongAudio(userId, song.id, wav); await updateSong(song.id, { audio_path: path }); }
       setNote(`✅ Saved “${song.title}”${isPublic ? ' — it\'s public!' : ''} 🎉`);
       onScore(6);
@@ -134,17 +135,17 @@ export function SongStudioPage({ onScore, onBack }: { onScore: (coins: number) =
     if (nowPlaying === song.id) { stopAll(); return; }
     stopAll();
     if (song.audio_path && audioRef.current) { audioRef.current.src = songAudioUrl(song.audio_path); audioRef.current.play().catch(() => undefined); setNowPlaying(song.id); }
-    else { engine.current?.play({ genre: song.genre, mood: song.mood, tempo: song.tempo, seed: Number(song.seed), bars: song.bars }, null, () => setNowPlaying('')); setNowPlaying(song.id); }
+    else { engine.current?.play({ genre: song.genre, mood: song.mood, tempo: song.tempo, seed: Number(song.seed), bars: song.bars, instrument: song.instrument }, null, () => setNowPlaying('')); setNowPlaying(song.id); }
   };
   const togglePublic = async (song: Song) => { try { await updateSong(song.id, { is_public: !song.is_public }); loadMySongs(userId).then(setMine).catch(() => undefined); } catch { setNote('Could not change that.'); } };
   const removeSong = async (song: Song) => { stopAll(); try { await deleteSong(song.id); setMine((cur) => cur.filter((s) => s.id !== song.id)); } catch { setNote('Could not delete that.'); } };
-  const loadSong = (song: Song) => { setGenre(song.genre); setMood(song.mood); setTempo(song.tempo); setSeed(Number(song.seed)); setLyrics(song.lyrics); setTitle(song.title); setIsPublic(song.is_public); setVoice(null); setTab('make'); stopAll(); };
+  const loadSong = (song: Song) => { setGenre(song.genre); setMood(song.mood); setInstrument(song.instrument ?? 'auto'); setTempo(song.tempo); setSeed(Number(song.seed)); setLyrics(song.lyrics); setTitle(song.title); setIsPublic(song.is_public); setVoice(null); setTab('make'); stopAll(); };
 
   const songRow = (song: Song, mineTab: boolean) => <div className="song-row" key={song.id}>
     <button className="song-play" onClick={() => playSong(song)}>{nowPlaying === song.id ? '⏸' : '▶'}</button>
     <div className="song-meta" onClick={() => loadSong(song)}>
       <strong>{song.title}</strong>
-      <small>{GENRES.find((g) => g.id === song.genre)?.icon} {song.genre} · {MOODS.find((m) => m.id === song.mood)?.icon} {song.mood}{song.audio_path ? ' · 🎙️' : ''}{!mineTab && <> · {iconOf(song.owner_id)} @{nameOf(song.owner_id)}</>}</small>
+      <small>{GENRES.find((g) => g.id === song.genre)?.icon} {song.genre} · {MOODS.find((m) => m.id === song.mood)?.icon} {song.mood}{song.instrument && song.instrument !== 'auto' ? ` · ${INSTRUMENTS.find((i) => i.id === song.instrument)?.icon}` : ''}{song.audio_path ? ' · 🎙️' : ''}{!mineTab && <> · {iconOf(song.owner_id)} @{nameOf(song.owner_id)}</>}</small>
     </div>
     {mineTab
       ? <><button className={`song-pub ${song.is_public ? 'on' : ''}`} onClick={() => togglePublic(song)} title={song.is_public ? 'Public — tap to make private' : 'Private — tap to make public'}>{song.is_public ? '🌍' : '🔒'}</button>
@@ -171,6 +172,8 @@ export function SongStudioPage({ onScore, onBack }: { onScore: (coins: number) =
         <p className="song-kicker">1 · Pick your sound</p>
         <div className="song-chips">{GENRES.map((g) => <button key={g.id} className={genre === g.id ? 'on' : ''} onClick={() => pickGenre(g.id)}>{g.icon} {g.name}</button>)}</div>
         <div className="song-chips moods">{MOODS.map((m) => <button key={m.id} className={mood === m.id ? 'on' : ''} onClick={() => { setMood(m.id); stopAll(); }}>{m.icon} {m.name}</button>)}</div>
+        <p className="song-sub">🎸 Background instrument</p>
+        <div className="song-chips insts">{INSTRUMENTS.map((it) => <button key={it.id} className={instrument === it.id ? 'on' : ''} onClick={() => { setInstrument(it.id); stopAll(); }}>{it.icon} {it.name}</button>)}</div>
         <label className="song-tempo">Tempo <b>{tempo} BPM</b><input type="range" min={60} max={180} value={tempo} onChange={(e) => { setTempo(Number(e.target.value)); stopAll(); }} /></label>
         <div className="song-transport">
           <button className={`song-big ${playing ? 'on' : ''}`} onClick={playMake}>{playing ? '⏸ Stop' : '▶ Play beat'}</button>

@@ -7,8 +7,9 @@
 
 export type Genre = 'pop' | 'hiphop' | 'lofi' | 'edm' | 'rock' | 'chill' | 'cinematic' | 'chip';
 export type Mood = 'happy' | 'chill' | 'sad' | 'hype' | 'dreamy' | 'epic';
+export type Instrument = 'auto' | 'guitar' | 'piano' | 'strings' | 'bells' | 'synth' | 'flute' | 'musicbox';
 
-export interface SongSpec { genre: Genre; mood: Mood; tempo: number; seed: number; bars: number }
+export interface SongSpec { genre: Genre; mood: Mood; tempo: number; seed: number; bars: number; instrument?: Instrument }
 
 export const GENRES: { id: Genre; name: string; icon: string; tempo: number }[] = [
   { id: 'pop', name: 'Pop', icon: '🎤', tempo: 112 },
@@ -27,6 +28,17 @@ export const MOODS: { id: Mood; name: string; icon: string }[] = [
   { id: 'hype', name: 'Hype', icon: '🔥' },
   { id: 'dreamy', name: 'Dreamy', icon: '✨' },
   { id: 'epic', name: 'Epic', icon: '🏔️' },
+];
+// The instrument that plays the chords + melody (drums & bass stay as the rhythm).
+export const INSTRUMENTS: { id: Instrument; name: string; icon: string }[] = [
+  { id: 'auto', name: 'Auto', icon: '🎚️' },
+  { id: 'guitar', name: 'Guitar', icon: '🎸' },
+  { id: 'piano', name: 'Piano', icon: '🎹' },
+  { id: 'strings', name: 'Strings', icon: '🎻' },
+  { id: 'bells', name: 'Bells', icon: '🔔' },
+  { id: 'synth', name: 'Synth', icon: '🎛️' },
+  { id: 'flute', name: 'Flute', icon: '🪈' },
+  { id: 'musicbox', name: 'Music Box', icon: '🎶' },
 ];
 
 function mulberry32(a: number) {
@@ -132,17 +144,65 @@ function pad(ctx: BaseAudioContext, dest: AudioNode, t: number, freqs: number[],
   for (const f of freqs) { const o = ctx.createOscillator(); o.type = wave; o.frequency.value = f; o.detune.value = (Math.random() - 0.5) * 8; o.connect(g); o.start(t); o.stop(t + dur + 0.05); }
 }
 
+// ---- instrument voices (a single note in the chosen timbre) ----------------
+function partials(ctx: BaseAudioContext, g: GainNode, t: number, freq: number, dur: number, wave: OscillatorType, parts: [number, number][]) {
+  for (const [mult, amp] of parts) { const o = ctx.createOscillator(); o.type = wave; o.frequency.value = freq * mult; const gg = ctx.createGain(); gg.gain.value = amp; o.connect(gg); gg.connect(g); o.start(t); o.stop(t + dur + 0.05); }
+}
+function pluckEnv(ctx: BaseAudioContext, dest: AudioNode, t: number, peak: number, dur: number) {
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); g.connect(dest); return g;
+}
+function sustainEnv(ctx: BaseAudioContext, dest: AudioNode, t: number, peak: number, dur: number, atk: number) {
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + dur * atk); g.gain.setValueAtTime(peak, t + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); g.connect(dest); return g;
+}
+function vibrato(ctx: BaseAudioContext, t: number, dur: number, rate: number, depth: number, ...targets: AudioParam[]) {
+  const lfo = ctx.createOscillator(); lfo.frequency.value = rate; const lg = ctx.createGain(); lg.gain.value = depth; lfo.connect(lg); for (const p of targets) lg.connect(p); lfo.start(t); lfo.stop(t + dur + 0.05);
+}
+/** Play one note with the given instrument's sound. */
+function instNote(inst: Instrument, ctx: BaseAudioContext, dest: AudioNode, t: number, freq: number, dur: number, peak: number) {
+  if (inst === 'guitar') {
+    const g = pluckEnv(ctx, dest, t, peak, dur);
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = freq;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(Math.min(6000, freq * 7), t); lp.frequency.exponentialRampToValueAtTime(Math.max(400, freq * 2), t + dur * 0.6);
+    o.connect(lp); lp.connect(g); o.start(t); o.stop(t + dur + 0.05); return;
+  }
+  if (inst === 'piano') { const g = pluckEnv(ctx, dest, t, peak, dur * 0.95); partials(ctx, g, t, freq, dur, 'triangle', [[1, 1], [2, 0.4], [3, 0.14]]); return; }
+  if (inst === 'bells') { const g = pluckEnv(ctx, dest, t, peak, dur); partials(ctx, g, t, freq, dur, 'sine', [[1, 1], [2.76, 0.4], [5.4, 0.15]]); return; }
+  if (inst === 'musicbox') { const g = pluckEnv(ctx, dest, t, peak, Math.min(dur, 0.7)); partials(ctx, g, t, freq, Math.min(dur, 0.7), 'sine', [[1, 1], [3, 0.3], [6, 0.1]]); return; }
+  if (inst === 'strings') {
+    const g = sustainEnv(ctx, dest, t, peak, dur, 0.25);
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = freq; const o2 = ctx.createOscillator(); o2.type = 'sawtooth'; o2.frequency.value = freq; o2.detune.value = 8;
+    vibrato(ctx, t, dur, 5, 4, o.detune, o2.detune); o.connect(g); o2.connect(g); o.start(t); o2.start(t); o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05); return;
+  }
+  if (inst === 'flute') {
+    const g = sustainEnv(ctx, dest, t, peak, dur, 0.15);
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = freq; vibrato(ctx, t, dur, 5.5, 3, o.detune);
+    const o2 = ctx.createOscillator(); o2.type = 'triangle'; o2.frequency.value = freq; const g2 = ctx.createGain(); g2.gain.value = 0.18; o2.connect(g2); g2.connect(g);
+    o.connect(g); o.start(t); o2.start(t); o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05); return;
+  }
+  // synth
+  const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = freq;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 6; lp.frequency.setValueAtTime(freq * 2, t); lp.frequency.exponentialRampToValueAtTime(freq * 6, t + dur * 0.3); lp.frequency.exponentialRampToValueAtTime(freq * 1.5, t + dur);
+  const g = env(ctx, dest, t, peak, 0.01, dur); o.connect(lp); lp.connect(g); o.start(t); o.stop(t + dur + 0.05);
+}
+
 /** Schedule the whole arrangement into `master` starting at `start`; returns its length in seconds. */
 function arrange(spec: SongSpec, ctx: BaseAudioContext, master: AudioNode, start: number): number {
   const cfg = cfgFor(spec.genre); const mood = moodShift(spec.mood); const R = mulberry32(spec.seed >>> 0);
   const spb = 60 / spec.tempo; const step = spb / 4;      // seconds per 16th
   const bars = spec.bars;
+  const inst = spec.instrument && spec.instrument !== 'auto' ? spec.instrument : null;
+  const held = inst === 'strings' || inst === 'flute' || inst === 'synth';   // sustained vs plucked
   let melodyDeg = 0;
   for (let bar = 0; bar < bars; bar++) {
     const barStart = start + bar * 16 * step;
     const chordDeg = cfg.prog[bar % cfg.prog.length];
-    // pad chord for the whole bar
-    if (cfg.padGain > 0) pad(ctx, master, barStart, triad(cfg, chordDeg, mood.octave).map(midiToFreq), 16 * step * 0.98, cfg.padWave, cfg.padGain * mood.brightness);
+    // chords for the bar — played by the chosen instrument, or the default pad
+    const freqs = triad(cfg, chordDeg, mood.octave).map(midiToFreq);
+    if (inst) {
+      const cg = cfg.padGain * 1.5 * mood.brightness;
+      if (held) { for (const f of freqs) instNote(inst, ctx, master, barStart, f, 16 * step * 0.95, cg); }
+      else { for (const half of [0, 8]) freqs.forEach((f, ci) => instNote(inst, ctx, master, barStart + half * step + ci * 0.02, f, 8 * step * 0.9, cg)); }  // strum on beats 1 & 3
+    } else if (cfg.padGain > 0) pad(ctx, master, barStart, freqs, 16 * step * 0.98, cfg.padWave, cfg.padGain * mood.brightness);
     for (let s = 0; s < 16; s++) {
       const swung = (s % 2 === 1) ? cfg.swing * step : 0;
       const t = barStart + s * step + swung;
@@ -154,8 +214,10 @@ function arrange(spec: SongSpec, ctx: BaseAudioContext, master: AudioNode, start
       if (R() < cfg.leadDensity * mood.density) {
         melodyDeg += Math.floor(R() * 5) - 2;
         melodyDeg = Math.max(-2, Math.min(9, melodyDeg));
-        const note = scaleNote(cfg, chordDeg + melodyDeg, mood.octave + 1);
-        tone(ctx, master, t, midiToFreq(note), step * (1 + Math.floor(R() * 2)) * 0.9, cfg.leadWave, cfg.leadGain * mood.brightness);
+        const note = midiToFreq(scaleNote(cfg, chordDeg + melodyDeg, mood.octave + 1));
+        const dur = step * (1 + Math.floor(R() * 2)) * 0.9;
+        if (inst) instNote(inst, ctx, master, t, note, dur, cfg.leadGain * mood.brightness);
+        else tone(ctx, master, t, note, dur, cfg.leadWave, cfg.leadGain * mood.brightness);
       }
     }
   }

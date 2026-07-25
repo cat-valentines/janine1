@@ -1908,6 +1908,8 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .song-chips button { padding: 8px 12px; border: 2px solid #453b6e; border-radius: 999px; background: #2c2150; color: #d9cbff; font-weight: 800; font-size: .82rem; cursor: pointer; }
 .song-chips button.on { border-color: transparent; background: linear-gradient(120deg, #7c5cff, #b45f9a); color: #fff; }
 .song-chips.moods button.on { background: linear-gradient(120deg, #4bd0c0, #7c5cff); }
+.song-chips.insts button.on { background: linear-gradient(120deg, #e0a44b, #b45f9a); }
+.song-sub { margin: 4px 0 7px; font-weight: 800; color: #cbc2ee; font-size: .82rem; }
 .song-tempo { display: flex; align-items: center; gap: 10px; margin: 6px 0 12px; font-weight: 800; font-size: .86rem; color: #cbc2ee; }
 .song-tempo b { color: #fff; }
 .song-tempo input { flex: 1; accent-color: #b45f9a; }
