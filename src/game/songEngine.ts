@@ -67,23 +67,24 @@ const SCALES: Record<string, number[]> = {
 
 interface GenreCfg {
   scale: keyof typeof SCALES; root: number;                 // root midi note
-  prog: number[];                                            // chord roots as scale degrees
+  progs: number[][];                                         // chord-root progressions (pick one per song)
   kick: number[]; snare: number[]; hat: number[]; hatOpen?: number[];
   bassWave: OscillatorType; leadWave: OscillatorType; padWave: OscillatorType;
   bassEvery: number;                                         // bass note every N sixteenths
   leadDensity: number;                                       // 0..1 chance of a lead note per step
   swing: number; lowpass?: number; padGain: number; leadGain: number;
+  reverb: number; clap?: boolean;                            // 0..1 reverb send; clap layered on the snare
 }
 const cfgFor = (g: Genre): GenreCfg => {
   switch (g) {
-    case 'pop': return { scale: 'major', root: 48, prog: [0, 4, 5, 3], kick: [0, 8], snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14], bassWave: 'triangle', leadWave: 'square', padWave: 'sawtooth', bassEvery: 4, leadDensity: 0.5, swing: 0, padGain: 0.12, leadGain: 0.16 };
-    case 'hiphop': return { scale: 'minor', root: 45, prog: [0, 3, 5, 4], kick: [0, 6, 10], snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14], bassWave: 'sine', leadWave: 'square', padWave: 'sawtooth', bassEvery: 8, leadDensity: 0.35, swing: 0.18, padGain: 0.1, leadGain: 0.14 };
-    case 'lofi': return { scale: 'dorian', root: 45, prog: [0, 3, 4, 3], kick: [0, 10], snare: [4, 12], hat: [2, 6, 10, 14], bassWave: 'sine', leadWave: 'triangle', padWave: 'sawtooth', bassEvery: 8, leadDensity: 0.3, swing: 0.22, lowpass: 2200, padGain: 0.14, leadGain: 0.12 };
-    case 'edm': return { scale: 'minor', root: 45, prog: [0, 5, 3, 4], kick: [0, 4, 8, 12], snare: [4, 12], hat: [2, 6, 10, 14], hatOpen: [2, 6, 10, 14], bassWave: 'sawtooth', leadWave: 'sawtooth', padWave: 'sawtooth', bassEvery: 2, leadDensity: 0.55, swing: 0, padGain: 0.1, leadGain: 0.18 };
-    case 'rock': return { scale: 'major', root: 45, prog: [0, 4, 5, 4], kick: [0, 8, 10], snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14], bassWave: 'sawtooth', leadWave: 'sawtooth', padWave: 'square', bassEvery: 4, leadDensity: 0.5, swing: 0, padGain: 0.1, leadGain: 0.17 };
-    case 'chill': return { scale: 'major', root: 48, prog: [0, 5, 3, 4], kick: [0, 8], snare: [8], hat: [4, 12], bassWave: 'sine', leadWave: 'triangle', padWave: 'sawtooth', bassEvery: 8, leadDensity: 0.3, swing: 0.1, padGain: 0.15, leadGain: 0.12 };
-    case 'cinematic': return { scale: 'minor', root: 43, prog: [0, 5, 3, 6], kick: [0], snare: [], hat: [], bassWave: 'sine', leadWave: 'triangle', padWave: 'sawtooth', bassEvery: 16, leadDensity: 0.25, swing: 0, padGain: 0.2, leadGain: 0.13 };
-    case 'chip': return { scale: 'major', root: 52, prog: [0, 4, 5, 3], kick: [0, 8], snare: [4, 12], hat: [2, 6, 10, 14], bassWave: 'square', leadWave: 'square', padWave: 'square', bassEvery: 2, leadDensity: 0.6, swing: 0, padGain: 0.08, leadGain: 0.16 };
+    case 'pop': return { scale: 'major', root: 48, progs: [[0, 4, 5, 3], [0, 3, 4, 5], [5, 3, 0, 4]], kick: [0, 8], snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14], bassWave: 'triangle', leadWave: 'square', padWave: 'sawtooth', bassEvery: 4, leadDensity: 0.5, swing: 0, padGain: 0.12, leadGain: 0.16, reverb: 0.2, clap: true };
+    case 'hiphop': return { scale: 'minor', root: 45, progs: [[0, 3, 5, 4], [0, 5, 3, 4], [0, 0, 3, 5]], kick: [0, 6, 10], snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14], bassWave: 'sine', leadWave: 'square', padWave: 'sawtooth', bassEvery: 8, leadDensity: 0.4, swing: 0.18, padGain: 0.1, leadGain: 0.14, reverb: 0.16 };
+    case 'lofi': return { scale: 'dorian', root: 45, progs: [[0, 3, 4, 3], [0, 4, 3, 5], [5, 3, 0, 4]], kick: [0, 10], snare: [4, 12], hat: [2, 6, 10, 14], bassWave: 'sine', leadWave: 'triangle', padWave: 'sawtooth', bassEvery: 8, leadDensity: 0.34, swing: 0.24, lowpass: 2200, padGain: 0.14, leadGain: 0.12, reverb: 0.28 };
+    case 'edm': return { scale: 'minor', root: 45, progs: [[0, 5, 3, 4], [0, 3, 4, 5], [5, 4, 3, 0]], kick: [0, 4, 8, 12], snare: [4, 12], hat: [2, 6, 10, 14], hatOpen: [2, 6, 10, 14], bassWave: 'sawtooth', leadWave: 'sawtooth', padWave: 'sawtooth', bassEvery: 2, leadDensity: 0.55, swing: 0, padGain: 0.1, leadGain: 0.18, reverb: 0.2, clap: true };
+    case 'rock': return { scale: 'major', root: 45, progs: [[0, 4, 5, 4], [0, 5, 3, 4], [0, 3, 4, 4]], kick: [0, 8, 10], snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14], bassWave: 'sawtooth', leadWave: 'sawtooth', padWave: 'square', bassEvery: 4, leadDensity: 0.5, swing: 0, padGain: 0.1, leadGain: 0.17, reverb: 0.14 };
+    case 'chill': return { scale: 'major', root: 48, progs: [[0, 5, 3, 4], [0, 4, 5, 3], [3, 4, 0, 5]], kick: [0, 8], snare: [8], hat: [4, 12], bassWave: 'sine', leadWave: 'triangle', padWave: 'sawtooth', bassEvery: 8, leadDensity: 0.32, swing: 0.1, padGain: 0.15, leadGain: 0.12, reverb: 0.3 };
+    case 'cinematic': return { scale: 'minor', root: 43, progs: [[0, 5, 3, 6], [0, 6, 3, 5], [0, 3, 5, 6]], kick: [0], snare: [], hat: [], bassWave: 'sine', leadWave: 'triangle', padWave: 'sawtooth', bassEvery: 16, leadDensity: 0.28, swing: 0, padGain: 0.2, leadGain: 0.13, reverb: 0.4 };
+    case 'chip': return { scale: 'major', root: 52, progs: [[0, 4, 5, 3], [0, 5, 3, 4], [0, 3, 4, 5]], kick: [0, 8], snare: [4, 12], hat: [2, 6, 10, 14], bassWave: 'square', leadWave: 'square', padWave: 'square', bassEvery: 2, leadDensity: 0.6, swing: 0, padGain: 0.08, leadGain: 0.16, reverb: 0.12 };
   }
 };
 
@@ -124,14 +125,21 @@ function noise(ctx: BaseAudioContext, dur: number) {
   for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
   const src = ctx.createBufferSource(); src.buffer = buf; return src;
 }
-function kick(ctx: BaseAudioContext, dest: AudioNode, t: number) {
+function kick(ctx: BaseAudioContext, dest: AudioNode, t: number, vel = 1) {
   const o = ctx.createOscillator(); o.type = 'sine';
-  o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
-  const g = env(ctx, dest, t, 0.9, 0.005, 0.18); o.connect(g); o.start(t); o.stop(t + 0.2);
+  o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.11);
+  const g = env(ctx, dest, t, 0.95 * vel, 0.004, 0.2); o.connect(g); o.start(t); o.stop(t + 0.24);
+  // click transient for punch
+  const c = noise(ctx, 0.02); const cg = env(ctx, dest, t, 0.25 * vel, 0.001, 0.02); c.connect(cg); c.start(t); c.stop(t + 0.03);
 }
-function snare(ctx: BaseAudioContext, dest: AudioNode, t: number) {
-  const n = noise(ctx, 0.2); const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1200;
-  const g = env(ctx, dest, t, 0.5, 0.002, 0.16); n.connect(hp); hp.connect(g); n.start(t); n.stop(t + 0.2);
+function snare(ctx: BaseAudioContext, dest: AudioNode, t: number, vel = 1) {
+  const n = noise(ctx, 0.2); const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1400;
+  const g = env(ctx, dest, t, 0.5 * vel, 0.002, 0.15); n.connect(hp); hp.connect(g); n.start(t); n.stop(t + 0.2);
+  const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(190, t); o.frequency.exponentialRampToValueAtTime(120, t + 0.08);
+  const og = env(ctx, dest, t, 0.28 * vel, 0.002, 0.09); o.connect(og); o.start(t); o.stop(t + 0.12);   // tonal body
+}
+function clap(ctx: BaseAudioContext, dest: AudioNode, t: number, vel = 1) {
+  for (const d of [0, 0.012, 0.024]) { const n = noise(ctx, 0.09); const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1600; bp.Q.value = 1.2; const g = env(ctx, dest, t + d, 0.32 * vel, 0.001, 0.07); n.connect(bp); bp.connect(g); n.start(t + d); n.stop(t + d + 0.1); }
 }
 function hat(ctx: BaseAudioContext, dest: AudioNode, t: number, open: boolean) {
   const n = noise(ctx, open ? 0.18 : 0.05); const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7000;
@@ -234,10 +242,28 @@ function arrange(spec: SongSpec, ctx: BaseAudioContext, master: AudioNode, start
   const bars = spec.bars;
   const inst = spec.instrument && spec.instrument !== 'auto' ? spec.instrument : null;
   const held = inst === 'strings' || inst === 'flute' || inst === 'synth' || inst === 'organ' || inst === 'brass' || inst === 'choir';   // sustained vs plucked
-  let melodyDeg = 0;
+  // Pick one of the genre's progressions (variety between songs).
+  const prog = cfg.progs[Math.floor(R() * cfg.progs.length)];
+  // Build a repeating melodic MOTIF over a phrase, so the tune has structure and
+  // repetition (professional-sounding) instead of a random walk.
+  const phraseBars = Math.min(4, bars);
+  const motif: { step: number; deg: number; len: number }[] = [];
+  let mDeg = 0;
+  for (let b = 0; b < phraseBars; b++) {
+    for (const s of [0, 2, 4, 6, 8, 10, 12, 14]) {
+      if (R() < cfg.leadDensity * mood.density) {
+        mDeg += [-2, -1, 0, 0, 1, 1, 2][Math.floor(R() * 7)];
+        mDeg = Math.max(-3, Math.min(7, mDeg));
+        motif.push({ step: b * 16 + s, deg: mDeg, len: 1 + Math.floor(R() * 3) });
+      }
+    }
+  }
+  const V = () => 0.82 + R() * 0.34;                          // per-hit velocity (human feel)
+
   for (let bar = 0; bar < bars; bar++) {
     const barStart = start + bar * 16 * step;
-    const chordDeg = cfg.prog[bar % cfg.prog.length];
+    const chordDeg = prog[bar % prog.length];
+    const lastBar = bar === bars - 1;
     // chords for the bar — played by the chosen instrument, or the default pad
     const freqs = triad(cfg, chordDeg, mood.octave).map(midiToFreq);
     if (inst) {
@@ -248,32 +274,46 @@ function arrange(spec: SongSpec, ctx: BaseAudioContext, master: AudioNode, start
     for (let s = 0; s < 16; s++) {
       const swung = (s % 2 === 1) ? cfg.swing * step : 0;
       const t = barStart + s * step + swung;
-      if (cfg.kick.includes(s)) kick(ctx, master, t);
-      if (cfg.snare.includes(s)) snare(ctx, master, t);
+      if (cfg.kick.includes(s)) kick(ctx, master, t, V());
+      if (cfg.snare.includes(s)) { snare(ctx, master, t, V()); if (cfg.clap) clap(ctx, master, t, 0.75); }
       if (cfg.hat.includes(s)) hat(ctx, master, t, !!cfg.hatOpen?.includes(s));
-      if (s % cfg.bassEvery === 0) tone(ctx, master, t, midiToFreq(scaleNote(cfg, chordDeg, mood.octave - 2)), cfg.bassEvery * step * 0.9, cfg.bassWave, 0.32);
-      // lead / melody line built from the chord + scale
-      if (R() < cfg.leadDensity * mood.density) {
-        melodyDeg += Math.floor(R() * 5) - 2;
-        melodyDeg = Math.max(-2, Math.min(9, melodyDeg));
-        const note = midiToFreq(scaleNote(cfg, chordDeg + melodyDeg, mood.octave + 1));
-        const dur = step * (1 + Math.floor(R() * 2)) * 0.9;
-        if (inst) instNote(inst, ctx, master, t, note, dur, cfg.leadGain * mood.brightness);
-        else tone(ctx, master, t, note, dur, cfg.leadWave, cfg.leadGain * mood.brightness);
-      }
+      if (s % cfg.bassEvery === 0) tone(ctx, master, t, midiToFreq(scaleNote(cfg, chordDeg, mood.octave - 2)), cfg.bassEvery * step * 0.9, cfg.bassWave, 0.32 * V());
+      if (lastBar && cfg.snare.length && s >= 12) snare(ctx, master, t, 0.45 + (s - 12) * 0.12);   // drum fill into the loop
+    }
+    // melody: the phrase, transposed to this bar's chord
+    const phaseStart = (bar % phraseBars) * 16;
+    for (const m of motif) {
+      if (m.step < phaseStart || m.step >= phaseStart + 16) continue;
+      const s = m.step - phaseStart;
+      const t = barStart + s * step + ((s % 2 === 1) ? cfg.swing * step : 0);
+      const note = midiToFreq(scaleNote(cfg, chordDeg + m.deg, mood.octave + 1));
+      const g = cfg.leadGain * mood.brightness * V();
+      if (inst) instNote(inst, ctx, master, t, note, m.len * step * 0.9, g);
+      else tone(ctx, master, t, note, m.len * step * 0.9, cfg.leadWave, g);
     }
   }
   return bars * 16 * step;
 }
 
-/** Build the master chain (compressor + optional lo-fi lowpass) into a context. */
+/** A decaying-noise impulse response for the reverb. */
+function reverbImpulse(ctx: BaseAudioContext, seconds: number, decay: number) {
+  const rate = ctx.sampleRate; const len = Math.max(1, Math.floor(rate * seconds));
+  const buf = ctx.createBuffer(1, len, rate); const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+  return buf;
+}
+/** Master chain: compressor → optional lo-fi lowpass → dry + reverb send → out. */
 function masterChain(ctx: BaseAudioContext, genre: Genre) {
+  const cfg = cfgFor(genre);
   const comp = ctx.createDynamicsCompressor();
   comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.2;
-  const out = ctx.createGain(); out.gain.value = 0.9;
-  const lp = cfgFor(genre).lowpass;
-  if (lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; comp.connect(f); f.connect(out); }
-  else comp.connect(out);
+  const out = ctx.createGain(); out.gain.value = 0.72;   // headroom so busy genres don't clip
+  let pre: AudioNode = comp;
+  if (cfg.lowpass) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cfg.lowpass; comp.connect(f); pre = f; }
+  const dry = ctx.createGain(); dry.gain.value = 1 - cfg.reverb * 0.55; pre.connect(dry); dry.connect(out);
+  const send = ctx.createGain(); send.gain.value = cfg.reverb;
+  const conv = ctx.createConvolver(); conv.buffer = reverbImpulse(ctx, 1.8, 2.6);
+  pre.connect(send); send.connect(conv); conv.connect(out);
   out.connect(ctx.destination);
   return comp;                                            // instruments connect here
 }
