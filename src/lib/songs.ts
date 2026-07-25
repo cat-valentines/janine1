@@ -10,6 +10,32 @@ export type NewSong = Pick<Song, 'title' | 'genre' | 'mood' | 'tempo' | 'seed' |
 
 const BUCKET = 'song-audio';
 
+const GENRE_IDS: Genre[] = ['pop', 'hiphop', 'lofi', 'edm', 'rock', 'chill', 'cinematic', 'chip'];
+const MOOD_IDS: Mood[] = ['happy', 'chill', 'sad', 'hype', 'dreamy', 'epic'];
+const INST_IDS: Instrument[] = ['auto', 'guitar', 'eguitar', 'piano', 'electro', 'strings', 'brass', 'steeldrum', 'marimba', 'organ', 'bells', 'synth', 'choir', 'flute', 'musicbox'];
+
+export interface SongIdea { genre: Genre; mood: Mood; instrument: Instrument; tempo: number; title: string; lyrics: string }
+
+/** Suno-style one-box create: describe a song, the AI picks the style + writes lyrics. */
+export async function describeSong(description: string): Promise<SongIdea> {
+  const system = `You set up a kids' music app and write ORIGINAL lyrics. Reply with STRICT JSON only (no markdown, no extra text), shaped exactly:
+{"genre":one of ${JSON.stringify(GENRE_IDS)},"mood":one of ${JSON.stringify(MOOD_IDS)},"instrument":one of ${JSON.stringify(INST_IDS)},"tempo":integer 70-160,"title":"short title","lyrics":"original kid-safe lyrics with [Verse] and [Chorus] labels, short singable lines"}
+Never copy an existing song, no profanity or adult themes.`;
+  const { data, error } = await supabase.functions.invoke<{ text?: string; error?: string }>('ai', { body: { prompt: `Make a song from this idea: ${description}`, system } });
+  if (error || !data?.text) throw new Error(data?.error ?? error?.message ?? 'No idea came back');
+  const s = data.text.indexOf('{'), e = data.text.lastIndexOf('}');
+  const raw = s >= 0 && e > s ? JSON.parse(data.text.slice(s, e + 1)) as Partial<SongIdea> : {};
+  const pick = <T,>(v: unknown, list: T[], def: T): T => (list as unknown[]).includes(v) ? v as T : def;
+  return {
+    genre: pick(raw.genre, GENRE_IDS, 'pop'),
+    mood: pick(raw.mood, MOOD_IDS, 'happy'),
+    instrument: pick(raw.instrument, INST_IDS, 'auto'),
+    tempo: Math.min(160, Math.max(70, Math.round(Number(raw.tempo) || 110))),
+    title: (typeof raw.title === 'string' ? raw.title : '').slice(0, 80),
+    lyrics: typeof raw.lyrics === 'string' ? raw.lyrics.trim() : '',
+  };
+}
+
 /** AI songwriter — original, kid-safe lyrics from a topic (uses the app's `ai` function). */
 export async function generateLyrics(topic: string, genre: string, mood: string): Promise<string> {
   const system = 'You are a songwriter for a kids app. Write ORIGINAL, catchy, age-appropriate lyrics — never copy an existing song, no profanity or adult themes. Use [Verse] and [Chorus] section labels, short singable lines.';

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { SongEngine, GENRES, MOODS, INSTRUMENTS, type Genre, type Mood, type Instrument, type SongSpec } from '../game/songEngine';
-import { createSong, updateSong, deleteSong, loadMySongs, loadPublicSongs, uploadSongAudio, songAudioUrl, generateLyrics, type Song } from '../lib/songs';
+import { createSong, updateSong, deleteSong, loadMySongs, loadPublicSongs, uploadSongAudio, songAudioUrl, generateLyrics, describeSong, type Song } from '../lib/songs';
 import { loadAllPlayers, type FoundPlayer } from '../lib/players';
 import { supabase } from '../lib/supabase';
 
@@ -25,6 +25,8 @@ export function SongStudioPage({ onScore, onBack }: { onScore: (coins: number) =
   const [playing, setPlaying] = useState(false);      // the "make" beat is playing
   const [nowPlaying, setNowPlaying] = useState('');    // a saved song id that's playing
 
+  const [desc, setDesc] = useState('');
+  const [creating, setCreating] = useState(false);
   const [topic, setTopic] = useState('');
   const [lyrics, setLyrics] = useState('');
   const [writing, setWriting] = useState(false);
@@ -73,6 +75,20 @@ export function SongStudioPage({ onScore, onBack }: { onScore: (coins: number) =
   };
   const newBeat = () => { const s = rand(); setSeed(s); stopAll(); setTimeout(() => { engine.current?.play({ genre, mood, tempo, seed: s, bars: 8, instrument }, voice, () => setPlaying(false)); setPlaying(true); }, 40); };
   const pickGenre = (g: Genre) => { setGenre(g); const t = GENRES.find((x) => x.id === g)?.tempo ?? tempo; setTempo(t); stopAll(); };
+
+  const quickCreate = async () => {
+    if (!desc.trim()) { setNote('✍️ Describe your song first — like “a happy summer pop song about the beach”.'); return; }
+    setCreating(true); setNote('');
+    try {
+      const idea = await describeSong(desc);
+      setGenre(idea.genre); setMood(idea.mood); setInstrument(idea.instrument); setTempo(idea.tempo); setLyrics(idea.lyrics);
+      if (idea.title && !title.trim()) setTitle(idea.title);
+      const s = rand(); setSeed(s); stopAll();
+      window.setTimeout(() => { engine.current?.play({ genre: idea.genre, mood: idea.mood, tempo: idea.tempo, seed: s, bars: 8, instrument: idea.instrument }, voice, () => setPlaying(false)); setPlaying(true); }, 60);
+      setNote('✨ Your song is ready — playing now! Tweak anything below, then save.');
+    } catch { setNote('The AI is busy — try again, or build your song by hand below.'); }
+    finally { setCreating(false); }
+  };
 
   const writeLyrics = async () => {
     setWriting(true); setNote('');
@@ -168,8 +184,15 @@ export function SongStudioPage({ onScore, onBack }: { onScore: (coins: number) =
     </div>
 
     {tab === 'make' && <div className="song-make">
+      <section className="song-card song-quick">
+        <p className="song-kicker">✨ Quick create — just describe your song</p>
+        <textarea className="song-desc" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="e.g. a happy summer pop song about chasing your dreams, with electric guitar" maxLength={300} rows={2} />
+        <button className="song-big create" onClick={quickCreate} disabled={creating}>{creating ? '✨ Creating your song…' : '✨ Create my song'}</button>
+        <p className="song-hint">The AI picks the style and writes your lyrics — then you can change anything below, add your voice, and save.</p>
+      </section>
+
       <section className="song-card">
-        <p className="song-kicker">1 · Pick your sound</p>
+        <p className="song-kicker">Or build it yourself · 1 · Pick your sound</p>
         <div className="song-chips">{GENRES.map((g) => <button key={g.id} className={genre === g.id ? 'on' : ''} onClick={() => pickGenre(g.id)}>{g.icon} {g.name}</button>)}</div>
         <div className="song-chips moods">{MOODS.map((m) => <button key={m.id} className={mood === m.id ? 'on' : ''} onClick={() => { setMood(m.id); stopAll(); }}>{m.icon} {m.name}</button>)}</div>
         <p className="song-sub">🎸 Background instrument</p>

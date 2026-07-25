@@ -1947,3 +1947,24 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .song-meta small { color: #a99ed6; font-size: .74rem; }
 .song-pub, .song-del, .song-open { flex: none; width: 40px; height: 40px; border: 0; border-radius: 10px; background: #33294f; color: #efeaff; font-size: 1.05rem; cursor: pointer; }
 .song-pub.on { background: #2f6b45; }
+
+/* Song Studio — Quick Create + mobile */
+.song-quick { background: linear-gradient(135deg, #3a2060cc, #4a1e55cc); border-color: #7c5cff; }
+.song-desc { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #6a5aa0; border-radius: 12px; background: #171233; color: #f0e9ff; font: inherit; line-height: 1.45; resize: vertical; }
+.song-big.create { width: 100%; margin-top: 10px; background: linear-gradient(120deg, #ff6a99, #7c5cff); color: #fff; }
+.song-big.create:disabled { opacity: .7; }
+@media (max-width: 560px) {
+  .song-page { padding: 12px 10px 40px; }
+  .song-top h1 { font-size: 1.15rem; }
+  .song-top span { width: 40px; }
+  .song-tabs button { font-size: .8rem; padding: 10px 0; }
+  .song-card { padding: 13px; border-radius: 15px; }
+  .song-chips button { font-size: .78rem; padding: 7px 10px; }
+  .song-big { font-size: 1rem; padding: 14px; }
+  .song-transport, .song-save-row, .song-voice { flex-wrap: wrap; }
+  .song-transport .song-shuffle, .song-save-row .song-dl { flex: 1; }
+  .song-lyric-gen { flex-wrap: wrap; }
+  .song-lyric-gen input { flex-basis: 100%; }
+  .song-lyric-gen button { flex: 1; }
+  .song-play { width: 42px; height: 42px; }
+}
