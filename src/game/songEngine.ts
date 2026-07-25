@@ -7,7 +7,7 @@
 
 export type Genre = 'pop' | 'hiphop' | 'lofi' | 'edm' | 'rock' | 'chill' | 'cinematic' | 'chip';
 export type Mood = 'happy' | 'chill' | 'sad' | 'hype' | 'dreamy' | 'epic';
-export type Instrument = 'auto' | 'guitar' | 'piano' | 'strings' | 'bells' | 'synth' | 'flute' | 'musicbox';
+export type Instrument = 'auto' | 'guitar' | 'eguitar' | 'piano' | 'strings' | 'bells' | 'synth' | 'electro' | 'flute' | 'musicbox' | 'steeldrum' | 'marimba' | 'organ' | 'brass' | 'choir';
 
 export interface SongSpec { genre: Genre; mood: Mood; tempo: number; seed: number; bars: number; instrument?: Instrument }
 
@@ -33,10 +33,17 @@ export const MOODS: { id: Mood; name: string; icon: string }[] = [
 export const INSTRUMENTS: { id: Instrument; name: string; icon: string }[] = [
   { id: 'auto', name: 'Auto', icon: '🎚️' },
   { id: 'guitar', name: 'Guitar', icon: '🎸' },
+  { id: 'eguitar', name: 'E. Guitar', icon: '⚡' },
   { id: 'piano', name: 'Piano', icon: '🎹' },
+  { id: 'electro', name: 'Electro', icon: '🔊' },
   { id: 'strings', name: 'Strings', icon: '🎻' },
+  { id: 'brass', name: 'Brass', icon: '🎺' },
+  { id: 'steeldrum', name: 'Steel Drum', icon: '🥁' },
+  { id: 'marimba', name: 'Marimba', icon: '🪵' },
+  { id: 'organ', name: 'Organ', icon: '🪗' },
   { id: 'bells', name: 'Bells', icon: '🔔' },
   { id: 'synth', name: 'Synth', icon: '🎛️' },
+  { id: 'choir', name: 'Choir', icon: '🎤' },
   { id: 'flute', name: 'Flute', icon: '🪈' },
   { id: 'musicbox', name: 'Music Box', icon: '🎶' },
 ];
@@ -157,6 +164,13 @@ function sustainEnv(ctx: BaseAudioContext, dest: AudioNode, t: number, peak: num
 function vibrato(ctx: BaseAudioContext, t: number, dur: number, rate: number, depth: number, ...targets: AudioParam[]) {
   const lfo = ctx.createOscillator(); lfo.frequency.value = rate; const lg = ctx.createGain(); lg.gain.value = depth; lfo.connect(lg); for (const p of targets) lg.connect(p); lfo.start(t); lfo.stop(t + dur + 0.05);
 }
+let distCurveCache: Float32Array<ArrayBuffer> | null = null;
+function distCurve(): Float32Array<ArrayBuffer> {
+  if (distCurveCache) return distCurveCache;
+  const n = 512, c = new Float32Array(new ArrayBuffer(n * 4)), k = 26;
+  for (let i = 0; i < n; i++) { const x = (i * 2) / n - 1; c[i] = ((Math.PI + k) * x) / (Math.PI + k * Math.abs(x)); }
+  return (distCurveCache = c);
+}
 /** Play one note with the given instrument's sound. */
 function instNote(inst: Instrument, ctx: BaseAudioContext, dest: AudioNode, t: number, freq: number, dur: number, peak: number) {
   if (inst === 'guitar') {
@@ -168,6 +182,34 @@ function instNote(inst: Instrument, ctx: BaseAudioContext, dest: AudioNode, t: n
   if (inst === 'piano') { const g = pluckEnv(ctx, dest, t, peak, dur * 0.95); partials(ctx, g, t, freq, dur, 'triangle', [[1, 1], [2, 0.4], [3, 0.14]]); return; }
   if (inst === 'bells') { const g = pluckEnv(ctx, dest, t, peak, dur); partials(ctx, g, t, freq, dur, 'sine', [[1, 1], [2.76, 0.4], [5.4, 0.15]]); return; }
   if (inst === 'musicbox') { const g = pluckEnv(ctx, dest, t, peak, Math.min(dur, 0.7)); partials(ctx, g, t, freq, Math.min(dur, 0.7), 'sine', [[1, 1], [3, 0.3], [6, 0.1]]); return; }
+  if (inst === 'steeldrum') { const d = Math.min(dur, 0.9); const g = pluckEnv(ctx, dest, t, peak, d); partials(ctx, g, t, freq, d, 'sine', [[1, 1], [2, 0.5], [3.9, 0.28], [5.4, 0.12]]); return; }
+  if (inst === 'marimba') { const d = Math.min(dur, 0.42); const g = pluckEnv(ctx, dest, t, peak, d); partials(ctx, g, t, freq, d, 'sine', [[1, 1], [4, 0.3], [9.2, 0.08]]); return; }
+  if (inst === 'eguitar') {
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak * 1.2, t + 0.01); g.gain.setValueAtTime(peak * 1.2, t + dur * 0.55); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); g.connect(dest);
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = freq;
+    const sh = ctx.createWaveShaper(); sh.curve = distCurve(); sh.oversample = '2x';
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(3600, freq * 6);
+    o.connect(sh); sh.connect(lp); lp.connect(g); o.start(t); o.stop(t + dur + 0.05); return;
+  }
+  if (inst === 'electro') {
+    const g = pluckEnv(ctx, dest, t, peak, dur * 0.9);
+    const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = freq;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 8; lp.frequency.setValueAtTime(Math.min(9000, freq * 8), t); lp.frequency.exponentialRampToValueAtTime(Math.max(500, freq * 1.5), t + dur * 0.5);
+    const sub = ctx.createOscillator(); sub.type = 'sine'; sub.frequency.value = freq / 2; const sg = ctx.createGain(); sg.gain.value = 0.35;
+    o.connect(lp); lp.connect(g); sub.connect(sg); sg.connect(g); o.start(t); sub.start(t); o.stop(t + dur + 0.05); sub.stop(t + dur + 0.05); return;
+  }
+  if (inst === 'organ') { const g = sustainEnv(ctx, dest, t, peak, dur, 0.05); partials(ctx, g, t, freq, dur, 'sine', [[1, 1], [2, 0.6], [3, 0.4], [4, 0.28]]); return; }
+  if (inst === 'brass') {
+    const g = sustainEnv(ctx, dest, t, peak, dur, 0.12);
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = freq;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(freq * 1.4, t); lp.frequency.exponentialRampToValueAtTime(freq * 4, t + dur * 0.2); lp.frequency.setValueAtTime(freq * 4, t + dur * 0.7); lp.frequency.exponentialRampToValueAtTime(freq * 1.4, t + dur);
+    vibrato(ctx, t, dur, 5.5, 4, o.detune); o.connect(lp); lp.connect(g); o.start(t); o.stop(t + dur + 0.05); return;
+  }
+  if (inst === 'choir') {
+    const g = sustainEnv(ctx, dest, t, peak, dur, 0.2);
+    for (const det of [-7, 0, 7]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = freq; o.detune.value = det; const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq * 2.2; bp.Q.value = 3; vibrato(ctx, t, dur, 5, 5, o.detune); o.connect(bp); bp.connect(g); o.start(t); o.stop(t + dur + 0.05); }
+    return;
+  }
   if (inst === 'strings') {
     const g = sustainEnv(ctx, dest, t, peak, dur, 0.25);
     const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = freq; const o2 = ctx.createOscillator(); o2.type = 'sawtooth'; o2.frequency.value = freq; o2.detune.value = 8;
@@ -191,7 +233,7 @@ function arrange(spec: SongSpec, ctx: BaseAudioContext, master: AudioNode, start
   const spb = 60 / spec.tempo; const step = spb / 4;      // seconds per 16th
   const bars = spec.bars;
   const inst = spec.instrument && spec.instrument !== 'auto' ? spec.instrument : null;
-  const held = inst === 'strings' || inst === 'flute' || inst === 'synth';   // sustained vs plucked
+  const held = inst === 'strings' || inst === 'flute' || inst === 'synth' || inst === 'organ' || inst === 'brass' || inst === 'choir';   // sustained vs plucked
   let melodyDeg = 0;
   for (let bar = 0; bar < bars; bar++) {
     const barStart = start + bar * 16 * step;
