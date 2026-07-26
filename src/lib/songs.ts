@@ -1,12 +1,12 @@
 import { supabase } from './supabase';
-import type { Genre, Mood, Instrument } from '../game/songEngine';
+import type { Genre, Mood, Instrument, Backing } from '../game/songEngine';
 
 export interface Song {
   id: string; owner_id: string; title: string;
-  genre: Genre; mood: Mood; tempo: number; seed: number; bars: number; instrument: Instrument;
+  genre: Genre; mood: Mood; tempo: number; seed: number; bars: number; instrument: Instrument; backing: Backing;
   lyrics: string; audio_path: string | null; is_public: boolean; created_at: string;
 }
-export type NewSong = Pick<Song, 'title' | 'genre' | 'mood' | 'tempo' | 'seed' | 'bars' | 'instrument' | 'lyrics' | 'is_public'>;
+export type NewSong = Pick<Song, 'title' | 'genre' | 'mood' | 'tempo' | 'seed' | 'bars' | 'instrument' | 'backing' | 'lyrics' | 'is_public'>;
 
 const BUCKET = 'song-audio';
 

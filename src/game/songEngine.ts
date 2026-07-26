@@ -8,8 +8,9 @@
 export type Genre = 'pop' | 'hiphop' | 'lofi' | 'edm' | 'rock' | 'chill' | 'cinematic' | 'chip';
 export type Mood = 'happy' | 'chill' | 'sad' | 'hype' | 'dreamy' | 'epic';
 export type Instrument = 'auto' | 'guitar' | 'eguitar' | 'piano' | 'strings' | 'bells' | 'synth' | 'electro' | 'flute' | 'musicbox' | 'steeldrum' | 'marimba' | 'organ' | 'brass' | 'choir';
+export type Backing = 'off' | 'ooh' | 'aah' | 'lala' | 'chant';
 
-export interface SongSpec { genre: Genre; mood: Mood; tempo: number; seed: number; bars: number; instrument?: Instrument }
+export interface SongSpec { genre: Genre; mood: Mood; tempo: number; seed: number; bars: number; instrument?: Instrument; backing?: Backing }
 
 export const GENRES: { id: Genre; name: string; icon: string; tempo: number }[] = [
   { id: 'pop', name: 'Pop', icon: '🎤', tempo: 112 },
@@ -46,6 +47,14 @@ export const INSTRUMENTS: { id: Instrument; name: string; icon: string }[] = [
   { id: 'choir', name: 'Choir', icon: '🎤' },
   { id: 'flute', name: 'Flute', icon: '🪈' },
   { id: 'musicbox', name: 'Music Box', icon: '🎶' },
+];
+// Optional backing singers — synthesised vowel voices that harmonise the chords.
+export const BACKINGS: { id: Backing; name: string; icon: string }[] = [
+  { id: 'off', name: 'None', icon: '🚫' },
+  { id: 'ooh', name: 'Oohs', icon: '🎙️' },
+  { id: 'aah', name: 'Aahs', icon: '😇' },
+  { id: 'lala', name: 'La-la', icon: '🎶' },
+  { id: 'chant', name: 'Chant', icon: '📣' },
 ];
 
 function mulberry32(a: number) {
@@ -235,6 +244,22 @@ function instNote(inst: Instrument, ctx: BaseAudioContext, dest: AudioNode, t: n
   const g = env(ctx, dest, t, peak, 0.01, dur); o.connect(lp); lp.connect(g); o.start(t); o.stop(t + dur + 0.05);
 }
 
+// ---- backing singers (formant-synth vowels) --------------------------------
+const VOWELS: Record<'ooh' | 'aah' | 'ehh', [number, number, number]> = {
+  aah: [800, 1150, 2800], ooh: [325, 700, 2530], ehh: [530, 1840, 2480],
+};
+/** One sung vowel note — a couple of detuned voices through formant bandpass filters + vibrato. */
+function vocalNote(ctx: BaseAudioContext, dest: AudioNode, t: number, freq: number, dur: number, vowel: 'ooh' | 'aah' | 'ehh', peak: number) {
+  const amp = sustainEnv(ctx, dest, t, peak, dur, 0.22);
+  const F = VOWELS[vowel];
+  for (const detune of [-9, 9]) {
+    const src = ctx.createOscillator(); src.type = 'sawtooth'; src.frequency.value = freq; src.detune.value = detune;
+    vibrato(ctx, t, dur, 5.2, 9, src.detune);
+    F.forEach((f, i) => { const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 7; const fg = ctx.createGain(); fg.gain.value = [1, 0.55, 0.3][i]; src.connect(bp); bp.connect(fg); fg.connect(amp); });
+    src.start(t); src.stop(t + dur + 0.05);
+  }
+}
+
 /** Schedule the whole arrangement into `master` starting at `start`; returns its length in seconds. */
 function arrange(spec: SongSpec, ctx: BaseAudioContext, master: AudioNode, start: number): number {
   const cfg = cfgFor(spec.genre); const mood = moodShift(spec.mood); const R = mulberry32(spec.seed >>> 0);
@@ -242,6 +267,7 @@ function arrange(spec: SongSpec, ctx: BaseAudioContext, master: AudioNode, start
   const bars = spec.bars;
   const inst = spec.instrument && spec.instrument !== 'auto' ? spec.instrument : null;
   const held = inst === 'strings' || inst === 'flute' || inst === 'synth' || inst === 'organ' || inst === 'brass' || inst === 'choir';   // sustained vs plucked
+  const backing = spec.backing && spec.backing !== 'off' ? spec.backing : null;   // backing singers
   // Pick one of the genre's progressions (variety between songs).
   const prog = cfg.progs[Math.floor(R() * cfg.progs.length)];
   // Build a repeating melodic MOTIF over a phrase, so the tune has structure and
@@ -271,6 +297,13 @@ function arrange(spec: SongSpec, ctx: BaseAudioContext, master: AudioNode, start
       if (held) { for (const f of freqs) instNote(inst, ctx, master, barStart, f, 16 * step * 0.95, cg); }
       else { for (const half of [0, 8]) freqs.forEach((f, ci) => instNote(inst, ctx, master, barStart + half * step + ci * 0.02, f, 8 * step * 0.9, cg)); }  // strum on beats 1 & 3
     } else if (cfg.padGain > 0) pad(ctx, master, barStart, freqs, 16 * step * 0.98, cfg.padWave, cfg.padGain * mood.brightness);
+    // backing singers harmonising the chord
+    if (backing === 'ooh' || backing === 'aah') {
+      const vowel = backing === 'ooh' ? 'ooh' : 'aah';
+      for (const f of freqs) vocalNote(ctx, master, barStart, f, 16 * step * 0.94, vowel, 0.085 * mood.brightness);
+    } else if (backing === 'chant') {
+      for (const half of [0, 8]) [scaleNote(cfg, chordDeg, mood.octave), scaleNote(cfg, chordDeg + 4, mood.octave)].forEach((m) => vocalNote(ctx, master, barStart + half * step, midiToFreq(m), 5 * step, 'aah', 0.1 * mood.brightness));
+    }
     for (let s = 0; s < 16; s++) {
       const swung = (s % 2 === 1) ? cfg.swing * step : 0;
       const t = barStart + s * step + swung;
@@ -290,6 +323,8 @@ function arrange(spec: SongSpec, ctx: BaseAudioContext, master: AudioNode, start
       const g = cfg.leadGain * mood.brightness * V();
       if (inst) instNote(inst, ctx, master, t, note, m.len * step * 0.9, g);
       else tone(ctx, master, t, note, m.len * step * 0.9, cfg.leadWave, g);
+      // "la-la" backing singers sing along, an octave below the melody
+      if (backing === 'lala') vocalNote(ctx, master, t, midiToFreq(scaleNote(cfg, chordDeg + m.deg, mood.octave)), m.len * step * 0.85, 'ehh', 0.075 * mood.brightness);
     }
   }
   return bars * 16 * step;
