@@ -6,8 +6,10 @@ import { ChoiceCard } from '../components/ChoiceCard';
 import { CharacterCustomizer } from '../components/CharacterCustomizer';
 import { getStars, STAR_GOAL } from '../lib/escapeStars';
 import type { CharacterId, SettingId } from '../game/types';
+import { isIslandOpen } from '../game/progress';
+import { islands } from '../game/islands';
 
-const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal', misha: 'Misha' };
+const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal', misha: 'Misha', joy: 'Joy', melly: 'Melly', martin: 'Martin' };
 const characterChoices: Array<[CharacterId, string]> = [
   ['cottontail', 'A cheerful little house explorer'],
   ['momo', 'Cheerful treasure penguin'],
@@ -25,7 +27,11 @@ const characterChoices: Array<[CharacterId, string]> = [
   ['gabby', 'A cheerful, chubby little giraffe'],
   ['amsaal', 'A sunny yellow chick with tiny walking feet'],
   ['misha', 'A light-pink strawberry cow holding a strawberry'],
+  ['joy', 'A joyful little red panda with a fluffy tail'],
+  ['melly', 'A baby harp seal wearing a pink bow'],
+  ['martin', 'A curious, cuddly little hedgehog'],
 ];
+const islandTwoCharacters = new Set<CharacterId>(['joy', 'melly', 'martin']);
 const houses: Record<SettingId, string> = { haunted: 'Haunted House', secret: 'Secret Rooms', power: 'Power House' };
 const today = new Date().toISOString().slice(0, 10);
 
@@ -35,6 +41,7 @@ interface ProfilePageProps {
   coins: number;
   foodBalance: number;
   completedQuests: number;
+  streak: number;
   isMember: boolean;
   accessory: string;
   /** True on a player's very first visit, before they have picked a character. */
@@ -51,7 +58,7 @@ interface ProfilePageProps {
   onBack: () => void;
 }
 
-export function ProfilePage({ character, setting, coins, foodBalance, completedQuests, isMember, accessory, firstTime, ownedItems, onChangeCharacter, onChangeAccessory, onBuyAccessory, onChosen, realName, birthday, country, onSavePrivate, onBack }: ProfilePageProps) {
+export function ProfilePage({ character, setting, coins, foodBalance, completedQuests, streak, isMember, accessory, firstTime, ownedItems, onChangeCharacter, onChangeAccessory, onBuyAccessory, onChosen, realName, birthday, country, onSavePrivate, onBack }: ProfilePageProps) {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [userId, setUserId] = useState('');
@@ -65,6 +72,7 @@ export function ProfilePage({ character, setting, coins, foodBalance, completedQ
   const [nameNote, setNameNote] = useState('');
   const [nameTaken, setNameTaken] = useState(false);
   const collectible = characterCollectibles[character];
+  const islandTwoOpen = isIslandOpen(islands[1], { completedQuests, streak, isMember });
 
   const saveUsername = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -139,7 +147,10 @@ export function ProfilePage({ character, setting, coins, foodBalance, completedQ
       <h3>Your character</h3>
       <p className="profile-hint">This is who you play as in every game, and who lives in your house.</p>
       <div className="choice-grid">
-        {characterChoices.map(([id, blurb]) => <ChoiceCard key={id} title={names[id]} description={blurb} icon={characterAssets[id]} selected={character === id} onSelect={() => onChangeCharacter(id)} />)}
+        {characterChoices.map(([id, blurb]) => {
+          const locked = islandTwoCharacters.has(id) && !islandTwoOpen;
+          return <ChoiceCard key={id} title={names[id]} description={blurb} icon={characterAssets[id]} selected={character === id} disabled={locked} lockLabel={locked ? 'Open Island 2' : undefined} onSelect={() => onChangeCharacter(id)} />;
+        })}
       </div>
       {firstTime && <button className="profile-start" onClick={onChosen}>Play as {names[character]} <span>→</span></button>}
     </section>

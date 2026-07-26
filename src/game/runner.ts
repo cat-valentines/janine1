@@ -86,6 +86,18 @@ export const runnerThemes: Record<CharacterId, RunnerTheme> = {
     name: 'The Strawberry Garden', icon: '🍓', skyTop: '#f3bfd6', skyLow: '#fff0e8', ground: '#82ad63', groundDark: '#5c8046', groundLine: '#466437',
     obstacle: '#b9786f', obstacleDark: '#825049', decor: ['🍓', '🌸', '🐄'], far: '#b9d394',
   },
+  joy: {
+    name: 'The Red Bamboo Woods', icon: '🍁', skyTop: '#b9d8d2', skyLow: '#f1e8ce', ground: '#6f934f', groundDark: '#4e6d38', groundLine: '#3c552c',
+    obstacle: '#8d5b3c', obstacleDark: '#633e2a', decor: ['🍁', '🎋', '🌲'], far: '#95b577',
+  },
+  melly: {
+    name: 'The Icy Shore', icon: '🧊', skyTop: '#b9dff0', skyLow: '#edf7fb', ground: '#d9edf4', groundDark: '#a9ccd9', groundLine: '#7fa9ba',
+    obstacle: '#92c4d8', obstacleDark: '#6295aa', decor: ['🧊', '❄️', '🐟'], far: '#c7e3ec',
+  },
+  martin: {
+    name: 'The Autumn Hedge', icon: '🍂', skyTop: '#d5c89f', skyLow: '#f4e7c8', ground: '#8d934b', groundDark: '#656b35', groundLine: '#4d5228',
+    obstacle: '#9b6841', obstacleDark: '#6e482e', decor: ['🍂', '🍄', '🌰'], far: '#b3ad6e',
+  },
 };
 
 export type ObstacleKind = 'spike' | 'block' | 'spikes3';
