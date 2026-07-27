@@ -9,8 +9,13 @@ export type Genre = 'pop' | 'hiphop' | 'lofi' | 'edm' | 'rock' | 'chill' | 'cine
 export type Mood = 'happy' | 'chill' | 'sad' | 'hype' | 'dreamy' | 'epic';
 export type Instrument = 'auto' | 'guitar' | 'eguitar' | 'piano' | 'strings' | 'bells' | 'synth' | 'electro' | 'flute' | 'musicbox' | 'steeldrum' | 'marimba' | 'organ' | 'brass' | 'choir';
 export type Backing = 'off' | 'ooh' | 'aah' | 'lala' | 'chant';
+/** A melodic track's instrument: 'off' = silent, 'auto' = the genre's default synth. */
+export type TrackInst = Instrument | 'off';
+/** GarageBand-style layers — each part plays together; pick an instrument per track. */
+export interface Layers { drums: boolean; bass: boolean; chords: TrackInst; melody: TrackInst; arp: TrackInst; backing: Backing }
+export const DEFAULT_LAYERS: Layers = { drums: true, bass: true, chords: 'auto', melody: 'auto', arp: 'off', backing: 'off' };
 
-export interface SongSpec { genre: Genre; mood: Mood; tempo: number; seed: number; bars: number; instrument?: Instrument; backing?: Backing }
+export interface SongSpec { genre: Genre; mood: Mood; tempo: number; seed: number; bars: number; instrument?: Instrument; backing?: Backing; layers?: Layers }
 
 export const GENRES: { id: Genre; name: string; icon: string; tempo: number }[] = [
   { id: 'pop', name: 'Pop', icon: '🎤', tempo: 112 },
@@ -265,9 +270,14 @@ function arrange(spec: SongSpec, ctx: BaseAudioContext, master: AudioNode, start
   const cfg = cfgFor(spec.genre); const mood = moodShift(spec.mood); const R = mulberry32(spec.seed >>> 0);
   const spb = 60 / spec.tempo; const step = spb / 4;      // seconds per 16th
   const bars = spec.bars;
-  const inst = spec.instrument && spec.instrument !== 'auto' ? spec.instrument : null;
-  const held = inst === 'strings' || inst === 'flute' || inst === 'synth' || inst === 'organ' || inst === 'brass' || inst === 'choir';   // sustained vs plucked
-  const backing = spec.backing && spec.backing !== 'off' ? spec.backing : null;   // backing singers
+  // Effective layers: explicit GarageBand-style layers, or derived from the simple
+  // single-instrument mode / old saved songs.
+  const L: Layers = spec.layers ?? { drums: true, bass: true, chords: spec.instrument ?? 'auto', melody: spec.instrument ?? 'auto', arp: 'off', backing: spec.backing ?? 'off' };
+  const chInst = L.chords === 'off' ? null : L.chords;                              // 'auto' = pad, else instrument
+  const chHeld = chInst !== null && chInst !== 'auto' && ['strings', 'flute', 'synth', 'organ', 'brass', 'choir'].includes(chInst);
+  const melInst = L.melody === 'off' ? null : L.melody;
+  const arpInst = L.arp === 'off' ? null : L.arp;
+  const backing = L.backing && L.backing !== 'off' ? L.backing : null;             // backing singers
   // Pick one of the genre's progressions (variety between songs).
   const prog = cfg.progs[Math.floor(R() * cfg.progs.length)];
   // Build a repeating melodic MOTIF over a phrase, so the tune has structure and
@@ -290,41 +300,51 @@ function arrange(spec: SongSpec, ctx: BaseAudioContext, master: AudioNode, start
     const barStart = start + bar * 16 * step;
     const chordDeg = prog[bar % prog.length];
     const lastBar = bar === bars - 1;
-    // chords for the bar — played by the chosen instrument, or the default pad
     const freqs = triad(cfg, chordDeg, mood.octave).map(midiToFreq);
-    if (inst) {
+    // CHORDS track
+    if (chInst === 'auto') { if (cfg.padGain > 0) pad(ctx, master, barStart, freqs, 16 * step * 0.98, cfg.padWave, cfg.padGain * mood.brightness); }
+    else if (chInst) {
       const cg = cfg.padGain * 1.5 * mood.brightness;
-      if (held) { for (const f of freqs) instNote(inst, ctx, master, barStart, f, 16 * step * 0.95, cg); }
-      else { for (const half of [0, 8]) freqs.forEach((f, ci) => instNote(inst, ctx, master, barStart + half * step + ci * 0.02, f, 8 * step * 0.9, cg)); }  // strum on beats 1 & 3
-    } else if (cfg.padGain > 0) pad(ctx, master, barStart, freqs, 16 * step * 0.98, cfg.padWave, cfg.padGain * mood.brightness);
-    // backing singers harmonising the chord
+      if (chHeld) { for (const f of freqs) instNote(chInst, ctx, master, barStart, f, 16 * step * 0.95, cg); }
+      else { for (const half of [0, 8]) freqs.forEach((f, ci) => instNote(chInst, ctx, master, barStart + half * step + ci * 0.02, f, 8 * step * 0.9, cg)); }
+    }
+    // BACKING singers on the chord
     if (backing === 'ooh' || backing === 'aah') {
-      const vowel = backing === 'ooh' ? 'ooh' : 'aah';
-      for (const f of freqs) vocalNote(ctx, master, barStart, f, 16 * step * 0.94, vowel, 0.085 * mood.brightness);
+      for (const f of freqs) vocalNote(ctx, master, barStart, f, 16 * step * 0.94, backing === 'ooh' ? 'ooh' : 'aah', 0.085 * mood.brightness);
     } else if (backing === 'chant') {
       for (const half of [0, 8]) [scaleNote(cfg, chordDeg, mood.octave), scaleNote(cfg, chordDeg + 4, mood.octave)].forEach((m) => vocalNote(ctx, master, barStart + half * step, midiToFreq(m), 5 * step, 'aah', 0.1 * mood.brightness));
     }
+    // ARP track — an arpeggio cycling through the chord tones
+    if (arpInst) {
+      const arpN = [scaleNote(cfg, chordDeg, mood.octave + 1), scaleNote(cfg, chordDeg + 2, mood.octave + 1), scaleNote(cfg, chordDeg + 4, mood.octave + 1), scaleNote(cfg, chordDeg + 2, mood.octave + 1)];
+      for (let s = 0; s < 16; s += 2) {
+        const t = barStart + s * step; const f = midiToFreq(arpN[(s / 2) % arpN.length]); const g = cfg.leadGain * 0.6 * mood.brightness;
+        if (arpInst === 'auto') tone(ctx, master, t, f, step * 1.7, cfg.leadWave, g); else instNote(arpInst, ctx, master, t, f, step * 1.7, g);
+      }
+    }
+    // DRUMS + BASS tracks
     for (let s = 0; s < 16; s++) {
       const swung = (s % 2 === 1) ? cfg.swing * step : 0;
       const t = barStart + s * step + swung;
-      if (cfg.kick.includes(s)) kick(ctx, master, t, V());
-      if (cfg.snare.includes(s)) { snare(ctx, master, t, V()); if (cfg.clap) clap(ctx, master, t, 0.75); }
-      if (cfg.hat.includes(s)) hat(ctx, master, t, !!cfg.hatOpen?.includes(s));
-      if (s % cfg.bassEvery === 0) tone(ctx, master, t, midiToFreq(scaleNote(cfg, chordDeg, mood.octave - 2)), cfg.bassEvery * step * 0.9, cfg.bassWave, 0.32 * V());
-      if (lastBar && cfg.snare.length && s >= 12) snare(ctx, master, t, 0.45 + (s - 12) * 0.12);   // drum fill into the loop
+      if (L.drums) {
+        if (cfg.kick.includes(s)) kick(ctx, master, t, V());
+        if (cfg.snare.includes(s)) { snare(ctx, master, t, V()); if (cfg.clap) clap(ctx, master, t, 0.75); }
+        if (cfg.hat.includes(s)) hat(ctx, master, t, !!cfg.hatOpen?.includes(s));
+        if (lastBar && cfg.snare.length && s >= 12) snare(ctx, master, t, 0.45 + (s - 12) * 0.12);   // fill into the loop
+      }
+      if (L.bass && s % cfg.bassEvery === 0) tone(ctx, master, t, midiToFreq(scaleNote(cfg, chordDeg, mood.octave - 2)), cfg.bassEvery * step * 0.9, cfg.bassWave, 0.32 * V());
     }
-    // melody: the phrase, transposed to this bar's chord
-    const phaseStart = (bar % phraseBars) * 16;
-    for (const m of motif) {
-      if (m.step < phaseStart || m.step >= phaseStart + 16) continue;
-      const s = m.step - phaseStart;
-      const t = barStart + s * step + ((s % 2 === 1) ? cfg.swing * step : 0);
-      const note = midiToFreq(scaleNote(cfg, chordDeg + m.deg, mood.octave + 1));
-      const g = cfg.leadGain * mood.brightness * V();
-      if (inst) instNote(inst, ctx, master, t, note, m.len * step * 0.9, g);
-      else tone(ctx, master, t, note, m.len * step * 0.9, cfg.leadWave, g);
-      // "la-la" backing singers sing along, an octave below the melody
-      if (backing === 'lala') vocalNote(ctx, master, t, midiToFreq(scaleNote(cfg, chordDeg + m.deg, mood.octave)), m.len * step * 0.85, 'ehh', 0.075 * mood.brightness);
+    // MELODY track (and la-la singers, which follow the same phrase)
+    if (melInst || backing === 'lala') {
+      const phaseStart = (bar % phraseBars) * 16;
+      for (const m of motif) {
+        if (m.step < phaseStart || m.step >= phaseStart + 16) continue;
+        const s = m.step - phaseStart;
+        const t = barStart + s * step + ((s % 2 === 1) ? cfg.swing * step : 0);
+        const note = midiToFreq(scaleNote(cfg, chordDeg + m.deg, mood.octave + 1));
+        if (melInst) { const g = cfg.leadGain * mood.brightness * V(); if (melInst === 'auto') tone(ctx, master, t, note, m.len * step * 0.9, cfg.leadWave, g); else instNote(melInst, ctx, master, t, note, m.len * step * 0.9, g); }
+        if (backing === 'lala') vocalNote(ctx, master, t, midiToFreq(scaleNote(cfg, chordDeg + m.deg, mood.octave)), m.len * step * 0.85, 'ehh', 0.075 * mood.brightness);
+      }
     }
   }
   return bars * 16 * step;

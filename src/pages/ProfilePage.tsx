@@ -9,7 +9,7 @@ import type { CharacterId, SettingId } from '../game/types';
 import { isIslandOpen } from '../game/progress';
 import { islands } from '../game/islands';
 
-const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal', misha: 'Misha', joy: 'Joy', melly: 'Melly', martin: 'Martin' };
+const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal', misha: 'Misha', joy: 'Joy', melly: 'Melly', martin: 'Martin', hazel: 'Hazel', bubbles: 'Bubbles', rocky: 'Rocky', ellie: 'Ellie', pip: 'Pip', clover: 'Clover', maple: 'Maple', lulu: 'Lulu', finn: 'Finn', daisy: 'Daisy', hattie: 'Hattie', kiki: 'Kiki', pango: 'Pango', honey: 'Honey', roo: 'Roo', snowy: 'Snowy' };
 const characterChoices: Array<[CharacterId, string]> = [
   ['cottontail', 'A cheerful little house explorer'],
   ['momo', 'Cheerful treasure penguin'],
@@ -30,8 +30,32 @@ const characterChoices: Array<[CharacterId, string]> = [
   ['joy', 'A joyful little red panda with a fluffy tail'],
   ['melly', 'A baby harp seal wearing a pink bow'],
   ['martin', 'A curious, cuddly little hedgehog'],
+  ['hazel', 'A cozy capybara holding a tiny orange'],
+  ['bubbles', 'A cheerful pink baby axolotl'],
+  ['rocky', 'A playful raccoon with a ringed tail'],
+  ['ellie', 'A gentle lavender baby elephant'],
+  ['pip', 'A playful cream baby goat'],
+  ['clover', 'A lucky green frog holding a clover'],
+  ['maple', 'A cinnamon squirrel holding an acorn'],
+  ['lulu', 'A fluffy pastel peach alpaca'],
+  ['finn', 'A tiny fennec fox with enormous ears'],
+  ['daisy', 'A sunny duckling wearing a daisy flower'],
+  ['hattie', 'A sweet, chubby baby hippo'],
+  ['kiki', 'A playful ring-tailed lemur'],
+  ['pango', 'A shy little baby pangolin'],
+  ['honey', 'A cuddly bumblebee explorer'],
+  ['roo', 'A bouncy baby kangaroo'],
+  ['snowy', 'A fluffy baby snow leopard'],
 ];
-const islandTwoCharacters = new Set<CharacterId>(['joy', 'melly', 'martin']);
+const characterIsland = new Map<CharacterId, number>([
+  ['joy', 2], ['melly', 2], ['martin', 2],
+  ['hazel', 3], ['bubbles', 3],
+  ['rocky', 4], ['ellie', 4],
+  ['pip', 5], ['clover', 6], ['maple', 7], ['lulu', 8],
+  ['finn', 9], ['daisy', 10],
+  ['hattie', 11], ['kiki', 12], ['pango', 13],
+  ['honey', 14], ['roo', 15], ['snowy', 16],
+]);
 const houses: Record<SettingId, string> = { haunted: 'Haunted House', secret: 'Secret Rooms', power: 'Power House' };
 const today = new Date().toISOString().slice(0, 10);
 
@@ -72,7 +96,7 @@ export function ProfilePage({ character, setting, coins, foodBalance, completedQ
   const [nameNote, setNameNote] = useState('');
   const [nameTaken, setNameTaken] = useState(false);
   const collectible = characterCollectibles[character];
-  const islandTwoOpen = isIslandOpen(islands[1], { completedQuests, streak, isMember });
+  const progress = { completedQuests, streak, isMember };
 
   const saveUsername = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -148,8 +172,9 @@ export function ProfilePage({ character, setting, coins, foodBalance, completedQ
       <p className="profile-hint">This is who you play as in every game, and who lives in your house.</p>
       <div className="choice-grid">
         {characterChoices.map(([id, blurb]) => {
-          const locked = islandTwoCharacters.has(id) && !islandTwoOpen;
-          return <ChoiceCard key={id} title={names[id]} description={blurb} icon={characterAssets[id]} selected={character === id} disabled={locked} lockLabel={locked ? 'Open Island 2' : undefined} onSelect={() => onChangeCharacter(id)} />;
+          const unlockIsland = characterIsland.get(id);
+          const locked = unlockIsland !== undefined && !isIslandOpen(islands[unlockIsland - 1], progress);
+          return <ChoiceCard key={id} title={names[id]} description={blurb} icon={characterAssets[id]} selected={character === id} disabled={locked} lockLabel={locked ? `Open Island ${unlockIsland}` : undefined} onSelect={() => onChangeCharacter(id)} />;
         })}
       </div>
       {firstTime && <button className="profile-start" onClick={onChosen}>Play as {names[character]} <span>→</span></button>}

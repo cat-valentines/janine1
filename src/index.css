@@ -1974,3 +1974,11 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
   .song-lyric-gen button { flex: 1; }
   .song-play { width: 42px; height: 42px; }
 }
+
+/* Song Studio — tracks / layers (GarageBand-style) */
+.song-tracks { display: grid; gap: 7px; }
+.track-row { display: flex; align-items: center; gap: 10px; padding: 8px 11px; background: #241a40cc; border: 1px solid #453b6e; border-radius: 11px; }
+.track-name { flex: 1; font-weight: 800; color: #efeaff; font-size: .86rem; }
+.track-toggle { flex: none; min-width: 62px; padding: 7px 14px; border: 0; border-radius: 999px; background: #33294f; color: #b6a8e0; font-weight: 850; cursor: pointer; }
+.track-toggle.on { background: linear-gradient(120deg, #4bd07b, #2fa85c); color: #05230f; }
+.track-row select { flex: none; min-width: 130px; padding: 8px 10px; border: 1px solid #46407a; border-radius: 10px; background: #171233; color: #f0e9ff; font-weight: 700; font-size: .82rem; }

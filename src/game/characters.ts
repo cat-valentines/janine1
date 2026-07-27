@@ -26,6 +26,22 @@ export const characterCollectibles: Record<CharacterId, CharacterCollectible> = 
   joy: { asset: '/assets/pixel-apple.png', singular: 'berry', plural: 'berries' },
   melly: { asset: '/assets/pixel-fish.png', singular: 'fish', plural: 'fish' },
   martin: { asset: '/assets/pixel-apple.png', singular: 'apple', plural: 'apples' },
+  hazel: { asset: '/assets/pixel-apple.png', singular: 'orange', plural: 'oranges' },
+  bubbles: { asset: '/assets/pixel-fish.png', singular: 'bubble', plural: 'bubbles' },
+  rocky: { asset: '/assets/pixel-apple.png', singular: 'berry', plural: 'berries' },
+  ellie: { asset: '/assets/pixel-apple.png', singular: 'peanut', plural: 'peanuts' },
+  pip: { asset: '/assets/pixel-leaf.png', singular: 'leaf', plural: 'leaves' },
+  clover: { asset: '/assets/pixel-leaf.png', singular: 'clover', plural: 'clovers' },
+  maple: { asset: '/assets/pixel-apple.png', singular: 'acorn', plural: 'acorns' },
+  lulu: { asset: '/assets/pixel-apple.png', singular: 'apple', plural: 'apples' },
+  finn: { asset: '/assets/pixel-apple.png', singular: 'berry', plural: 'berries' },
+  daisy: { asset: '/assets/pixel-apple.png', singular: 'seed', plural: 'seeds' },
+  hattie: { asset: '/assets/pixel-apple.png', singular: 'watermelon', plural: 'watermelons' },
+  kiki: { asset: '/assets/pixel-apple.png', singular: 'mango', plural: 'mangoes' },
+  pango: { asset: '/assets/pixel-apple.png', singular: 'ant', plural: 'ants' },
+  honey: { asset: '/assets/pixel-honey.png', singular: 'honeypot', plural: 'honeypots' },
+  roo: { asset: '/assets/pixel-leaf.png', singular: 'leaf', plural: 'leaves' },
+  snowy: { asset: '/assets/pixel-apple.png', singular: 'berry', plural: 'berries' },
 };
 
 export const characterAssets: Record<CharacterId, string> = {
@@ -37,4 +53,9 @@ export const characterAssets: Record<CharacterId, string> = {
   mila: '/assets/pixel-mila.png', gabby: '/assets/pixel-gabby.png', amsaal: '/assets/pixel-amsaal.png',
   misha: '/assets/pixel-misha.png',
   joy: '/assets/pixel-joy.png', melly: '/assets/pixel-melly.png', martin: '/assets/pixel-martin.png',
+  hazel: '/assets/pixel-hazel.png', bubbles: '/assets/pixel-bubbles.png', rocky: '/assets/pixel-rocky.png', ellie: '/assets/pixel-ellie.png',
+  pip: '/assets/pixel-pip.png', clover: '/assets/pixel-clover.png', maple: '/assets/pixel-maple.png', lulu: '/assets/pixel-lulu.png',
+  finn: '/assets/pixel-finn.png', daisy: '/assets/pixel-daisy.png',
+  hattie: '/assets/pixel-hattie.png', kiki: '/assets/pixel-kiki.png', pango: '/assets/pixel-pango.png',
+  honey: '/assets/pixel-honey-bee.png', roo: '/assets/pixel-roo.png', snowy: '/assets/pixel-snowy.png',
 };

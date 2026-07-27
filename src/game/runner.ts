@@ -98,6 +98,70 @@ export const runnerThemes: Record<CharacterId, RunnerTheme> = {
     name: 'The Autumn Hedge', icon: '🍂', skyTop: '#d5c89f', skyLow: '#f4e7c8', ground: '#8d934b', groundDark: '#656b35', groundLine: '#4d5228',
     obstacle: '#9b6841', obstacleDark: '#6e482e', decor: ['🍂', '🍄', '🌰'], far: '#b3ad6e',
   },
+  hazel: {
+    name: 'The Orange Grove', icon: '🍊', skyTop: '#acdceb', skyLow: '#f6e5c8', ground: '#79a958', groundDark: '#567c3e', groundLine: '#416130',
+    obstacle: '#9c6b3e', obstacleDark: '#6e492a', decor: ['🍊', '🌿', '🌼'], far: '#a6c680',
+  },
+  bubbles: {
+    name: 'The Crystal Lagoon', icon: '🫧', skyTop: '#8bd5df', skyLow: '#d8f2ee', ground: '#7dbbaf', groundDark: '#57897f', groundLine: '#416b63',
+    obstacle: '#7aa6b0', obstacleDark: '#52737b', decor: ['🫧', '🪸', '🌸'], far: '#9fd5ca',
+  },
+  rocky: {
+    name: 'The Moonlit Woods', icon: '🌙', skyTop: '#889ab5', skyLow: '#d6d7d0', ground: '#667955', groundDark: '#48573c', groundLine: '#37442e',
+    obstacle: '#766653', obstacleDark: '#514638', decor: ['🌙', '🌲', '🍇'], far: '#849776',
+  },
+  ellie: {
+    name: 'The Lavender Plains', icon: '💜', skyTop: '#c4bce3', skyLow: '#eee5f1', ground: '#8ea967', groundDark: '#657b49', groundLine: '#4d6038',
+    obstacle: '#917a73', obstacleDark: '#65534e', decor: ['💜', '🌸', '🌿'], far: '#b3c58d',
+  },
+  pip: {
+    name: 'The Mountain Meadow', icon: '🐐', skyTop: '#aed9ea', skyLow: '#eef0d6', ground: '#7ea35b', groundDark: '#597641', groundLine: '#445c32',
+    obstacle: '#8f7352', obstacleDark: '#634f38', decor: ['🌼', '⛰️', '🌿'], far: '#a9c487',
+  },
+  clover: {
+    name: 'The Lucky Pond', icon: '🍀', skyTop: '#a9dcd5', skyLow: '#e4f1d4', ground: '#6fa05c', groundDark: '#4e7542', groundLine: '#3b5a32',
+    obstacle: '#78906b', obstacleDark: '#52644a', decor: ['🍀', '🪷', '🐸'], far: '#92bb80',
+  },
+  maple: {
+    name: 'The Acorn Forest', icon: '🌰', skyTop: '#d4b77f', skyLow: '#f0dfbd', ground: '#8e914b', groundDark: '#656936', groundLine: '#4d5229',
+    obstacle: '#95623d', obstacleDark: '#68432a', decor: ['🌰', '🍁', '🌳'], far: '#b1a76c',
+  },
+  lulu: {
+    name: 'The Peachy Hills', icon: '🦙', skyTop: '#efc3b2', skyLow: '#f8e8d7', ground: '#92aa67', groundDark: '#687b49', groundLine: '#506039',
+    obstacle: '#a17a60', obstacleDark: '#705342', decor: ['🌸', '🦙', '🌿'], far: '#bec58c',
+  },
+  finn: {
+    name: 'The Desert Bloom', icon: '🏜️', skyTop: '#e9c58a', skyLow: '#f8e7c1', ground: '#c69a58', groundDark: '#916f3f', groundLine: '#705631',
+    obstacle: '#a87343', obstacleDark: '#754e2d', decor: ['🌵', '🌸', '☀️'], far: '#d2b477',
+  },
+  daisy: {
+    name: 'The Royal Duck Pond', icon: '🌼', skyTop: '#a9dced', skyLow: '#f5edc8', ground: '#7da65a', groundDark: '#597740', groundLine: '#445c31',
+    obstacle: '#9e8052', obstacleDark: '#705938', decor: ['🌼', '🪷', '🐥'], far: '#aec783',
+  },
+  hattie: {
+    name: 'The Hippo Lagoon', icon: '🦛', skyTop: '#a8ddec', skyLow: '#e4f0dc', ground: '#71945e', groundDark: '#506d43', groundLine: '#3c5533',
+    obstacle: '#8b7765', obstacleDark: '#625245', decor: ['🪷', '🌿', '💧'], far: '#91b884',
+  },
+  kiki: {
+    name: 'The Lemur Jungle', icon: '🌴', skyTop: '#9bd9d0', skyLow: '#e8efd0', ground: '#638c50', groundDark: '#46663a', groundLine: '#354f2d',
+    obstacle: '#856044', obstacleDark: '#5d4230', decor: ['🌴', '🥭', '🌺'], far: '#86ad70',
+  },
+  pango: {
+    name: 'The Moonlit Burrow', icon: '🌙', skyTop: '#9ba7c7', skyLow: '#e4d8ce', ground: '#897151', groundDark: '#624f39', groundLine: '#4c3d2d',
+    obstacle: '#786150', obstacleDark: '#534236', decor: ['🌙', '🪨', '🌾'], far: '#aa916e',
+  },
+  honey: {
+    name: 'The Honey Garden', icon: '🐝', skyTop: '#b8dded', skyLow: '#fff0bd', ground: '#7da252', groundDark: '#58753a', groundLine: '#445a2d',
+    obstacle: '#bd8d45', obstacleDark: '#87632f', decor: ['🌻', '🍯', '🌼'], far: '#afca7d',
+  },
+  roo: {
+    name: 'The Outback', icon: '🦘', skyTop: '#e5b77f', skyLow: '#f4dfbd', ground: '#ad7949', groundDark: '#7d5634', groundLine: '#614229',
+    obstacle: '#8d6245', obstacleDark: '#62432f', decor: ['🌾', '🪨', '☀️'], far: '#c49a69',
+  },
+  snowy: {
+    name: 'The Snowy Peaks', icon: '🏔️', skyTop: '#aecfe4', skyLow: '#edf5f7', ground: '#dceaf0', groundDark: '#aec6d1', groundLine: '#829eab',
+    obstacle: '#9db9c8', obstacleDark: '#6d8998', decor: ['❄️', '🏔️', '🧊'], far: '#c8dce5',
+  },
 };
 
 export type ObstacleKind = 'spike' | 'block' | 'spikes3';

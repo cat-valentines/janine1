@@ -1,4 +1,4 @@
-export type CharacterId = 'cottontail' | 'momo' | 'toby' | 'ollie' | 'coral' | 'biscuit' | 'koala' | 'teddy' | 'panda' | 'tiger' | 'piggy' | 'parrot' | 'mila' | 'gabby' | 'amsaal' | 'misha' | 'joy' | 'melly' | 'martin';
+export type CharacterId = 'cottontail' | 'momo' | 'toby' | 'ollie' | 'coral' | 'biscuit' | 'koala' | 'teddy' | 'panda' | 'tiger' | 'piggy' | 'parrot' | 'mila' | 'gabby' | 'amsaal' | 'misha' | 'joy' | 'melly' | 'martin' | 'hazel' | 'bubbles' | 'rocky' | 'ellie' | 'pip' | 'clover' | 'maple' | 'lulu' | 'finn' | 'daisy' | 'hattie' | 'kiki' | 'pango' | 'honey' | 'roo' | 'snowy';
 export type SettingId = 'haunted' | 'secret' | 'power';
 export type Direction = 'left' | 'right';
 
