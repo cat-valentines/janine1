@@ -9,7 +9,7 @@ import type { CharacterId, SettingId } from '../game/types';
 import { isIslandOpen } from '../game/progress';
 import { islands } from '../game/islands';
 
-const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal', misha: 'Misha', joy: 'Joy', melly: 'Melly', martin: 'Martin', hazel: 'Hazel', bubbles: 'Bubbles', rocky: 'Rocky', ellie: 'Ellie', pip: 'Pip', clover: 'Clover', maple: 'Maple', lulu: 'Lulu', finn: 'Finn', daisy: 'Daisy', hattie: 'Hattie', kiki: 'Kiki', pango: 'Pango', honey: 'Honey', roo: 'Roo', snowy: 'Snowy' };
+const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal', misha: 'Misha', joy: 'Joy', melly: 'Melly', martin: 'Martin', hazel: 'Hazel', bubbles: 'Bubbles', rocky: 'Rocky', ellie: 'Ellie', pip: 'Pip', clover: 'Clover', maple: 'Maple', lulu: 'Lulu', finn: 'Finn', daisy: 'Daisy', hattie: 'Hattie', kiki: 'Kiki', pango: 'Pango', honey: 'Honey', roo: 'Roo', snowy: 'Snowy', pigeon: 'Pigeon' };
 const characterChoices: Array<[CharacterId, string]> = [
   ['cottontail', 'A cheerful little house explorer'],
   ['momo', 'Cheerful treasure penguin'],
@@ -46,6 +46,7 @@ const characterChoices: Array<[CharacterId, string]> = [
   ['honey', 'A cuddly bumblebee explorer'],
   ['roo', 'A bouncy baby kangaroo'],
   ['snowy', 'A fluffy baby snow leopard'],
+  ['pigeon', 'A cheerful, chubby little pigeon'],
 ];
 const characterIsland = new Map<CharacterId, number>([
   ['joy', 2], ['melly', 2], ['martin', 2],
@@ -55,6 +56,7 @@ const characterIsland = new Map<CharacterId, number>([
   ['finn', 9], ['daisy', 10],
   ['hattie', 11], ['kiki', 12], ['pango', 13],
   ['honey', 14], ['roo', 15], ['snowy', 16],
+  ['pigeon', 1],
 ]);
 const houses: Record<SettingId, string> = { haunted: 'Haunted House', secret: 'Secret Rooms', power: 'Power House' };
 const today = new Date().toISOString().slice(0, 10);

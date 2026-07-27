@@ -162,6 +162,10 @@ export const runnerThemes: Record<CharacterId, RunnerTheme> = {
     name: 'The Snowy Peaks', icon: '🏔️', skyTop: '#aecfe4', skyLow: '#edf5f7', ground: '#dceaf0', groundDark: '#aec6d1', groundLine: '#829eab',
     obstacle: '#9db9c8', obstacleDark: '#6d8998', decor: ['❄️', '🏔️', '🧊'], far: '#c8dce5',
   },
+  pigeon: {
+    name: 'The City Garden', icon: '🐦', skyTop: '#acd9eb', skyLow: '#edf0df', ground: '#84966a', groundDark: '#5e704b', groundLine: '#48573a',
+    obstacle: '#8f8172', obstacleDark: '#655a50', decor: ['🌳', '⛲', '🌼'], far: '#a9b78d',
+  },
 };
 
 export type ObstacleKind = 'spike' | 'block' | 'spikes3';

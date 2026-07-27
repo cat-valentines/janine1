@@ -7,7 +7,7 @@ import { itemById } from '../shop/catalog';
 import { accessoryById } from '../game/accessories';
 import type { CharacterId, SettingId } from '../game/types';
 
-const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal', misha: 'Misha', joy: 'Joy', melly: 'Melly', martin: 'Martin', hazel: 'Hazel', bubbles: 'Bubbles', rocky: 'Rocky', ellie: 'Ellie', pip: 'Pip', clover: 'Clover', maple: 'Maple', lulu: 'Lulu', finn: 'Finn', daisy: 'Daisy', hattie: 'Hattie', kiki: 'Kiki', pango: 'Pango', honey: 'Honey', roo: 'Roo', snowy: 'Snowy' };
+const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal', misha: 'Misha', joy: 'Joy', melly: 'Melly', martin: 'Martin', hazel: 'Hazel', bubbles: 'Bubbles', rocky: 'Rocky', ellie: 'Ellie', pip: 'Pip', clover: 'Clover', maple: 'Maple', lulu: 'Lulu', finn: 'Finn', daisy: 'Daisy', hattie: 'Hattie', kiki: 'Kiki', pango: 'Pango', honey: 'Honey', roo: 'Roo', snowy: 'Snowy', pigeon: 'Pigeon' };
 const houses: Record<SettingId, string> = { haunted: 'Haunted House', secret: 'Secret Rooms', power: 'Power House' };
 
 interface ProfileTabProps {

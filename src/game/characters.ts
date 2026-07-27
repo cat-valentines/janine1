@@ -42,6 +42,7 @@ export const characterCollectibles: Record<CharacterId, CharacterCollectible> = 
   honey: { asset: '/assets/pixel-honey.png', singular: 'honeypot', plural: 'honeypots' },
   roo: { asset: '/assets/pixel-leaf.png', singular: 'leaf', plural: 'leaves' },
   snowy: { asset: '/assets/pixel-apple.png', singular: 'berry', plural: 'berries' },
+  pigeon: { asset: '/assets/pixel-apple.png', singular: 'seed', plural: 'seeds' },
 };
 
 export const characterAssets: Record<CharacterId, string> = {
@@ -58,4 +59,5 @@ export const characterAssets: Record<CharacterId, string> = {
   finn: '/assets/pixel-finn.png', daisy: '/assets/pixel-daisy.png',
   hattie: '/assets/pixel-hattie.png', kiki: '/assets/pixel-kiki.png', pango: '/assets/pixel-pango.png',
   honey: '/assets/pixel-honey-bee.png', roo: '/assets/pixel-roo.png', snowy: '/assets/pixel-snowy.png',
+  pigeon: '/assets/pixel-pigeon.png',
 };
