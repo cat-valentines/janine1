@@ -54,6 +54,10 @@ export interface RewardsState {
   welcomed: boolean;
   notices: RewardNotice[];   // unread prize notices for the bell
   totalWon: number;
+  /** The month (YYYY-M) we last settled the leaderboard for — awards only at a rollover. */
+  lastRewardMonth: string;
+  /** One-time flag: unearned "welcome" potions have been cleared. */
+  migrated: boolean;
 }
 
 const KEY = 'magic-islands-rewards';
@@ -63,6 +67,7 @@ const uid = (p: string) => `${p}-${Date.now().toString(36)}-${(counter += 1)}`;
 const empty = (): RewardsState => ({
   cups: [], uses: { streakHolder: 0, hint: 0, bubble: 0, weapon: 0 },
   streakHolderArmed: false, history: [], earnedSeasons: [], welcomed: false, notices: [], totalWon: 0,
+  lastRewardMonth: '', migrated: false,
 });
 
 export function loadRewards(): RewardsState {
@@ -91,29 +96,43 @@ function grantConsumable(state: RewardsState, kind: ConsumableKind, silent = fal
   if (!silent) notice(state, info.icon, `🎁 You won a ${info.name}! ${info.usesPerGrant} uses added.`);
 }
 
-/** First-ever visit: a friendly starter kit so the rewards shelf isn't empty. */
-export function grantWelcomeKit(): RewardsState {
+/**
+ * One-time cleanup for old saves: potions are prizes, so any that were handed
+ * out for free (the retired welcome kit) are cleared. Anything tied to a real
+ * cup you won is kept. Runs once, then never touches your rewards again.
+ */
+export function purgeUnearnedRewards(): void {
   const state = loadRewards();
-  if (state.welcomed) return state;
-  state.welcomed = true;
-  grantConsumable(state, 'streakHolder', true);
-  grantConsumable(state, 'hint', true);
-  logHistory(state, '🎉', 'Welcome gift: a Streak Holder and Hint Potions');
-  notice(state, '🎉', '🎁 Welcome gift! A Streak Holder and Magic Hint Potions are waiting in your Rewards.');
-  return save(state);
+  if (state.migrated) return;
+  if (state.cups.length === 0) {
+    // No cup ever won ⇒ any potions here were free. Start the shelf clean.
+    const fresh = empty();
+    fresh.migrated = true;
+    fresh.lastRewardMonth = state.lastRewardMonth;
+    save(fresh);
+  } else {
+    state.migrated = true;
+    save(state);
+  }
 }
 
 /**
- * If you are in the top of the leaderboard this season and haven't won this
- * season's cup yet, award it — plus a bundle of consumables. Returns the cup if
- * one was granted, else null.
+ * Settle the leaderboard at the END of a month — never on first open. The first
+ * time we see you we just remember the month; only when a new month rolls over
+ * do we award the season's cup (and its potion bundle) if you finished top-3.
+ * So prizes always take real time to earn. Returns the cup if one was granted.
  */
-export function awardSeasonalCupIfTop(rank: number | null, year: number, month: number): Cup | null {
-  if (rank === null || rank > 3) return null;
+export function checkSeasonalReward(rank: number | null, year: number, month: number): Cup | null {
+  const state = loadRewards();
+  const monthKey = `${year}-${month}`;
+  if (!state.lastRewardMonth) { state.lastRewardMonth = monthKey; save(state); return null; }  // baseline, no prize
+  if (state.lastRewardMonth === monthKey) return null;                                          // same month, nothing yet
+  // A new month has begun — settle the season that was running.
+  state.lastRewardMonth = monthKey;
+  if (rank === null || rank > 3) { save(state); return null; }
   const season = seasonForMonth(month);
   const seasonKey = `${season.key}-${year}`;
-  const state = loadRewards();
-  if (state.earnedSeasons.includes(seasonKey)) return null;
+  if (state.earnedSeasons.includes(seasonKey)) { save(state); return null; }
 
   state.earnedSeasons.push(seasonKey);
   const cup: Cup = { id: uid('cup'), season: season.key, name: `${season.name} Champion Cup`, cup: season.cup, vines: season.vines, wonAt: new Date().toISOString() };
@@ -121,7 +140,7 @@ export function awardSeasonalCupIfTop(rank: number | null, year: number, month: 
   state.totalWon += 1;
   logHistory(state, '🏆', `Won the ${cup.name} (leaderboard #${rank})`);
   notice(state, '🏆', `🏆 You won the ${cup.name} for finishing #${rank} on the leaderboard! Plus a bundle of potions.`);
-  // A champion's bundle.
+  // A champion's bundle — the ONLY way potions are handed out.
   grantConsumable(state, 'bubble', true);
   grantConsumable(state, 'weapon', true);
   grantConsumable(state, 'hint', true);

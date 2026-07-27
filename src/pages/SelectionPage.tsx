@@ -32,7 +32,7 @@ import { emptyWorld } from '../game/voxel';
 import { currentSeason } from '../game/terrain';
 import { islands } from '../game/islands';
 import { getStars } from '../lib/escapeStars';
-import { awardSeasonalCupIfTop } from '../lib/rewards';
+import { checkSeasonalReward, purgeUnearnedRewards } from '../lib/rewards';
 import { loadMyHouse, saveMyHouse } from '../lib/houses';
 import { HouseMarketPage } from './HouseMarketPage';
 // three.js is only needed once a survival round actually starts.
@@ -269,8 +269,12 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     supabase.auth.getUser().then(({ data }) => setSignedIn(!!data.user));
   }, []);
 
-  // Rewards are earned, not gifted: if you're topping the leaderboard this season
-  // you win that season's champion cup (once). It feeds the 🔔 with a prize notice.
+  // Potions were never a free gift — clear any left over from the old welcome kit.
+  useEffect(() => { purgeUnearnedRewards(); }, []);
+
+  // Rewards are earned over time, settled at the END of a month: only when a new
+  // month rolls over and you finished top-3 do you win that season's champion cup
+  // (and its potion bundle). It feeds the 🔔 with a prize notice.
   useEffect(() => {
     if (!signedIn || !username) return;
     let stop = false;
@@ -278,7 +282,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       if (stop) return;
       const idx = rows.findIndex((row) => row.display_name === username);
       const now = new Date();
-      const cup = awardSeasonalCupIfTop(idx >= 0 ? idx + 1 : null, now.getFullYear(), now.getMonth());
+      const cup = checkSeasonalReward(idx >= 0 ? idx + 1 : null, now.getFullYear(), now.getMonth());
       if (cup) supabase.auth.getUser().then(({ data }) => { if (data.user && !stop) loadNotifications(data.user.id).then((items) => { if (!stop) setNotifs(items); }); });
     }).catch(() => undefined);
     return () => { stop = true; };
