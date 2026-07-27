@@ -56,9 +56,19 @@ export function IslandWorldPage({ character, onScore, onBack }: Props) {
 
   const mount = useRef<HTMLDivElement>(null);
   const engine = useRef<IslandWorldEngine | null>(null);
+  const liveRef = useRef<ReturnType<typeof joinLiveGame> | null>(null);
   const prevEarned = useRef(0);
   const doneQuests = useRef<Set<string>>(new Set());
   const update = useRef<(s: WorldSnapshot) => void>(() => undefined);
+
+  const doPlace = () => { if (engine.current?.place()) flash('🧱 Placed a block!'); };
+  const doAttack = () => {
+    const target = engine.current?.attack();
+    if (!target) { flash('⚔️ Swing! Equip the ⚔️ sword and stand next to a player.'); return; }
+    const me = engine.current!.getSelfState();
+    liveRef.current?.hit(target.id, myName, { x: me.x, z: me.z });
+    flash(`⚔️ You bonked @${target.name}!`);
+  };
 
   update.current = (next) => {
     setSnapshot(next);
@@ -107,15 +117,30 @@ export function IslandWorldPage({ character, onScore, onBack }: Props) {
   useEffect(() => {
     if (!started || !userId) return;
     const game = `island-${islandId}`;
-    const live = joinLiveGame(game, userId, (peers) => engine.current?.setLivePlayers(peers));
+    const live = joinLiveGame(game, userId, (peers) => engine.current?.setLivePlayers(peers),
+      (_fromId, fromName, at) => {
+        const landed = engine.current?.takeHit(at);
+        if (landed) flash(`💫 Bonked by @${fromName}! Dodge or bubble up.`);
+        else flash('🫧 Your bubble blocked the hit!');
+      });
+    liveRef.current = live;
     heartbeat(game);
     const beat = window.setInterval(() => heartbeat(game), 5000);
     const shout = window.setInterval(() => {
       const state = engine.current?.getSelfState();
       if (state) live.send({ name: myName, ...state });
     }, 130);
-    return () => { window.clearInterval(beat); window.clearInterval(shout); live.leave(); leaveGame(); };
+    return () => { window.clearInterval(beat); window.clearInterval(shout); live.leave(); liveRef.current = null; leaveGame(); };
   }, [started, userId, myName, islandId]);
+
+  // Keyboard: E to attack (the engine handles F=dig, G=build, Space=cave).
+  useEffect(() => {
+    if (!started) return;
+    const onKey = (e: KeyboardEvent) => { if (e.code === 'KeyE') doAttack(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started, myName]);
 
   const goFullscreen = () => {
     const node = mount.current?.parentElement;
@@ -144,7 +169,7 @@ export function IslandWorldPage({ character, onScore, onBack }: Props) {
           {quests.map((q) => <div className="island-quest" key={q.id}><span>{q.icon}</span><strong>{q.label}</strong><i>+{q.reward}⭐</i></div>)}
         </div>
 
-        <p className="island-controls">🎮 <b>↑ ↓</b> walk · <b>← →</b> turn · <b>F</b> dig · <b>Space</b> enter the cave / climb out {userId ? '' : '· 🔐 log in to see live players'}</p>
+        <p className="island-controls">🎮 <b>↑ ↓</b> walk · <b>← →</b> turn · <b>F</b> dig · <b>G</b> build · <b>E</b> bonk with sword · <b>Space</b> cave {userId ? '' : '· 🔐 log in to see & battle live players'}</p>
         <button className="island-start" onClick={() => setStarted(true)} style={{ background: theme.glow }}>🌟 Explore {island.name}</button>
       </div>
     </main>;
@@ -156,7 +181,7 @@ export function IslandWorldPage({ character, onScore, onBack }: Props) {
 
       <header className="island-hud">
         <button className="island-leave" onClick={onBack}>← Leave</button>
-        <span className="island-name">{island.icon} {island.name}{snapshot?.underground ? ' · 🕳️ cave' : ''}</span>
+        <span className="island-name">{island.icon} {island.name}{snapshot?.underground ? ` · 🕳️ cave Lv ${snapshot.caveDepth}` : ''}</span>
         <div className="island-hud-stats">
           <b title="Your star collection">⭐ {total.toLocaleString()}</b>
           <b title="Real players here right now">👥 {snapshot?.livePlayers ?? 0}</b>
@@ -180,7 +205,11 @@ export function IslandWorldPage({ character, onScore, onBack }: Props) {
       {snapshot?.prompt && <p className="island-prompt">{snapshot.prompt}</p>}
       {toast && <p className="island-toast">{toast}</p>}
 
-      <button className="island-dig" onClick={() => { const r = engine.current?.dig(); if (r?.dug) flash(r.treasure ? '⛏️ You dug up buried treasure!' : '⛏️ Dug a block of earth.'); }} title="Dig the ground (F)">⛏️ Dig</button>
+      <div className="island-actions">
+        <button className="island-act dig" onClick={() => { const r = engine.current?.dig(); if (r?.deeper) flash(`⛏️ Tunnelled down to cave Level ${r.deeper}!`); else if (r?.dug) flash(r.treasure ? '⛏️ You dug up buried treasure!' : '⛏️ Dug a block of earth.'); }} title="Dig / tunnel (F)">⛏️</button>
+        <button className="island-act build" onClick={doPlace} title="Build a block (G)">🧱</button>
+        <button className="island-act attack" onClick={doAttack} title="Bonk a player with your sword (E)">⚔️</button>
+      </div>
       <button className="island-bag" onClick={() => { setUses(loadRewards().uses); setTray((t) => !t); }} title="Your quest items">🎒</button>
       {tray && <div className="island-tray">
         <p className="island-tray-title">🎒 Quest items</p>

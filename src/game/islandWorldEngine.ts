@@ -8,7 +8,10 @@ export interface WorldSnapshot {
   trinkets: number;   // themed ground collectibles picked up
   gems: number;       // cave crystals mined
   dug: number;        // blocks of earth dug up
+  placed: number;     // blocks you've built
   explored: number;   // furthest you've wandered from the shore, in steps
+  caveDepth: number;  // how many levels deep in the cave (1 = top)
+  stunned: boolean;   // briefly dazed from a bonk
   underground: boolean;
   visitedCave: boolean;
   visitedWaterfall: boolean;
@@ -93,6 +96,13 @@ export class IslandWorldEngine {
   private takenIds = new Set<string>();
   private dugCells = new Set<string>();
   private pits: THREE.Mesh[] = [];
+  private placedCells = new Map<string, THREE.Mesh>();
+  private placedGroup = new THREE.Group();
+  private placedCount = 0;
+  private caveDepth = 1;
+  private caveContent = new THREE.Group();
+  private stunUntil = 0;
+  private attackReadyAt = 0;
 
   private earned = 0;
   private starCount = 0;
@@ -136,7 +146,8 @@ export class IslandWorldEngine {
     this.camera = new THREE.PerspectiveCamera(64, (container.clientWidth || 600) / (container.clientHeight || 400), 0.1, 320);
 
     this.scene.add(this.surface, this.cave, this.liveGroup, this.avatar);
-    this.surface.add(this.chunkGroup, this.pitGroup);
+    this.surface.add(this.chunkGroup, this.pitGroup, this.placedGroup);
+    this.cave.add(this.caveContent);
     this.cave.visible = false;
 
     this.applySurfaceSky();
@@ -235,9 +246,13 @@ export class IslandWorldEngine {
     };
     this.pitGeo = this.track(new THREE.BoxGeometry(0.95, 1, 0.95));
     this.pitMat = this.track(new THREE.MeshLambertMaterial({ color: this.theme.dirt }));
+    this.blockGeo = this.track(new THREE.BoxGeometry(0.98, 1, 0.98));
+    this.blockMat = this.track(new THREE.MeshLambertMaterial({ color: this.theme.foliage1 }));
   }
   private pitGeo!: THREE.BufferGeometry;
   private pitMat!: THREE.Material;
+  private blockGeo!: THREE.BufferGeometry;
+  private blockMat!: THREE.Material;
 
   /** A themed tree — every biome has its own signature shape. */
   private buildTree(style: TreeStyle, rand: () => number): THREE.Group {
@@ -418,7 +433,6 @@ export class IslandWorldEngine {
   }
 
   private buildCave() {
-    const rand = mulberry32(this.options.islandId * 733 + 3);
     const floor = new THREE.Mesh(this.track(new THREE.CircleGeometry(CAVE_RADIUS + 2, 32)), this.track(new THREE.MeshLambertMaterial({ color: this.theme.caveWall })));
     floor.rotation.x = -Math.PI / 2; this.cave.add(floor);
     const wallMat = this.track(new THREE.MeshLambertMaterial({ color: this.theme.caveWall, side: THREE.BackSide }));
@@ -428,23 +442,38 @@ export class IslandWorldEngine {
     roof.rotation.x = Math.PI / 2; roof.position.y = 12; this.cave.add(roof);
     this.cave.add(new THREE.AmbientLight(this.theme.caveGlow, 0.5));
     const core = this.track(new THREE.PointLight(this.theme.caveGlow, 2.4, 40, 2)); core.position.set(0, 6, 0); this.cave.add(core);
+    this.cave.add(this.emojiSprite('🪜', 2, 0, 1.6, CAVE_RADIUS - 2));
+    const exitGlow = this.track(new THREE.PointLight('#fff0c0', 2, 12, 2)); exitGlow.position.set(0, 2, CAVE_RADIUS - 2); this.cave.add(exitGlow);
+    this.populateCave();
+  }
+
+  /** Fill the cave for the current depth — deeper means more, bigger, richer crystals. */
+  private populateCave() {
+    // Clear the last level's contents and its gems.
+    while (this.caveContent.children.length) this.caveContent.remove(this.caveContent.children[0]);
+    this.gems = [];
+    const depth = this.caveDepth;
+    const rand = mulberry32(this.options.islandId * 733 + depth * 101 + 3);
     const spikeMat = this.shared.rock;
-    for (let i = 0; i < 16; i += 1) {
+    for (let i = 0; i < 14 + depth * 2; i += 1) {
       const a = rand() * Math.PI * 2, r = 4 + rand() * (CAVE_RADIUS - 3), h = 1 + rand() * 3;
       const spike = new THREE.Mesh(this.track(new THREE.ConeGeometry(0.6 + rand() * 0.5, h, 6)), spikeMat);
-      spike.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r); this.cave.add(spike);
+      spike.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r); this.caveContent.add(spike);
     }
     const crystalGeo = this.track(new THREE.OctahedronGeometry(0.55));
-    for (let i = 0; i < 14; i += 1) {
+    const value = Math.round(GEM_VALUE * (1 + (depth - 1) * 0.5));   // deeper crystals are worth more
+    for (let i = 0; i < 12 + depth * 4; i += 1) {
       const a = rand() * Math.PI * 2, r = 3 + rand() * (CAVE_RADIUS - 4);
       const mat = this.track(new THREE.MeshStandardMaterial({ color: this.theme.caveGlow, emissive: this.theme.caveGlow, emissiveIntensity: 0.9, roughness: 0.3 }));
       const crystal = new THREE.Mesh(crystalGeo, mat);
       crystal.position.set(Math.cos(a) * r, 0.7, Math.sin(a) * r);
-      this.cave.add(crystal);
-      this.gems.push({ obj: crystal, base: 0.7, seed: rand() * 6.28, taken: false, value: GEM_VALUE });
+      crystal.scale.setScalar(1 + Math.min(1.2, (depth - 1) * 0.25));
+      this.caveContent.add(crystal);
+      this.gems.push({ obj: crystal, base: 0.7, seed: rand() * 6.28, taken: false, value });
     }
-    this.cave.add(this.emojiSprite('🪜', 2, 0, 1.6, CAVE_RADIUS - 2));
-    const exitGlow = this.track(new THREE.PointLight('#fff0c0', 2, 12, 2)); exitGlow.position.set(0, 2, CAVE_RADIUS - 2); this.cave.add(exitGlow);
+    // A "dig deeper" shaft glowing in the middle.
+    const shaft = this.emojiSprite('🕳️', 2, 0, 0.4, 0);
+    this.caveContent.add(shaft);
   }
 
   // ---- animated 3-D character -------------------------------------------
@@ -523,6 +552,7 @@ export class IslandWorldEngine {
       let live = this.livePlayers.get(p.id);
       if (!live) {
         const group = this.buildLiveFigure(p.id, p.name);
+        group.userData.name = p.name;
         this.liveGroup.add(group);
         live = { group, pos: new THREE.Vector3(p.x, 0, p.z), target: new THREE.Vector3(p.x, 0, p.z), yaw: p.yaw, targetYaw: p.yaw };
         this.livePlayers.set(p.id, live);
@@ -535,11 +565,12 @@ export class IslandWorldEngine {
   // ---- input & actions ---------------------------------------------------
 
   private onKeyDown = (event: KeyboardEvent) => {
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyF'].includes(event.code)) event.preventDefault();
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyF', 'KeyG'].includes(event.code)) event.preventDefault();
     if (this.keys.has(event.code)) return;
     this.keys.add(event.code);
     if (event.code === 'Space') this.useSpace();
     if (event.code === 'KeyF') this.dig();
+    if (event.code === 'KeyG') this.place();
   };
   private onKeyUp = (event: KeyboardEvent) => this.keys.delete(event.code);
 
@@ -550,13 +581,24 @@ export class IslandWorldEngine {
 
   private cellKey(x: number, z: number) { return `${Math.round(x)},${Math.round(z)}`; }
 
-  /** Dig the square of earth in front of you — Minecraft-style. Sometimes there's
-   *  buried treasure. Returns whether a block was dug (for the page's feedback). */
-  dig(): { dug: boolean; treasure: boolean } {
-    if (this.underground) return { dug: false, treasure: false };
-    const fx = this.position.x - Math.sin(this.yaw) * 1.1;
-    const fz = this.position.z - Math.cos(this.yaw) * 1.1;
-    let cx = Math.round(fx), cz = Math.round(fz);
+  /** The cell directly in front of the player (where you dig / place). */
+  private frontCell(): { cx: number; cz: number } {
+    return { cx: Math.round(this.position.x - Math.sin(this.yaw) * 1.1), cz: Math.round(this.position.z - Math.cos(this.yaw) * 1.1) };
+  }
+
+  /** Dig the square of earth in front of you — Minecraft-style. Underground, dig
+   *  the central shaft to tunnel a level deeper. Sometimes there's buried treasure. */
+  dig(): { dug: boolean; treasure: boolean; deeper?: number } {
+    if (this.underground) {
+      // Tunnel deeper if you're near the central shaft.
+      if (Math.hypot(this.position.x, this.position.z) < 4) { this.caveDepth += 1; this.populateCave(); this.position.set(0, 0, 3); return { dug: true, treasure: false, deeper: this.caveDepth }; }
+      return { dug: false, treasure: false };
+    }
+    let { cx, cz } = this.frontCell();
+    // Digging a block you placed just removes it again.
+    const placedKey = this.cellKey(cx, cz);
+    const placed = this.placedCells.get(placedKey);
+    if (placed) { this.placedGroup.remove(placed); this.placedCells.delete(placedKey); return { dug: true, treasure: false }; }
     if (this.dugCells.has(this.cellKey(cx, cz))) { cx = Math.round(this.position.x); cz = Math.round(this.position.z); }
     const key = this.cellKey(cx, cz);
     if (this.dugCells.has(key)) return { dug: false, treasure: false };
@@ -592,7 +634,8 @@ export class IslandWorldEngine {
     this.position.set(0, 0, CAVE_RADIUS - 4); this.yaw = 0;
   }
   private exitCave() {
-    this.underground = false; this.cave.visible = false; this.surface.visible = true; this.liveGroup.visible = true;
+    this.underground = false; this.caveDepth = 1; this.populateCave();
+    this.cave.visible = false; this.surface.visible = true; this.liveGroup.visible = true;
     this.applySurfaceSky();
     this.position.copy(this.caveEntry);
     this.position.add(new THREE.Vector3(-this.caveEntry.x, 0, -this.caveEntry.z).normalize().multiplyScalar(5));
@@ -600,16 +643,64 @@ export class IslandWorldEngine {
     this.updateChunks();
   }
 
+  /** Place a grass block in front of you — build like Minecraft. */
+  place(): boolean {
+    if (this.underground) return false;
+    const { cx, cz } = this.frontCell();
+    const key = this.cellKey(cx, cz);
+    if (this.placedCells.has(key)) return false;
+    this.dugCells.delete(key);   // filling a pit back in
+    const block = new THREE.Mesh(this.blockGeo, this.blockMat);
+    block.position.set(cx, 0.5, cz);
+    this.placedGroup.add(block);
+    this.placedCells.set(key, block);
+    this.placedCount += 1;
+    return true;
+  }
+
+  isBubbled() { return this.time < this.bubbleUntil; }
+
+  /** Swing your sword at the nearest live player in front — needs the sword equipped.
+   *  Returns whom you hit so the page can tell them over the network. */
+  attack(): { id: string; name: string } | null {
+    if (this.underground) return null;
+    if (this.time >= this.weaponUntil) return null;    // only when the Star Sword is drawn
+    if (this.time < this.attackReadyAt) return null;   // brief cooldown
+    this.attackReadyAt = this.time + 0.5;
+    if (this.weaponSprite) this.weaponSprite.material.rotation = 0.9;   // a quick swing pose
+    let result: { id: string; name: string } | null = null;
+    let bestD = 3;   // must be within 3 units
+    this.livePlayers.forEach((live, id) => {
+      const d = Math.hypot(live.pos.x - this.position.x, live.pos.z - this.position.z);
+      if (d < bestD) { bestD = d; result = { id, name: (live.group.userData.name as string) ?? 'player' }; }
+    });
+    return result;
+  }
+
+  /** You got bonked. If your bubble is up you're safe; otherwise you're knocked
+   *  back and briefly dazed. Returns true if the hit landed. */
+  takeHit(from: { x: number; z: number }): boolean {
+    if (this.isBubbled()) return false;
+    const dir = new THREE.Vector3(this.position.x - from.x, 0, this.position.z - from.z);
+    if (dir.lengthSq() < 0.01) dir.set(Math.cos(this.yaw), 0, Math.sin(this.yaw));
+    dir.normalize().multiplyScalar(3.2);
+    this.position.x += dir.x; this.position.z += dir.z;
+    this.stunUntil = this.time + 1;
+    return true;
+  }
+
   // ---- per-frame ---------------------------------------------------------
 
   private movePlayer(dt: number) {
     const k = this.keys;
-    const left = k.has('ArrowLeft') || k.has('KeyA');
-    const right = k.has('ArrowRight') || k.has('KeyD');
-    const fwd = k.has('ArrowUp') || k.has('KeyW');
-    const back = k.has('ArrowDown') || k.has('KeyS');
+    const stunned = this.time < this.stunUntil;   // just got bonked — dazed for a moment
+    const left = !stunned && (k.has('ArrowLeft') || k.has('KeyA'));
+    const right = !stunned && (k.has('ArrowRight') || k.has('KeyD'));
+    const fwd = !stunned && (k.has('ArrowUp') || k.has('KeyW'));
+    const back = !stunned && (k.has('ArrowDown') || k.has('KeyS'));
     if (left) this.yaw += TURN_SPEED * dt;
     if (right) this.yaw -= TURN_SPEED * dt;
+    if (stunned) this.avatar.rotation.y += dt * 8;   // dizzy spin
     let move = 0;
     if (fwd) move += 1;
     if (back) move -= 0.6;
@@ -628,7 +719,7 @@ export class IslandWorldEngine {
     }
     // Place & face the avatar; animate the walk.
     this.avatar.position.set(this.position.x, 0, this.position.z);
-    this.avatar.rotation.y = this.yaw + Math.PI;
+    if (!stunned) this.avatar.rotation.y = this.yaw + Math.PI;
     if (this.limbs) {
       const moving = move !== 0;
       const swing = moving ? Math.sin(this.walkPhase) * 0.6 : this.limbs.legL.rotation.x * 0.8;
@@ -683,9 +774,10 @@ export class IslandWorldEngine {
 
   private computePrompt() {
     if (!this.underground && this.position.distanceTo(this.caveEntry) < 4) this.prompt = '🕳️ Press Space to enter the cave';
-    else if (this.underground && new THREE.Vector3(this.position.x, 0, this.position.z).distanceTo(this.caveExit) < 3) this.prompt = '🪜 Press Space to climb back up';
+    else if (this.underground && new THREE.Vector3(this.position.x, 0, this.position.z).distanceTo(this.caveExit) < 3) this.prompt = '🪜 Press Space to climb back to the surface';
+    else if (this.underground && Math.hypot(this.position.x, this.position.z) < 4) this.prompt = `⛏️ Dig here to tunnel deeper (Level ${this.caveDepth} → ${this.caveDepth + 1})`;
     else if (!this.underground && this.position.distanceTo(this.waterfallAt) < 8) { this.prompt = '💧 A magical waterfall!'; this.visitedWaterfall = true; }
-    else this.prompt = this.underground ? '' : '⛏️ Press F (or Dig) to dig the ground';
+    else this.prompt = this.underground ? '💎 Mine crystals — deeper levels are richer' : '⛏️ Dig · 🧱 Build · explore for stars';
   }
 
   showHint() {
@@ -717,7 +809,8 @@ export class IslandWorldEngine {
   private emit() {
     this.options.onUpdate({
       earned: this.earned, stars: this.starCount, trinkets: this.trinketCount, gems: this.gemCount,
-      dug: this.dugCount, explored: this.explored,
+      dug: this.dugCount, placed: this.placedCount, explored: this.explored, caveDepth: this.caveDepth,
+      stunned: this.time < this.stunUntil,
       underground: this.underground, visitedCave: this.visitedCave, visitedWaterfall: this.visitedWaterfall,
       livePlayers: this.livePlayers.size, prompt: this.prompt,
       bubbleLeft: Math.max(0, Math.ceil(this.bubbleUntil - this.time)),

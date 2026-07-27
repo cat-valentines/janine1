@@ -14,6 +14,8 @@ export interface LivePlayer {
 export interface LiveGame {
   /** Shout my current position to everyone else in the game. */
   send: (state: Omit<LivePlayer, 'id'>) => void;
+  /** Bonk another player with your sword — tells just them, with where you hit from. */
+  hit: (targetId: string, name: string, at: { x: number; z: number }) => void;
   /** Leave: tell others I'm gone and close the channel. */
   leave: () => void;
 }
@@ -33,6 +35,7 @@ export function joinLiveGame(
   game: string,
   selfId: string,
   onPeers: (peers: LivePlayer[]) => void,
+  onHit?: (fromId: string, fromName: string, at: { x: number; z: number }) => void,
 ): LiveGame {
   const channel: RealtimeChannel = supabase.channel(`live-${game}`, {
     config: { broadcast: { self: false } },
@@ -50,6 +53,10 @@ export function joinLiveGame(
     const id = (payload as { id?: string })?.id;
     if (id && peers.delete(id)) emit();
   });
+  channel.on('broadcast', { event: 'hit' }, ({ payload }) => {
+    const p = payload as { from?: string; name?: string; target?: string; x?: number; z?: number };
+    if (p?.target === selfId && p.from && onHit) onHit(p.from, p.name ?? 'someone', { x: p.x ?? 0, z: p.z ?? 0 });
+  });
   channel.subscribe();
 
   // Sweep out anyone who went quiet, so leaving clears them within a moment.
@@ -63,6 +70,9 @@ export function joinLiveGame(
   return {
     send: (state) => {
       channel.send({ type: 'broadcast', event: 'pos', payload: { ...state, id: selfId } });
+    },
+    hit: (targetId, name, at) => {
+      channel.send({ type: 'broadcast', event: 'hit', payload: { from: selfId, name, target: targetId, x: at.x, z: at.z } });
     },
     leave: () => {
       clearInterval(sweep);

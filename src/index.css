@@ -2119,7 +2119,11 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 
 @media (max-width: 560px) { .island-bag { bottom: 270px; } .island-tray { bottom: 326px; } }
 
-/* Island World — dig button */
-.island-dig { position: absolute; right: 70px; bottom: 250px; padding: 0 14px; height: 48px; border: 0; border-radius: 14px; background: #8a5a30; color: #fff; font-size: .9rem; font-weight: 850; cursor: pointer; z-index: 3; box-shadow: 0 3px 0 #5e3d20; }
-.island-dig:active { transform: translateY(2px); box-shadow: 0 1px 0 #5e3d20; }
-@media (max-width: 560px) { .island-dig { bottom: 270px; right: 68px; } }
+/* Island World — dig / build / attack action buttons */
+.island-actions { position: absolute; right: 70px; bottom: 250px; display: flex; gap: 8px; z-index: 3; }
+.island-act { width: 48px; height: 48px; border: 0; border-radius: 14px; font-size: 1.4rem; cursor: pointer; color: #fff; box-shadow: 0 3px 0 #0006; }
+.island-act:active { transform: translateY(2px); box-shadow: 0 1px 0 #0006; }
+.island-act.dig { background: #8a5a30; }
+.island-act.build { background: #4f9e57; }
+.island-act.attack { background: #b0407a; }
+@media (max-width: 560px) { .island-actions { bottom: 270px; right: 66px; } }
