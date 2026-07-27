@@ -338,7 +338,8 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 /* Group chat launch buttons + modals */
 .group-cta { display: grid; gap: 8px; margin: 8px 0 4px; }
 .group-open-btn, .group-make-btn { padding: 12px; border: 0; border-radius: 12px; font-weight: 850; font-size: .9rem; cursor: pointer; }
-.group-open-btn { background: #6d5ac4; color: #fff; }
+.group-open-btn { position: relative; background: #6d5ac4; color: #fff; }
+.group-open-btn.has-unread, .group-list-row.has-unread { box-shadow: 0 0 0 2px #e0452f; }
 .group-make-btn { background: #f0ecfa; color: #5a4a94; border: 2px solid #d6cdf0; }
 .group-make, .group-list, .group-chat { width: min(94vw, 440px); background: #1c1830; border: 1px solid #453b6e; border-radius: 20px; color: #efeaff; }
 .group-make, .group-list { max-height: 90vh; overflow-y: auto; padding: 18px; text-align: center; }
@@ -347,7 +348,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .group-make-sub { margin: 12px 0 8px; color: #a99ed6; font-size: .78rem; text-align: left; }
 .group-pick-list { display: grid; gap: 6px; max-height: 40vh; overflow-y: auto; margin-bottom: 12px; }
 .group-list-rows { display: grid; gap: 8px; margin-bottom: 12px; }
-.group-list-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 0; border-radius: 12px; background: #2a2444; color: #efeaff; font-weight: 800; cursor: pointer; text-align: left; }
+.group-list-row { position: relative; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 0; border-radius: 12px; background: #2a2444; color: #efeaff; font-weight: 800; cursor: pointer; text-align: left; }
 .group-list-row strong { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .group-list-row small { flex: none; padding: 2px 8px; border-radius: 999px; background: #7c5cff; font-size: .64rem; }
 /* the open group chat is a full column */

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { loadFriendMessages, sendFriendMessage, parseMedia, loadSavedSelfies, markChatSeen, chatSeenAt, messageUnread, loadIncomingLatest, type FriendMessage, type MediaKind } from '../lib/friends';
 import { mediaSignedUrl, resendMedia, saveMediaPrivate } from '../lib/media';
-import { createGroup, loadMyGroups, loadGroupMessages, loadGroupMemberIds, addGroupMember, sendGroupText, clearedAt, clearGroupView, type ChatGroup, type GroupMessage } from '../lib/groups';
+import { createGroup, loadMyGroups, loadGroupMessages, loadGroupMemberIds, addGroupMember, sendGroupText, clearedAt, clearGroupView, groupSeenAt, markGroupSeen, loadGroupLatest, type ChatGroup, type GroupMessage } from '../lib/groups';
 import { acceptFriend, addFriend, changeUsername, isTakenError, isUsernameFree, loadAllPlayers, loadMyFriends, loadMyStats, removeFriend, searchPlayers, USERNAME_RULE, type FoundPlayer, type FriendRow } from '../lib/players';
 import { inviteLink, inviteTargets, gameTargets, type InviteTarget } from '../game/inviteTargets';
 import { SelfieStudio } from './SelfieStudio';
@@ -61,6 +61,11 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
   const [lastFrom, setLastFrom] = useState<Record<string, string>>({});
   const [reads, setReads] = useState<Record<string, string>>({});
   const hasUnread = (friendId: string) => messageUnread(lastFrom[friendId], reads[friendId] ?? chatSeenAt(friendId));
+  // Group unread: newest message someone else posted, vs when you last opened that group.
+  const [groupLatest, setGroupLatest] = useState<Record<string, string>>({});
+  const [groupReads, setGroupReads] = useState<Record<string, string>>({});
+  const hasGroupUnread = (gid: string) => messageUnread(groupLatest[gid], groupReads[gid] ?? groupSeenAt(gid));
+  const anyGroupUnread = () => groups.some((g) => hasGroupUnread(g.id));
 
   const refresh = () => loadMyFriends().then((rows) => { setFriends(rows); setSelected((current) => current ? rows.find((row) => row.id === current.id) ?? null : null); });
   const refreshUnread = (id: string) => loadIncomingLatest(id).then(setLastFrom).catch(() => undefined);
@@ -90,6 +95,8 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
       setMyName(authName || 'a friend');
       refresh().catch(() => setNote('Friends are not online yet. The database update may still need to be applied.'));
       refreshUnread(user.id);
+      loadMyGroups().then(setGroups).catch(() => undefined);
+      loadGroupLatest(user.id).then(setGroupLatest).catch(() => undefined);
       loadAllPlayers().then(setEveryone).catch(() => undefined);
       // Read the name friends actually search by — the one in your profile row.
       loadMyStats(user.id).then((stats) => {
@@ -227,10 +234,13 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
   const nameOf = (id: string) => id === userId ? 'You' : (friends.find((f) => f.id === id)?.name ?? everyone.find((p) => p.id === id)?.name ?? 'a friend');
   const iconOf = (id: string) => { const c = friends.find((f) => f.id === id)?.character_id ?? everyone.find((p) => p.id === id)?.character_id; return icons[c ?? ''] ?? '🙂'; };
 
-  const openGroups = () => { loadMyGroups().then(setGroups).catch(() => setGroups([])); setGroupsOpen(true); };
+  const openGroups = () => { loadMyGroups().then(setGroups).catch(() => setGroups([])); if (userId) loadGroupLatest(userId).then(setGroupLatest).catch(() => undefined); setGroupsOpen(true); };
   const loadMembers = (gid: string) => loadGroupMemberIds(gid).then(setGroupMemberIds).catch(() => setGroupMemberIds([]));
   const openGroup = (group: ChatGroup) => {
     setActiveGroup(group); setGroupsOpen(false); setAddOpen(false);
+    // Opening the group clears its red dot.
+    markGroupSeen(group.id);
+    setGroupReads((prev) => ({ ...prev, [group.id]: new Date().toISOString() }));
     loadGroupMessages(group.id).then(setGroupMsgs).catch(() => setGroupMsgs([]));
     loadMembers(group.id);
   };
@@ -308,7 +318,7 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
       </section>}
 
       {query.length < 2 && <section className="group-cta">
-        <button className="group-open-btn" onClick={openGroups}>👥 Group Chats</button>
+        <button className={`group-open-btn ${anyGroupUnread() ? 'has-unread' : ''}`} onClick={openGroups}>👥 Group Chats{anyGroupUnread() && <i className="unread-dot" />}</button>
         <button className="group-make-btn" onClick={() => { setGroupName(''); setGroupPick(new Set()); setMakeGroupOpen(true); }}>➕ Make a Group Chat</button>
       </section>}
 
@@ -426,8 +436,8 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
       {groupsOpen && <div className="quest-over" onClick={() => setGroupsOpen(false)}>
         <div className="group-list" onClick={(e) => e.stopPropagation()}>
           <h3>👥 Your group chats</h3>
-          {groups.length ? <div className="group-list-rows">{groups.map((g) => <button key={g.id} className="group-list-row" onClick={() => openGroup(g)}>
-            <span>👥</span><strong>{g.name}</strong>{g.owner_id === userId && <small>owner</small>}
+          {groups.length ? <div className="group-list-rows">{groups.map((g) => <button key={g.id} className={`group-list-row ${hasGroupUnread(g.id) ? 'has-unread' : ''}`} onClick={() => openGroup(g)}>
+            <span>👥</span><strong>{g.name}</strong>{g.owner_id === userId && <small>owner</small>}{hasGroupUnread(g.id) && <i className="unread-dot" title="New message" />}
           </button>)}</div> : <p className="friend-empty">No group chats yet — tap “Make a Group Chat”.</p>}
           <button className="ghost" onClick={() => setGroupsOpen(false)}>Close</button>
         </div>

@@ -62,6 +62,29 @@ export async function addGroupMember(gid: string, userId: string) {
   if (error && error.code !== '23505') throw error;   // 23505 = already a member, fine
 }
 
+// ---- Unread tracking for groups (mirrors friends.ts) ----
+// When you last opened each group's chat, per device.
+const GROUP_SEEN_KEY = 'groupSeenAt';
+type GroupSeenMap = Record<string, string>;
+function readGroupSeen(): GroupSeenMap { try { return JSON.parse(storage.get(GROUP_SEEN_KEY) ?? '{}') as GroupSeenMap; } catch { return {}; } }
+export function groupSeenAt(gid: string): string { return readGroupSeen()[gid] ?? ''; }
+export function markGroupSeen(gid: string) { const all = readGroupSeen(); all[gid] = new Date().toISOString(); storage.set(GROUP_SEEN_KEY, JSON.stringify(all)); }
+
+/** Newest message time SOMEONE ELSE posted in each of your groups — for unread dots.
+ *  (RLS only returns messages from groups you belong to.) */
+export async function loadGroupLatest(me: string): Promise<Record<string, string>> {
+  const { data, error } = await supabase.from('chat_group_messages')
+    .select('group_id, sender_id, created_at').neq('sender_id', me)
+    .order('created_at', { ascending: false }).limit(300);
+  if (error) return {};
+  const latest: Record<string, string> = {};
+  (data ?? []).forEach((row) => {
+    const r = row as { group_id: string; created_at: string };
+    if (!latest[r.group_id]) latest[r.group_id] = r.created_at;
+  });
+  return latest;
+}
+
 // ---- "Clear my view": a per-device timestamp; messages older than it are hidden ----
 const CLEAR_KEY = 'groupClearedAt';
 type ClearMap = Record<string, string>;
