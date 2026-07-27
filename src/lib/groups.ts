@@ -70,6 +70,25 @@ function readGroupSeen(): GroupSeenMap { try { return JSON.parse(storage.get(GRO
 export function groupSeenAt(gid: string): string { return readGroupSeen()[gid] ?? ''; }
 export function markGroupSeen(gid: string) { const all = readGroupSeen(); all[gid] = new Date().toISOString(); storage.set(GROUP_SEEN_KEY, JSON.stringify(all)); }
 
+// A one-time baseline set the first time GROUP unread-tracking runs on this
+// device. Groups had no "seen" history before this feature shipped, so without
+// its own baseline every old message you already read would light the dot.
+// Only group messages newer than this (or your last open of that group) count.
+const GROUP_BASELINE_KEY = 'groupUnreadBaseline';
+function groupBaseline(): string {
+  let base = storage.get(GROUP_BASELINE_KEY);
+  if (!base) { base = new Date().toISOString(); storage.set(GROUP_BASELINE_KEY, base); }
+  return base;
+}
+
+/** True only when a group's newest message from someone else is newer than both
+ *  the group baseline and the last time you opened that group. */
+export function groupUnread(lastAt: string | undefined, seenAt: string): boolean {
+  if (!lastAt) return false;
+  const floor = seenAt > groupBaseline() ? seenAt : groupBaseline();
+  return lastAt > floor;
+}
+
 /** Newest message time SOMEONE ELSE posted in each of your groups — for unread dots.
  *  (RLS only returns messages from groups you belong to.) */
 export async function loadGroupLatest(me: string): Promise<Record<string, string>> {

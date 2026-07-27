@@ -60,7 +60,7 @@ import type { GameId } from '../game/gameList';
 import { AccountSetupPage } from './AccountSetupPage';
 import { loadAccountState } from '../lib/players';
 import { chatSeenAt, messageUnread, loadIncomingLatest } from '../lib/friends';
-import { groupSeenAt, loadGroupLatest } from '../lib/groups';
+import { groupSeenAt, groupUnread, loadGroupLatest } from '../lib/groups';
 
 export function SelectionPage({ onStart }: { onStart: (selection: GameSelection) => void }) {
   const path = useRoute();
@@ -426,7 +426,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   return (
     <main className="selection-page page-shell">
       <button className="menu-button" onClick={() => setMenuOpen(true)}>☰ Menu</button>
-      <button className="friends-button" onClick={() => setFriendsOpen(true)}>Friends ☺{signedIn && (Object.entries(msgLatest).some(([id, at]) => messageUnread(at, chatSeenAt(id))) || Object.entries(groupLatest).some(([gid, at]) => messageUnread(at, groupSeenAt(gid)))) && <i className="friends-unread-dot" />}</button>
+      <button className="friends-button" onClick={() => setFriendsOpen(true)}>Friends ☺{signedIn && (Object.entries(msgLatest).some(([id, at]) => messageUnread(at, chatSeenAt(id))) || Object.entries(groupLatest).some(([gid, at]) => groupUnread(at, groupSeenAt(gid)))) && <i className="friends-unread-dot" />}</button>
       <button className="profile-button" onClick={() => navigate('/profile')} title="My profile" aria-label="My profile"><img src={characterAssets[character]} alt="" /></button>
       <button className={`crown-button ${isMember ? 'is-member' : ''}`} onClick={() => navigate('/royal')} title="Royal Membership" aria-label="Royal Membership">♛</button>
       <button className={`streak-button ${playedToday ? 'burning' : ''}`} onClick={() => navigate('/streak')} title={playedToday ? '🔥 Your streak is lit for today!' : 'Play a game today to light your streak'} aria-label="Your daily streak"><span>🔥</span><b>{streak}</b></button>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { loadFriendMessages, sendFriendMessage, parseMedia, loadSavedSelfies, markChatSeen, chatSeenAt, messageUnread, loadIncomingLatest, type FriendMessage, type MediaKind } from '../lib/friends';
 import { mediaSignedUrl, resendMedia, saveMediaPrivate } from '../lib/media';
-import { createGroup, loadMyGroups, loadGroupMessages, loadGroupMemberIds, addGroupMember, sendGroupText, clearedAt, clearGroupView, groupSeenAt, markGroupSeen, loadGroupLatest, type ChatGroup, type GroupMessage } from '../lib/groups';
+import { createGroup, loadMyGroups, loadGroupMessages, loadGroupMemberIds, addGroupMember, sendGroupText, clearedAt, clearGroupView, groupSeenAt, markGroupSeen, groupUnread, loadGroupLatest, type ChatGroup, type GroupMessage } from '../lib/groups';
 import { acceptFriend, addFriend, changeUsername, isTakenError, isUsernameFree, loadAllPlayers, loadMyFriends, loadMyStats, removeFriend, searchPlayers, USERNAME_RULE, type FoundPlayer, type FriendRow } from '../lib/players';
 import { inviteLink, inviteTargets, gameTargets, type InviteTarget } from '../game/inviteTargets';
 import { SelfieStudio } from './SelfieStudio';
@@ -64,7 +64,7 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
   // Group unread: newest message someone else posted, vs when you last opened that group.
   const [groupLatest, setGroupLatest] = useState<Record<string, string>>({});
   const [groupReads, setGroupReads] = useState<Record<string, string>>({});
-  const hasGroupUnread = (gid: string) => messageUnread(groupLatest[gid], groupReads[gid] ?? groupSeenAt(gid));
+  const hasGroupUnread = (gid: string) => groupUnread(groupLatest[gid], groupReads[gid] ?? groupSeenAt(gid));
   const anyGroupUnread = () => groups.some((g) => hasGroupUnread(g.id));
 
   const refresh = () => loadMyFriends().then((rows) => { setFriends(rows); setSelected((current) => current ? rows.find((row) => row.id === current.id) ?? null : null); });
