@@ -2118,3 +2118,8 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .island-tray-empty { margin: 2px 0 0; color: #cdbff0; font-size: .72rem; line-height: 1.3; }
 
 @media (max-width: 560px) { .island-bag { bottom: 270px; } .island-tray { bottom: 326px; } }
+
+/* Island World — dig button */
+.island-dig { position: absolute; right: 70px; bottom: 250px; padding: 0 14px; height: 48px; border: 0; border-radius: 14px; background: #8a5a30; color: #fff; font-size: .9rem; font-weight: 850; cursor: pointer; z-index: 3; box-shadow: 0 3px 0 #5e3d20; }
+.island-dig:active { transform: translateY(2px); box-shadow: 0 1px 0 #5e3d20; }
+@media (max-width: 560px) { .island-dig { bottom: 270px; right: 68px; } }

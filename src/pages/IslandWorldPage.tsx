@@ -20,9 +20,12 @@ function questProgress(quest: QuestDef, snap: WorldSnapshot): number {
     case 'stars': return snap.stars;
     case 'trinkets': return snap.trinkets;
     case 'gems': return snap.gems;
+    case 'dig': return snap.dug;
+    case 'explore': return snap.explored;
     case 'cave': return snap.visitedCave ? 1 : 0;
     case 'waterfall': return snap.visitedWaterfall ? 1 : 0;
     case 'players': return snap.livePlayers > 0 ? 1 : 0;
+    default: return 0;
   }
 }
 
@@ -129,7 +132,7 @@ export function IslandWorldPage({ character, onScore, onBack }: Props) {
       <div className="island-intro">
         <h1>{island.icon} {island.name}</h1>
         <p className="island-flavour">{theme.flavour}</p>
-        <p>Explore a big magical {island.biome} island in 3-D. Collect ⭐ stars and {theme.trinketName}s, dive into the crystal cave, find the waterfall — and meet real players exploring at the same time.</p>
+        <p>Explore an <b>endless</b> magical {island.biome} land in 3-D. Wander as far as you like collecting ⭐ stars and {theme.trinketName}s, <b>dig into the ground</b> for buried treasure, dive into the crystal cave, find the waterfall — and meet real players exploring at the same time. Reaching 5,000 stars takes a real adventure!</p>
 
         <div className="island-goal">
           <div className="island-goal-head"><strong>⭐ {total.toLocaleString()}</strong><small>{toNext.toLocaleString()} more to unlock {islandId < 30 ? islands[islandId].name : 'the crown'}</small></div>
@@ -141,7 +144,7 @@ export function IslandWorldPage({ character, onScore, onBack }: Props) {
           {quests.map((q) => <div className="island-quest" key={q.id}><span>{q.icon}</span><strong>{q.label}</strong><i>+{q.reward}⭐</i></div>)}
         </div>
 
-        <p className="island-controls">🎮 <b>↑ ↓</b> walk · <b>← →</b> turn · <b>Space</b> enter the cave / climb out {userId ? '' : '· 🔐 log in to see live players'}</p>
+        <p className="island-controls">🎮 <b>↑ ↓</b> walk · <b>← →</b> turn · <b>F</b> dig · <b>Space</b> enter the cave / climb out {userId ? '' : '· 🔐 log in to see live players'}</p>
         <button className="island-start" onClick={() => setStarted(true)} style={{ background: theme.glow }}>🌟 Explore {island.name}</button>
       </div>
     </main>;
@@ -177,6 +180,7 @@ export function IslandWorldPage({ character, onScore, onBack }: Props) {
       {snapshot?.prompt && <p className="island-prompt">{snapshot.prompt}</p>}
       {toast && <p className="island-toast">{toast}</p>}
 
+      <button className="island-dig" onClick={() => { const r = engine.current?.dig(); if (r?.dug) flash(r.treasure ? '⛏️ You dug up buried treasure!' : '⛏️ Dug a block of earth.'); }} title="Dig the ground (F)">⛏️ Dig</button>
       <button className="island-bag" onClick={() => { setUses(loadRewards().uses); setTray((t) => !t); }} title="Your quest items">🎒</button>
       {tray && <div className="island-tray">
         <p className="island-tray-title">🎒 Quest items</p>

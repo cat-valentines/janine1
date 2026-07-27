@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import { pixelTexture } from './pixelTexture';
-import { STAR_VALUE, TRINKET_VALUE, GEM_VALUE, type WorldTheme } from './islandWorld';
+import { STAR_VALUE, TRINKET_VALUE, GEM_VALUE, BURIED_VALUE, type WorldTheme, type TreeStyle } from './islandWorld';
 
 export interface WorldSnapshot {
   /** Star-points earned from pickups this visit — the page banks the growth. */
@@ -8,13 +7,15 @@ export interface WorldSnapshot {
   stars: number;      // loose ⭐ picked up
   trinkets: number;   // themed ground collectibles picked up
   gems: number;       // cave crystals mined
+  dug: number;        // blocks of earth dug up
+  explored: number;   // furthest you've wandered from the shore, in steps
   underground: boolean;
   visitedCave: boolean;
   visitedWaterfall: boolean;
   livePlayers: number;
-  prompt: string;     // a contextual "Press Space to…" hint
-  bubbleLeft: number; // seconds of bubble-potion protection left
-  weaponLeft: number; // seconds the star sword is drawn
+  prompt: string;
+  bubbleLeft: number;
+  weaponLeft: number;
   hintActive: boolean;
 }
 
@@ -25,28 +26,26 @@ interface EngineOptions {
   onUpdate: (snapshot: WorldSnapshot) => void;
 }
 
-interface Pickup { sprite: THREE.Sprite; base: number; seed: number; taken: boolean }
-interface LiveFigure {
-  group: THREE.Group;
-  pos: THREE.Vector3; target: THREE.Vector3;
-  yaw: number; targetYaw: number;
-}
+interface Pickup { obj: THREE.Object3D; base: number; seed: number; taken: boolean; value: number }
+interface LiveFigure { group: THREE.Group; pos: THREE.Vector3; target: THREE.Vector3; yaw: number; targetYaw: number }
+interface Chunk { group: THREE.Group; pickups: Pickup[] }
 
-const WORLD_RADIUS = 58;      // how far you can wander before the shore
-const CAVE_RADIUS = 15;
+const CHUNK = 16;           // world units per streamed chunk
+const LOAD_RADIUS = 3;      // chunks kept loaded around you (endless world)
 const PLAYER_SPEED = 9;
 const TURN_SPEED = 2.6;
 const CAM_BACK = 8;
 const CAM_HEIGHT = 5;
+const CAVE_RADIUS = 15;
+const MAX_PITS = 140;
 
-/** A stable hue from a player id, so each live player keeps one colour. */
 function hashHue(id: string): number {
   let h = 0;
   for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) % 360;
   return h;
 }
 
-/** Seeded RNG so a given island always scatters the same trees and stars. */
+/** Seeded RNG so a chunk always generates the same trees & stars. */
 function mulberry32(seed: number) {
   let a = seed >>> 0;
   return () => {
@@ -68,33 +67,51 @@ export class IslandWorldEngine {
 
   private surface = new THREE.Group();
   private cave = new THREE.Group();
-  private player = new THREE.Group();
+  private avatar = new THREE.Group();
+  private liveGroup = new THREE.Group();
+  private chunkGroup = new THREE.Group();
+  private pitGroup = new THREE.Group();
+
   private position = new THREE.Vector3();
   private yaw = 0;
   private keys = new Set<string>();
+  private walkPhase = 0;
+  private limbs: { legL: THREE.Group; legR: THREE.Group; armL: THREE.Group; armR: THREE.Group } | null = null;
 
-  private stars: Pickup[] = [];
-  private trinkets: Pickup[] = [];
+  // Shared building blocks, made once and reused across every chunk.
+  private shared!: {
+    trunk: THREE.Material; leaf1: THREE.Material; leaf2: THREE.Material; cap: THREE.Material;
+    crystal: THREE.Material; rock: THREE.Material;
+    trunkGeo: THREE.BufferGeometry; coneGeo: THREE.BufferGeometry; ballGeo: THREE.BufferGeometry;
+    crystalGeo: THREE.BufferGeometry; rockGeo: THREE.BufferGeometry; frondGeo: THREE.BufferGeometry;
+  };
+
+  private ground!: THREE.Mesh;
+  private chunks = new Map<string, Chunk>();
+  private stars: Pickup[] = [];      // active surface pickups from loaded chunks + digs
   private gems: Pickup[] = [];
-  private sparkles: THREE.Points | null = null;
-  private waterfallTex: THREE.CanvasTexture | null = null;
-  private caveEntry = new THREE.Vector3();
-  private caveExit = new THREE.Vector3();
-  private waterfallAt = new THREE.Vector3();
+  private takenIds = new Set<string>();
+  private dugCells = new Set<string>();
+  private pits: THREE.Mesh[] = [];
 
   private earned = 0;
   private starCount = 0;
   private trinketCount = 0;
   private gemCount = 0;
+  private dugCount = 0;
+  private explored = 0;
   private underground = false;
   private visitedCave = false;
   private visitedWaterfall = false;
   private prompt = '';
 
-  private livePlayers = new Map<string, LiveFigure>();
-  private liveGroup = new THREE.Group();
+  private caveEntry = new THREE.Vector3(0, 0, -34);
+  private waterfallAt = new THREE.Vector3(40, 0, 8);
+  private caveExit = new THREE.Vector3(0, 0, CAVE_RADIUS - 2);
+  private waterfallTex: THREE.CanvasTexture | null = null;
+  private sparkles: THREE.Points | null = null;
 
-  // Quest consumables (potions & weapon) — activated from the items tray.
+  private livePlayers = new Map<string, LiveFigure>();
   private hintUntil = 0; private beacon: THREE.Mesh | null = null;
   private bubbleUntil = 0; private bubbleMesh: THREE.Mesh | null = null;
   private weaponUntil = 0; private weaponSprite: THREE.Sprite | null = null;
@@ -116,354 +133,362 @@ export class IslandWorldEngine {
     this.renderer.toneMappingExposure = 1.05;
     container.appendChild(this.renderer.domElement);
 
-    this.camera = new THREE.PerspectiveCamera(64, (container.clientWidth || 600) / (container.clientHeight || 400), 0.1, 260);
+    this.camera = new THREE.PerspectiveCamera(64, (container.clientWidth || 600) / (container.clientHeight || 400), 0.1, 320);
 
-    this.scene.add(this.surface, this.cave, this.liveGroup, this.player);
+    this.scene.add(this.surface, this.cave, this.liveGroup, this.avatar);
+    this.surface.add(this.chunkGroup, this.pitGroup);
     this.cave.visible = false;
 
     this.applySurfaceSky();
     this.buildLights();
-    this.buildSurface();
+    this.buildSharedParts();
+    this.buildGround();
+    this.buildWaterfall();
+    this.buildCaveEntranceMound();
+    this.buildSparkles();
     this.buildCave();
-    this.buildPlayer(options.characterAsset);
+    this.buildAvatar(options.characterAsset);
 
     this.position.set(0, 0, 12);
     this.yaw = Math.PI;
+    this.updateChunks();
+    // Place the camera correctly on the very first frame (no swoop from origin).
+    this.camera.position.set(this.position.x + Math.sin(this.yaw) * CAM_BACK, CAM_HEIGHT, this.position.z + Math.cos(this.yaw) * CAM_BACK);
+    this.camera.lookAt(this.position.x, 1.2, this.position.z);
 
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     if (import.meta.env.DEV) (window as unknown as { __ISLAND: IslandWorldEngine }).__ISLAND = this;
-    this.emit();   // hand the HUD its opening state right away
+    this.emit();
     this.loop();
   }
-
-  // ---- scene building ----------------------------------------------------
 
   private track<T extends { dispose: () => void }>(item: T): T { this.disposables.push(item); return item; }
 
   private applySurfaceSky() {
     this.scene.background = new THREE.Color(this.theme.skyBottom);
-    this.scene.fog = new THREE.Fog(this.theme.fog, 40, 150);
+    this.scene.fog = new THREE.Fog(this.theme.fog, 46, 165);
   }
 
   private buildLights() {
-    this.scene.add(new THREE.HemisphereLight(this.theme.skyTop, this.theme.ground, this.theme.night ? 0.7 : 1.0));
+    this.scene.add(new THREE.HemisphereLight(this.theme.skyTop, this.theme.ground, this.theme.night ? 0.75 : 1.05));
     const sun = new THREE.DirectionalLight(this.theme.sun, this.theme.night ? 0.5 : 0.95);
     sun.position.set(30, 60, 20);
     this.scene.add(sun);
     this.scene.add(new THREE.AmbientLight(this.theme.ambient, this.theme.night ? 0.5 : 0.4));
   }
 
-  /** A big gradient dome so the sky reads top-to-bottom, not a flat wash. */
   private buildSkyDome() {
     const canvas = document.createElement('canvas');
     canvas.width = 8; canvas.height = 128;
     const ctx = canvas.getContext('2d');
     if (ctx) {
       const g = ctx.createLinearGradient(0, 0, 0, 128);
-      g.addColorStop(0, this.theme.skyTop);
-      g.addColorStop(1, this.theme.skyBottom);
+      g.addColorStop(0, this.theme.skyTop); g.addColorStop(1, this.theme.skyBottom);
       ctx.fillStyle = g; ctx.fillRect(0, 0, 8, 128);
     }
     const tex = this.track(new THREE.CanvasTexture(canvas));
-    const geo = this.track(new THREE.SphereGeometry(220, 24, 16));
+    const geo = this.track(new THREE.SphereGeometry(280, 24, 16));
     const mat = this.track(new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false, depthWrite: false }));
-    this.surface.add(new THREE.Mesh(geo, mat));
+    const dome = new THREE.Mesh(geo, mat);
+    dome.userData.follow = true;   // keep centred on the player so it's endless
+    this.surface.add(dome);
+    this.skyDome = dome;
   }
+  private skyDome: THREE.Mesh | null = null;
 
-  private buildSurface() {
+  /** One flat, endless grass field that follows you (fog hides the far edge). */
+  private buildGround() {
     this.buildSkyDome();
-    const rand = mulberry32(this.options.islandId * 9161 + 7);
-
-    // The sea around the island, and the island disc itself.
-    const seaGeo = this.track(new THREE.CircleGeometry(230, 40));
-    const seaMat = this.track(new THREE.MeshLambertMaterial({ color: this.theme.water }));
-    const sea = new THREE.Mesh(seaGeo, seaMat);
-    sea.rotation.x = -Math.PI / 2; sea.position.y = -0.6;
-    this.surface.add(sea);
-
-    const grassTex = pixelTexture(this.theme.ground, this.theme.groundDark, 'grass', 28, 28);
-    const groundGeo = this.track(new THREE.CircleGeometry(WORLD_RADIUS + 8, 48));
-    const groundMat = this.track(new THREE.MeshLambertMaterial({ map: grassTex }));
-    const ground = new THREE.Mesh(groundGeo, groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    this.surface.add(ground);
-
-    // A soft shoreline ring so the island edge isn't a hard cut.
-    const shoreGeo = this.track(new THREE.RingGeometry(WORLD_RADIUS + 6, WORLD_RADIUS + 12, 48));
-    const shoreMat = this.track(new THREE.MeshBasicMaterial({ color: this.theme.waterFoam, transparent: true, opacity: 0.5 }));
-    const shore = new THREE.Mesh(shoreGeo, shoreMat);
-    shore.rotation.x = -Math.PI / 2; shore.position.y = -0.4;
-    this.surface.add(shore);
-
-    this.buildTrees(rand);
-    this.buildWaterfall(rand);
-    this.buildCaveEntrance(rand);
-    this.buildSparkles();
-    this.buildPickups(rand);
-  }
-
-  /** Cute low-poly trees: a trunk with two stacked foliage cones. */
-  private buildTrees(rand: () => number) {
-    const trunkGeo = this.track(new THREE.CylinderGeometry(0.28, 0.42, 2.4, 6));
-    const coneLo = this.track(new THREE.ConeGeometry(2.0, 2.6, 7));
-    const coneHi = this.track(new THREE.ConeGeometry(1.4, 2.2, 7));
-    const trunkMat = this.track(new THREE.MeshLambertMaterial({ color: this.theme.trunk }));
-    const leafMat1 = this.track(new THREE.MeshLambertMaterial({ color: this.theme.foliage1 }));
-    const leafMat2 = this.track(new THREE.MeshLambertMaterial({ color: this.theme.foliage2 }));
-    const bushGeo = this.track(new THREE.SphereGeometry(1.1, 8, 6));
-
-    for (let i = 0; i < 150; i += 1) {
-      const a = rand() * Math.PI * 2;
-      const r = 6 + rand() * (WORLD_RADIUS - 4);
-      const x = Math.cos(a) * r, z = Math.sin(a) * r;
-      if (Math.hypot(x, z - 12) < 5) continue;   // keep the spawn clear
-      const s = 0.7 + rand() * 0.8;
-      if (rand() < 0.22) {
-        // A round bush for variety.
-        const bush = new THREE.Mesh(bushGeo, rand() < 0.5 ? leafMat1 : leafMat2);
-        bush.scale.setScalar(s); bush.position.set(x, s * 0.7, z);
-        this.surface.add(bush);
-        continue;
-      }
-      const tree = new THREE.Group();
-      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-      trunk.position.y = 1.2;
-      const lo = new THREE.Mesh(coneLo, leafMat1); lo.position.y = 3.0;
-      const hi = new THREE.Mesh(coneHi, leafMat2); hi.position.y = 4.4;
-      tree.add(trunk, lo, hi);
-      tree.position.set(x, 0, z);
-      tree.scale.setScalar(s);
-      tree.rotation.y = rand() * Math.PI;
-      this.surface.add(tree);
-    }
-  }
-
-  /** A rock cliff with an animated sheet of falling water and a splash pool. */
-  private buildWaterfall(rand: () => number) {
-    const a = rand() * Math.PI * 2;
-    const x = Math.cos(a) * (WORLD_RADIUS - 12), z = Math.sin(a) * (WORLD_RADIUS - 12);
-    this.waterfallAt.set(x, 0, z);
-    const group = new THREE.Group();
-    group.position.set(x, 0, z);
-    group.lookAt(0, 0, 0);
-
-    const rockMat = this.track(new THREE.MeshLambertMaterial({ color: this.theme.rock }));
-    for (let i = 0; i < 5; i += 1) {
-      const w = 4 - i * 0.4;
-      const geo = this.track(new THREE.BoxGeometry(w, 2.4, 3));
-      const rock = new THREE.Mesh(geo, rockMat);
-      rock.position.set((rand() - 0.5) * 1.2, 1.2 + i * 2.1, -1 - i * 0.5);
-      group.add(rock);
-    }
-
-    // A scrolling canvas of white streaks — the falling water.
     const canvas = document.createElement('canvas');
-    canvas.width = 32; canvas.height = 64;
-    this.waterfallTex = this.track(new THREE.CanvasTexture(canvas));
-    this.paintWaterfall(0);
-    this.waterfallTex.wrapS = this.waterfallTex.wrapT = THREE.RepeatWrapping;
-    const fallGeo = this.track(new THREE.PlaneGeometry(3.2, 11));
-    const fallMat = this.track(new THREE.MeshBasicMaterial({ map: this.waterfallTex, transparent: true, opacity: 0.9, depthWrite: false }));
-    const fall = new THREE.Mesh(fallGeo, fallMat);
-    fall.position.set(0, 5.6, 0.7);
-    group.add(fall);
-
-    const poolGeo = this.track(new THREE.CircleGeometry(4, 24));
-    const poolMat = this.track(new THREE.MeshLambertMaterial({ color: this.theme.water, transparent: true, opacity: 0.85 }));
-    const pool = new THREE.Mesh(poolGeo, poolMat);
-    pool.rotation.x = -Math.PI / 2; pool.position.set(0, 0.05, 2);
-    group.add(pool);
-
-    // A puff of mist points at the base.
-    const mistGeo = this.track(new THREE.BufferGeometry());
-    const pts = new Float32Array(60 * 3);
-    for (let i = 0; i < 60; i += 1) { pts[i * 3] = (rand() - 0.5) * 3; pts[i * 3 + 1] = rand() * 2; pts[i * 3 + 2] = 1 + rand() * 2; }
-    mistGeo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
-    const mistMat = this.track(new THREE.PointsMaterial({ color: this.theme.waterFoam, size: 0.9, transparent: true, opacity: 0.5, depthWrite: false }));
-    group.add(new THREE.Points(mistGeo, mistMat));
-
-    this.surface.add(group);
-  }
-
-  /** Redraw the waterfall streaks scrolled by `t`, for the falling illusion. */
-  private paintWaterfall(t: number) {
-    const canvas = this.waterfallTex?.image as HTMLCanvasElement | undefined;
-    const ctx = canvas?.getContext('2d');
-    if (!ctx || !canvas) return;
-    ctx.clearRect(0, 0, 32, 64);
-    ctx.fillStyle = this.theme.water;
-    ctx.globalAlpha = 0.7; ctx.fillRect(0, 0, 32, 64); ctx.globalAlpha = 1;
-    ctx.fillStyle = this.theme.waterFoam;
-    for (let i = 0; i < 8; i += 1) {
-      const x = (i * 4 + 1) % 32;
-      const y = (i * 13 + t * 90) % 64;
-      ctx.fillRect(x, y, 2, 10);
-      ctx.fillRect((x + 2) % 32, (y + 32) % 64, 2, 8);
-    }
-    if (this.waterfallTex) this.waterfallTex.needsUpdate = true;
-  }
-
-  /** A mossy mound with a dark doorway you can walk into. */
-  private buildCaveEntrance(rand: () => number) {
-    const a = rand() * Math.PI * 2 + 2;
-    const x = Math.cos(a) * (WORLD_RADIUS - 18), z = Math.sin(a) * (WORLD_RADIUS - 18);
-    this.caveEntry.set(x, 0, z);
-    const group = new THREE.Group();
-    group.position.set(x, 0, z);
-    group.lookAt(0, 0, 0);
-
-    const rockMat = this.track(new THREE.MeshLambertMaterial({ color: this.theme.rock }));
-    const moundGeo = this.track(new THREE.SphereGeometry(5, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2));
-    const mound = new THREE.Mesh(moundGeo, rockMat);
-    group.add(mound);
-
-    const archGeo = this.track(new THREE.CircleGeometry(1.7, 20, 0, Math.PI));
-    const archMat = this.track(new THREE.MeshBasicMaterial({ color: '#050608' }));
-    const arch = new THREE.Mesh(archGeo, archMat);
-    arch.position.set(0, 0.05, 4.4);
-    group.add(arch);
-
-    // A glowing rune over the door so it's easy to spot.
-    const glow = this.track(new THREE.PointLight(this.theme.caveGlow, 3, 12, 2));
-    glow.position.set(0, 3, 4);
-    group.add(glow);
-    group.add(this.emojiSprite('💎', 1.6, 0, 3.4, 4.6));
-
-    this.surface.add(group);
-  }
-
-  private buildSparkles() {
-    const geo = this.track(new THREE.BufferGeometry());
-    const n = 220;
-    const pts = new Float32Array(n * 3);
-    const rand = mulberry32(this.options.islandId * 13 + 1);
-    for (let i = 0; i < n; i += 1) {
-      const a = rand() * Math.PI * 2, r = rand() * WORLD_RADIUS;
-      pts[i * 3] = Math.cos(a) * r;
-      pts[i * 3 + 1] = 0.6 + rand() * 7;
-      pts[i * 3 + 2] = Math.sin(a) * r;
-    }
-    geo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
-    const mat = this.track(new THREE.PointsMaterial({ color: this.theme.glow, size: 0.5, transparent: true, opacity: 0.85, depthWrite: false }));
-    this.sparkles = new THREE.Points(geo, mat);
-    this.surface.add(this.sparkles);
-  }
-
-  /** An emoji drawn onto a canvas sprite — cute, cheap, always faces you. */
-  private emojiSprite(emoji: string, scale: number, x = 0, y = 0, z = 0) {
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 64;
+    canvas.width = canvas.height = 16;
     const ctx = canvas.getContext('2d');
-    if (ctx) { ctx.font = '52px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(emoji, 32, 36); }
+    if (ctx) {
+      ctx.fillStyle = this.theme.ground; ctx.fillRect(0, 0, 16, 16);
+      ctx.fillStyle = this.theme.groundDark;
+      [[2, 3], [7, 1], [12, 5], [4, 9], [10, 11], [14, 13], [1, 14], [8, 6], [5, 5]].forEach(([x, y]) => ctx.fillRect(x, y, 1, 1));
+    }
     const tex = this.track(new THREE.CanvasTexture(canvas));
-    const mat = this.track(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    tex.magFilter = THREE.NearestFilter; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(120, 120);
+    const geo = this.track(new THREE.PlaneGeometry(480, 480));
+    const mat = this.track(new THREE.MeshLambertMaterial({ map: tex }));
+    this.ground = new THREE.Mesh(geo, mat);
+    this.ground.rotation.x = -Math.PI / 2;
+    this.surface.add(this.ground);
+  }
+
+  private buildSharedParts() {
+    const t = this.theme;
+    this.shared = {
+      trunk: this.track(new THREE.MeshLambertMaterial({ color: t.trunk })),
+      leaf1: this.track(new THREE.MeshLambertMaterial({ color: t.foliage1 })),
+      leaf2: this.track(new THREE.MeshLambertMaterial({ color: t.foliage2 })),
+      cap: this.track(new THREE.MeshLambertMaterial({ color: t.glow })),
+      crystal: this.track(new THREE.MeshStandardMaterial({ color: t.caveGlow, emissive: t.caveGlow, emissiveIntensity: 0.7, roughness: 0.3 })),
+      rock: this.track(new THREE.MeshLambertMaterial({ color: t.rock })),
+      trunkGeo: this.track(new THREE.CylinderGeometry(0.28, 0.42, 2.4, 6)),
+      coneGeo: this.track(new THREE.ConeGeometry(1.8, 2.6, 7)),
+      ballGeo: this.track(new THREE.SphereGeometry(1.4, 8, 6)),
+      crystalGeo: this.track(new THREE.OctahedronGeometry(1)),
+      rockGeo: this.track(new THREE.DodecahedronGeometry(0.9)),
+      frondGeo: this.track(new THREE.ConeGeometry(0.5, 2.4, 5)),
+    };
+    this.pitGeo = this.track(new THREE.BoxGeometry(0.95, 1, 0.95));
+    this.pitMat = this.track(new THREE.MeshLambertMaterial({ color: this.theme.dirt }));
+  }
+  private pitGeo!: THREE.BufferGeometry;
+  private pitMat!: THREE.Material;
+
+  /** A themed tree — every biome has its own signature shape. */
+  private buildTree(style: TreeStyle, rand: () => number): THREE.Group {
+    const s = this.shared;
+    const g = new THREE.Group();
+    const trunk = () => { const m = new THREE.Mesh(s.trunkGeo, s.trunk); m.position.y = 1.2; g.add(m); };
+    if (style === 'round') {
+      trunk();
+      const a = new THREE.Mesh(s.ballGeo, s.leaf1); a.position.y = 3; g.add(a);
+      const b = new THREE.Mesh(s.ballGeo, s.leaf2); b.position.y = 4.1; b.scale.setScalar(0.75); g.add(b);
+    } else if (style === 'pine') {
+      trunk();
+      for (let i = 0; i < 3; i += 1) { const c = new THREE.Mesh(s.coneGeo, s.leaf1); c.position.y = 2.6 + i * 1.1; c.scale.setScalar(1 - i * 0.24); g.add(c); }
+    } else if (style === 'willow') {
+      trunk();
+      const cap = new THREE.Mesh(s.ballGeo, s.leaf2); cap.position.y = 3.4; cap.scale.set(1.6, 1.1, 1.6); g.add(cap);
+      for (let i = 0; i < 5; i += 1) { const d = new THREE.Mesh(s.ballGeo, s.leaf1); const a = (i / 5) * Math.PI * 2; d.position.set(Math.cos(a) * 1.6, 2.2, Math.sin(a) * 1.6); d.scale.set(0.3, 0.9, 0.3); g.add(d); }
+    } else if (style === 'mushroom') {
+      const stalk = new THREE.Mesh(s.trunkGeo, s.leaf2); stalk.scale.set(1.1, 1.1, 1.1); stalk.position.y = 1.3; g.add(stalk);
+      const cap = new THREE.Mesh(s.ballGeo, s.cap); cap.position.y = 3; cap.scale.set(1.5, 0.9, 1.5); g.add(cap);
+    } else if (style === 'crystal') {
+      for (let i = 0; i < 3; i += 1) { const c = new THREE.Mesh(s.crystalGeo, s.crystal); c.position.set((rand() - 0.5) * 1.2, 0.8 + i * 1.1, (rand() - 0.5) * 1.2); c.scale.setScalar(1 - i * 0.22); g.add(c); }
+    } else { // palm
+      const st = new THREE.Mesh(s.trunkGeo, s.trunk); st.scale.set(0.7, 1.7, 0.7); st.position.y = 2; st.rotation.z = 0.12; g.add(st);
+      for (let i = 0; i < 6; i += 1) { const f = new THREE.Mesh(s.frondGeo, s.leaf1); const a = (i / 6) * Math.PI * 2; f.position.set(Math.cos(a) * 0.9, 4.2, Math.sin(a) * 0.9); f.rotation.z = Math.cos(a) * 0.9; f.rotation.x = Math.sin(a) * 0.9; g.add(f); }
+    }
+    return g;
+  }
+
+  // One shared material per emoji, so thousands of streamed plants/stars don't
+  // each allocate a texture. Sprites carry their own scale/position/visibility.
+  private emojiMats = new Map<string, THREE.SpriteMaterial>();
+  private emojiSprite(emoji: string, scale: number, x = 0, y = 0, z = 0) {
+    let mat = this.emojiMats.get(emoji);
+    if (!mat) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      if (ctx) { ctx.font = '52px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(emoji, 32, 36); }
+      mat = this.track(new THREE.SpriteMaterial({ map: this.track(new THREE.CanvasTexture(canvas)), transparent: true, depthWrite: false }));
+      this.emojiMats.set(emoji, mat);
+    }
     const sprite = new THREE.Sprite(mat);
     sprite.scale.setScalar(scale);
     sprite.position.set(x, y, z);
     return sprite;
   }
 
-  private scatterPickups(rand: () => number, emoji: string, count: number, scale: number, y: number, into: THREE.Group): Pickup[] {
-    const out: Pickup[] = [];
-    for (let i = 0; i < count; i += 1) {
-      const a = rand() * Math.PI * 2, r = 5 + rand() * (WORLD_RADIUS - 6);
-      const x = Math.cos(a) * r, z = Math.sin(a) * r;
-      const sprite = this.emojiSprite(emoji, scale, x, y, z);
-      into.add(sprite);
-      out.push({ sprite, base: y, seed: rand() * 6.28, taken: false });
+  // ---- endless chunk streaming ------------------------------------------
+
+  private chunkKey(cx: number, cz: number) { return `${cx},${cz}`; }
+
+  /** Build all the trees, plants and pickups for one chunk of the world. */
+  private makeChunk(cx: number, cz: number): Chunk {
+    const rand = mulberry32((this.options.islandId * 92821) ^ (cx * 40503) ^ (cz * 12569) ^ 0x9e37);
+    const group = new THREE.Group();
+    const pickups: Pickup[] = [];
+    const ox = cx * CHUNK, oz = cz * CHUNK;
+    const clearSpawn = cx === 0 && cz === 0;      // keep the drop-in point open
+
+    const trees = 3 + Math.floor(rand() * 4);
+    for (let i = 0; i < trees; i += 1) {
+      const x = ox + rand() * CHUNK, z = oz + rand() * CHUNK;
+      if (clearSpawn && Math.hypot(x, z - 12) < 6) continue;
+      const tree = this.buildTree(this.theme.treeStyle, rand);
+      tree.position.set(x, 0, z);
+      tree.scale.setScalar(0.7 + rand() * 0.7);
+      tree.rotation.y = rand() * Math.PI;
+      group.add(tree);
     }
-    return out;
+    for (let i = 0; i < 2; i += 1) {
+      const rock = new THREE.Mesh(this.shared.rockGeo, this.shared.rock);
+      rock.position.set(ox + rand() * CHUNK, 0.3, oz + rand() * CHUNK);
+      rock.scale.setScalar(0.5 + rand() * 0.9);
+      group.add(rock);
+    }
+    for (let i = 0; i < 6; i += 1) {
+      group.add(this.emojiSprite(this.theme.flower, 0.7, ox + rand() * CHUNK, 0.4, oz + rand() * CHUNK));
+    }
+    // Loose stars + themed trinkets — the endless supply you explore for.
+    const spawnPickup = (emoji: string, value: number, y: number, scale: number, tag: string) => {
+      const x = ox + rand() * CHUNK, z = oz + rand() * CHUNK;
+      const id = `${cx},${cz},${tag}`;
+      if (this.takenIds.has(id)) return;
+      const obj = this.emojiSprite(emoji, scale, x, y, z);
+      group.add(obj);
+      pickups.push({ obj, base: y, seed: rand() * 6.28, taken: false, value });
+      obj.userData.pickupId = id;
+    };
+    for (let i = 0; i < 3; i += 1) spawnPickup('⭐', STAR_VALUE, 1.3, 1.2, `s${i}`);
+    for (let i = 0; i < 2; i += 1) spawnPickup(this.theme.trinket, TRINKET_VALUE, 0.9, 1.0, `t${i}`);
+
+    return { group, pickups };
   }
 
-  private buildPickups(rand: () => number) {
-    this.stars = this.scatterPickups(rand, '⭐', 26, 1.3, 1.4, this.surface);
-    this.trinkets = this.scatterPickups(rand, this.theme.trinket, 18, 1.1, 0.9, this.surface);
+  /** Load chunks near the player, drop the far ones — an endless world. */
+  private updateChunks() {
+    if (this.underground) return;
+    const pcx = Math.floor(this.position.x / CHUNK), pcz = Math.floor(this.position.z / CHUNK);
+    const want = new Set<string>();
+    for (let dx = -LOAD_RADIUS; dx <= LOAD_RADIUS; dx += 1) for (let dz = -LOAD_RADIUS; dz <= LOAD_RADIUS; dz += 1) {
+      const cx = pcx + dx, cz = pcz + dz, key = this.chunkKey(cx, cz);
+      want.add(key);
+      if (!this.chunks.has(key)) {
+        const chunk = this.makeChunk(cx, cz);
+        this.chunkGroup.add(chunk.group);
+        this.chunks.set(key, chunk);
+        this.stars.push(...chunk.pickups.filter((p) => p.value !== GEM_VALUE));
+      }
+    }
+    this.chunks.forEach((chunk, key) => {
+      if (want.has(key)) return;
+      this.chunkGroup.remove(chunk.group);
+      this.stars = this.stars.filter((p) => !chunk.pickups.includes(p));
+      this.chunks.delete(key);
+    });
   }
 
-  /** The underground crystal cave — a dark ring of rock with glowing gems. */
+  // ---- waterfall / cave / sparkles --------------------------------------
+
+  private buildWaterfall() {
+    const group = new THREE.Group();
+    group.position.copy(this.waterfallAt);
+    group.lookAt(this.waterfallAt.x - 1, 0, this.waterfallAt.z - 1);
+    for (let i = 0; i < 5; i += 1) {
+      const geo = this.track(new THREE.BoxGeometry(4 - i * 0.4, 2.4, 3));
+      const rock = new THREE.Mesh(geo, this.shared.rock);
+      rock.position.set((i % 2 - 0.5) * 1.2, 1.2 + i * 2.1, -1 - i * 0.5);
+      group.add(rock);
+    }
+    const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 64;
+    this.waterfallTex = this.track(new THREE.CanvasTexture(canvas));
+    this.paintWaterfall(0);
+    this.waterfallTex.wrapS = this.waterfallTex.wrapT = THREE.RepeatWrapping;
+    const fall = new THREE.Mesh(this.track(new THREE.PlaneGeometry(3.2, 11)), this.track(new THREE.MeshBasicMaterial({ map: this.waterfallTex, transparent: true, opacity: 0.9, depthWrite: false })));
+    fall.position.set(0, 5.6, 0.7); group.add(fall);
+    const pool = new THREE.Mesh(this.track(new THREE.CircleGeometry(4, 20)), this.track(new THREE.MeshLambertMaterial({ color: this.theme.water, transparent: true, opacity: 0.85 })));
+    pool.rotation.x = -Math.PI / 2; pool.position.set(0, 0.06, 2); group.add(pool);
+    this.surface.add(group);
+  }
+
+  private paintWaterfall(t: number) {
+    const canvas = this.waterfallTex?.image as HTMLCanvasElement | undefined;
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = this.theme.water; ctx.globalAlpha = 0.7; ctx.fillRect(0, 0, 32, 64); ctx.globalAlpha = 1;
+    ctx.fillStyle = this.theme.waterFoam;
+    for (let i = 0; i < 8; i += 1) {
+      const x = (i * 4 + 1) % 32; const y = (i * 13 + t * 90) % 64;
+      ctx.fillRect(x, y, 2, 10); ctx.fillRect((x + 2) % 32, (y + 32) % 64, 2, 8);
+    }
+    if (this.waterfallTex) this.waterfallTex.needsUpdate = true;
+  }
+
+  private buildCaveEntranceMound() {
+    const group = new THREE.Group();
+    group.position.copy(this.caveEntry);
+    group.lookAt(0, 0, 0);
+    const mound = new THREE.Mesh(this.track(new THREE.SphereGeometry(5, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2)), this.shared.rock);
+    group.add(mound);
+    const arch = new THREE.Mesh(this.track(new THREE.CircleGeometry(1.7, 20, 0, Math.PI)), this.track(new THREE.MeshBasicMaterial({ color: '#050608' })));
+    arch.position.set(0, 0.05, 4.4); group.add(arch);
+    const glow = this.track(new THREE.PointLight(this.theme.caveGlow, 3, 12, 2)); glow.position.set(0, 3, 4); group.add(glow);
+    group.add(this.emojiSprite('💎', 1.5, 0, 3.4, 4.6));
+    this.surface.add(group);
+  }
+
+  private buildSparkles() {
+    const geo = this.track(new THREE.BufferGeometry());
+    const n = 260; const pts = new Float32Array(n * 3);
+    const rand = mulberry32(this.options.islandId * 13 + 1);
+    for (let i = 0; i < n; i += 1) { const a = rand() * Math.PI * 2, r = rand() * 90; pts[i * 3] = Math.cos(a) * r; pts[i * 3 + 1] = 0.6 + rand() * 9; pts[i * 3 + 2] = Math.sin(a) * r; }
+    geo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+    const mat = this.track(new THREE.PointsMaterial({ color: this.theme.glow, size: 0.5, transparent: true, opacity: 0.85, depthWrite: false }));
+    this.sparkles = new THREE.Points(geo, mat);
+    this.sparkles.userData.follow = true;
+    this.surface.add(this.sparkles);
+  }
+
   private buildCave() {
     const rand = mulberry32(this.options.islandId * 733 + 3);
-    const floorGeo = this.track(new THREE.CircleGeometry(CAVE_RADIUS + 2, 32));
-    const floorMat = this.track(new THREE.MeshLambertMaterial({ color: this.theme.caveWall }));
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    this.cave.add(floor);
-
-    const wallGeo = this.track(new THREE.CylinderGeometry(CAVE_RADIUS + 2, CAVE_RADIUS + 2, 12, 32, 1, true));
+    const floor = new THREE.Mesh(this.track(new THREE.CircleGeometry(CAVE_RADIUS + 2, 32)), this.track(new THREE.MeshLambertMaterial({ color: this.theme.caveWall })));
+    floor.rotation.x = -Math.PI / 2; this.cave.add(floor);
     const wallMat = this.track(new THREE.MeshLambertMaterial({ color: this.theme.caveWall, side: THREE.BackSide }));
-    const wall = new THREE.Mesh(wallGeo, wallMat);
-    wall.position.y = 6;
-    this.cave.add(wall);
-
-    const roofGeo = this.track(new THREE.CircleGeometry(CAVE_RADIUS + 2, 32));
-    const roof = new THREE.Mesh(roofGeo, wallMat);
-    roof.rotation.x = Math.PI / 2; roof.position.y = 12;
-    this.cave.add(roof);
-
-    // Ambient cave light + a soft central glow.
-    this.cave.add(new THREE.AmbientLight(this.theme.caveGlow, 0.45));
-    const core = this.track(new THREE.PointLight(this.theme.caveGlow, 2.4, 40, 2));
-    core.position.set(0, 6, 0);
-    this.cave.add(core);
-
-    // Stalagmites.
-    const spikeMat = this.track(new THREE.MeshLambertMaterial({ color: this.theme.rock }));
+    const wall = new THREE.Mesh(this.track(new THREE.CylinderGeometry(CAVE_RADIUS + 2, CAVE_RADIUS + 2, 12, 32, 1, true)), wallMat);
+    wall.position.y = 6; this.cave.add(wall);
+    const roof = new THREE.Mesh(this.track(new THREE.CircleGeometry(CAVE_RADIUS + 2, 32)), wallMat);
+    roof.rotation.x = Math.PI / 2; roof.position.y = 12; this.cave.add(roof);
+    this.cave.add(new THREE.AmbientLight(this.theme.caveGlow, 0.5));
+    const core = this.track(new THREE.PointLight(this.theme.caveGlow, 2.4, 40, 2)); core.position.set(0, 6, 0); this.cave.add(core);
+    const spikeMat = this.shared.rock;
     for (let i = 0; i < 16; i += 1) {
-      const a = rand() * Math.PI * 2, r = 4 + rand() * (CAVE_RADIUS - 3);
-      const h = 1 + rand() * 3;
-      const geo = this.track(new THREE.ConeGeometry(0.6 + rand() * 0.5, h, 6));
-      const spike = new THREE.Mesh(geo, spikeMat);
-      spike.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
-      this.cave.add(spike);
+      const a = rand() * Math.PI * 2, r = 4 + rand() * (CAVE_RADIUS - 3), h = 1 + rand() * 3;
+      const spike = new THREE.Mesh(this.track(new THREE.ConeGeometry(0.6 + rand() * 0.5, h, 6)), spikeMat);
+      spike.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r); this.cave.add(spike);
     }
-
-    // Glowing crystals to mine — the cave collectible.
     const crystalGeo = this.track(new THREE.OctahedronGeometry(0.55));
     for (let i = 0; i < 14; i += 1) {
       const a = rand() * Math.PI * 2, r = 3 + rand() * (CAVE_RADIUS - 4);
-      const x = Math.cos(a) * r, z = Math.sin(a) * r;
       const mat = this.track(new THREE.MeshStandardMaterial({ color: this.theme.caveGlow, emissive: this.theme.caveGlow, emissiveIntensity: 0.9, roughness: 0.3 }));
       const crystal = new THREE.Mesh(crystalGeo, mat);
-      crystal.position.set(x, 0.7, z);
+      crystal.position.set(Math.cos(a) * r, 0.7, Math.sin(a) * r);
       this.cave.add(crystal);
-      // A crystal Mesh stands in for the Pickup's sprite — both expose the
-      // position / visible / rotation the collect + animate helpers touch.
-      this.gems.push({ sprite: crystal as unknown as THREE.Sprite, base: 0.7, seed: rand() * 6.28, taken: false });
+      this.gems.push({ obj: crystal, base: 0.7, seed: rand() * 6.28, taken: false, value: GEM_VALUE });
     }
-
-    // The way back up.
-    this.caveExit.set(0, 0, CAVE_RADIUS - 2);
-    const portal = this.emojiSprite('🪜', 2, 0, 1.6, CAVE_RADIUS - 2);
-    this.cave.add(portal);
-    const exitGlow = this.track(new THREE.PointLight('#fff0c0', 2, 12, 2));
-    exitGlow.position.set(0, 2, CAVE_RADIUS - 2);
-    this.cave.add(exitGlow);
+    this.cave.add(this.emojiSprite('🪜', 2, 0, 1.6, CAVE_RADIUS - 2));
+    const exitGlow = this.track(new THREE.PointLight('#fff0c0', 2, 12, 2)); exitGlow.position.set(0, 2, CAVE_RADIUS - 2); this.cave.add(exitGlow);
   }
 
-  private buildPlayer(asset: string) {
-    const loader = new THREE.TextureLoader();
-    const tex = loader.load(asset);
-    tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.LinearFilter;
-    const mat = this.track(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-    const sprite = new THREE.Sprite(mat);
-    sprite.scale.set(2.1, 2.1, 1);
-    sprite.position.y = 1.15;
-    this.player.add(sprite);
+  // ---- animated 3-D character -------------------------------------------
 
-    // A soft shadow blob so the character sits on the ground.
-    const shadowGeo = this.track(new THREE.CircleGeometry(0.8, 16));
-    const shadowMat = this.track(new THREE.MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.22, depthWrite: false }));
-    const shadow = new THREE.Mesh(shadowGeo, shadowMat);
-    shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.05;
-    this.player.add(shadow);
+  private limb(w: number, h: number, d: number, mat: THREE.Material, px: number, py: number): THREE.Group {
+    const pivot = new THREE.Group();
+    pivot.position.set(px, py, 0);
+    const mesh = new THREE.Mesh(this.track(new THREE.BoxGeometry(w, h, d)), mat);
+    mesh.position.y = -h / 2;   // hang below the pivot so it swings from the top
+    pivot.add(mesh);
+    return pivot;
+  }
+
+  private buildAvatar(asset: string) {
+    const hue = hashHue(asset);
+    const body = this.track(new THREE.MeshLambertMaterial({ color: `hsl(${hue},55%,60%)` }));
+    const tex = new THREE.TextureLoader().load(asset);
+    tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.LinearFilter;
+    const faceMat = this.track(new THREE.MeshLambertMaterial({ map: tex, transparent: true }));
+    const sideMat = this.track(new THREE.MeshLambertMaterial({ color: `hsl(${hue},45%,72%)` }));
+
+    const torso = new THREE.Mesh(this.track(new THREE.BoxGeometry(0.9, 1, 0.5)), body);
+    torso.position.y = 1.15; this.avatar.add(torso);
+
+    // Head: the character's art on the front & back faces so you always see them.
+    const headGeo = this.track(new THREE.BoxGeometry(0.85, 0.85, 0.85));
+    const head = new THREE.Mesh(headGeo, [sideMat, sideMat, sideMat, sideMat, faceMat, faceMat]);
+    head.position.y = 2.05; this.avatar.add(head);
+
+    const legL = this.limb(0.28, 0.9, 0.28, body, -0.22, 0.9);
+    const legR = this.limb(0.28, 0.9, 0.28, body, 0.22, 0.9);
+    const armL = this.limb(0.22, 0.85, 0.22, body, -0.62, 1.55);
+    const armR = this.limb(0.22, 0.85, 0.22, body, 0.62, 1.55);
+    this.avatar.add(legL, legR, armL, armR);
+    this.limbs = { legL, legR, armL, armR };
+
+    const shadow = new THREE.Mesh(this.track(new THREE.CircleGeometry(0.8, 16)), this.track(new THREE.MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.22, depthWrite: false })));
+    shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.03; this.avatar.add(shadow);
   }
 
   // ---- live players ------------------------------------------------------
 
   private nameSprite(text: string, hue: number) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256; canvas.height = 64;
+    const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 64;
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.fillStyle = '#101018e0'; ctx.fillRect(0, 0, 256, 64);
@@ -472,9 +497,7 @@ export class IslandWorldEngine {
       ctx.fillStyle = '#fff'; ctx.fillText(text.slice(0, 16), 128, 34);
     }
     const mat = this.track(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false, transparent: true }));
-    const sprite = new THREE.Sprite(mat);
-    sprite.scale.set(3, 0.75, 1); sprite.position.y = 3;
-    return sprite;
+    const sprite = new THREE.Sprite(mat); sprite.scale.set(3, 0.75, 1); sprite.position.y = 3; return sprite;
   }
 
   private buildLiveFigure(id: string, name: string): THREE.Group {
@@ -482,75 +505,16 @@ export class IslandWorldEngine {
     const group = new THREE.Group();
     const body = this.track(new THREE.MeshStandardMaterial({ color: `hsl(${hue},62%,58%)`, emissive: `hsl(${hue},60%,25%)`, emissiveIntensity: 0.5, roughness: 0.6 }));
     const skin = this.track(new THREE.MeshLambertMaterial({ color: '#e7c8b0' }));
-    const torsoGeo = this.track(new THREE.BoxGeometry(0.6, 1, 0.35));
-    const headGeo = this.track(new THREE.BoxGeometry(0.55, 0.55, 0.55));
-    const limbGeo = this.track(new THREE.BoxGeometry(0.16, 0.6, 0.16));
-    const torso = new THREE.Mesh(torsoGeo, body); torso.position.y = 1.1;
-    const head = new THREE.Mesh(headGeo, skin); head.position.y = 1.9;
+    const torso = new THREE.Mesh(this.track(new THREE.BoxGeometry(0.6, 1, 0.35)), body); torso.position.y = 1.1;
+    const head = new THREE.Mesh(this.track(new THREE.BoxGeometry(0.55, 0.55, 0.55)), skin); head.position.y = 1.9;
     group.add(torso, head);
-    [[-0.38, 1.1], [0.38, 1.1], [-0.16, 0.35], [0.16, 0.35]].forEach(([x, y]) => {
-      const limb = new THREE.Mesh(limbGeo, body); limb.position.set(x, y, 0); group.add(limb);
-    });
+    [[-0.38, 1.1], [0.38, 1.1], [-0.16, 0.35], [0.16, 0.35]].forEach(([x, y]) => { const l = new THREE.Mesh(this.track(new THREE.BoxGeometry(0.16, 0.6, 0.16)), body); l.position.set(x, y, 0); group.add(l); });
     group.add(this.nameSprite(`@${name}`, hue));
     return group;
   }
 
-  getSelfState() {
-    return { x: this.position.x, z: this.position.z, yaw: this.yaw, level: this.options.islandId };
-  }
+  getSelfState() { return { x: this.position.x, z: this.position.z, yaw: this.yaw, level: this.options.islandId }; }
 
-  /** The nearest thing worth collecting right now (stars above, gems below). */
-  private nearestPickup(): THREE.Object3D | null {
-    const list = this.underground ? this.gems : this.stars;
-    let best: THREE.Object3D | null = null; let bestD = Infinity;
-    for (const item of list) {
-      if (item.taken) continue;
-      const o = item.sprite as unknown as THREE.Object3D;
-      const d = Math.hypot(o.position.x - this.position.x, o.position.z - this.position.z);
-      if (d < bestD) { bestD = d; best = o; }
-    }
-    return best;
-  }
-
-  /** Hint Potion: shine a bright beacon over the nearest star for a few seconds. */
-  showHint() {
-    const target = this.nearestPickup();
-    if (!target) return;
-    if (!this.beacon) {
-      const geo = this.track(new THREE.CylinderGeometry(0.5, 0.5, 20, 8, 1, true));
-      const mat = this.track(new THREE.MeshBasicMaterial({ color: this.theme.glow, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false, fog: false }));
-      this.beacon = new THREE.Mesh(geo, mat);
-      this.scene.add(this.beacon);
-    }
-    this.beacon.position.set(target.position.x, 10, target.position.z);
-    this.beacon.visible = true;
-    this.hintUntil = this.time + 7;
-  }
-
-  /** Bubble Potion: a protective bubble around you for `sec` seconds. */
-  activateBubble(sec = 20) {
-    if (!this.bubbleMesh) {
-      const geo = this.track(new THREE.SphereGeometry(1.7, 16, 12));
-      const mat = this.track(new THREE.MeshBasicMaterial({ color: '#9fe0ff', transparent: true, opacity: 0.24, depthWrite: false }));
-      this.bubbleMesh = new THREE.Mesh(geo, mat);
-      this.bubbleMesh.position.y = 1.1;
-      this.player.add(this.bubbleMesh);
-    }
-    this.bubbleMesh.visible = true;
-    this.bubbleUntil = this.time + sec;
-  }
-
-  /** Star Sword: draw a glowing blade and move faster for `sec` seconds. */
-  equipWeapon(sec = 20) {
-    if (!this.weaponSprite) {
-      this.weaponSprite = this.emojiSprite('⚔️', 1.3, 0.95, 1.15, 0);
-      this.player.add(this.weaponSprite);
-    }
-    this.weaponSprite.visible = true;
-    this.weaponUntil = this.time + sec;
-  }
-
-  /** Draw the real players where they say they are (only on this island). */
   setLivePlayers(players: Array<{ id: string; name: string; x: number; z: number; yaw: number; level: number }>) {
     const here = new Set<string>();
     players.forEach((p) => {
@@ -563,23 +527,19 @@ export class IslandWorldEngine {
         live = { group, pos: new THREE.Vector3(p.x, 0, p.z), target: new THREE.Vector3(p.x, 0, p.z), yaw: p.yaw, targetYaw: p.yaw };
         this.livePlayers.set(p.id, live);
       }
-      live.target.set(p.x, 0, p.z);
-      live.targetYaw = p.yaw;
+      live.target.set(p.x, 0, p.z); live.targetYaw = p.yaw;
     });
-    this.livePlayers.forEach((live, id) => {
-      if (here.has(id)) return;
-      this.liveGroup.remove(live.group);
-      this.livePlayers.delete(id);
-    });
+    this.livePlayers.forEach((live, id) => { if (here.has(id)) return; this.liveGroup.remove(live.group); this.livePlayers.delete(id); });
   }
 
   // ---- input & actions ---------------------------------------------------
 
   private onKeyDown = (event: KeyboardEvent) => {
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) event.preventDefault();
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyF'].includes(event.code)) event.preventDefault();
     if (this.keys.has(event.code)) return;
     this.keys.add(event.code);
     if (event.code === 'Space') this.useSpace();
+    if (event.code === 'KeyF') this.dig();
   };
   private onKeyUp = (event: KeyboardEvent) => this.keys.delete(event.code);
 
@@ -588,29 +548,56 @@ export class IslandWorldEngine {
     if (this.underground && new THREE.Vector3(this.position.x, 0, this.position.z).distanceTo(this.caveExit) < 3) this.exitCave();
   }
 
-  private enterCave() {
-    this.underground = true;
-    this.visitedCave = true;
-    this.surface.visible = false;
-    this.liveGroup.visible = false;
-    this.cave.visible = true;
-    this.scene.background = new THREE.Color(this.theme.caveWall);
-    this.scene.fog = new THREE.Fog(this.theme.caveWall, 8, 34);
-    this.position.set(0, 0, CAVE_RADIUS - 4);
-    this.yaw = 0;
+  private cellKey(x: number, z: number) { return `${Math.round(x)},${Math.round(z)}`; }
+
+  /** Dig the square of earth in front of you — Minecraft-style. Sometimes there's
+   *  buried treasure. Returns whether a block was dug (for the page's feedback). */
+  dig(): { dug: boolean; treasure: boolean } {
+    if (this.underground) return { dug: false, treasure: false };
+    const fx = this.position.x - Math.sin(this.yaw) * 1.1;
+    const fz = this.position.z - Math.cos(this.yaw) * 1.1;
+    let cx = Math.round(fx), cz = Math.round(fz);
+    if (this.dugCells.has(this.cellKey(cx, cz))) { cx = Math.round(this.position.x); cz = Math.round(this.position.z); }
+    const key = this.cellKey(cx, cz);
+    if (this.dugCells.has(key)) return { dug: false, treasure: false };
+    this.dugCells.add(key);
+    this.dugCount += 1;
+
+    // The pit (shared geometry/material — cheap to make many).
+    const pit = new THREE.Mesh(this.pitGeo, this.pitMat);
+    pit.position.set(cx, -0.55, cz);
+    this.pitGroup.add(pit);
+    this.pits.push(pit);
+    if (this.pits.length > MAX_PITS) { const old = this.pits.shift(); if (old) this.pitGroup.remove(old); }
+
+    // Buried treasure — a gem or extra star every so often.
+    const lucky = ((cx * 73856093) ^ (cz * 19349663) ^ this.options.islandId) >>> 0;
+    const treasure = (lucky % 100) < 35;
+    if (treasure) {
+      const gem = (lucky % 3) === 0;
+      const obj = this.emojiSprite(gem ? '💎' : '⭐', gem ? 1.1 : 1.2, cx, 0.3, cz);
+      this.surface.add(obj);
+      this.stars.push({ obj, base: 0.9, seed: 0, taken: false, value: gem ? BURIED_VALUE : STAR_VALUE });
+      // pop it up out of the hole
+      obj.userData.rise = this.time + 0.4;
+    }
+    return { dug: true, treasure };
   }
 
+  private enterCave() {
+    this.underground = true; this.visitedCave = true;
+    this.surface.visible = false; this.liveGroup.visible = false; this.cave.visible = true;
+    this.scene.background = new THREE.Color(this.theme.caveWall);
+    this.scene.fog = new THREE.Fog(this.theme.caveWall, 8, 34);
+    this.position.set(0, 0, CAVE_RADIUS - 4); this.yaw = 0;
+  }
   private exitCave() {
-    this.underground = false;
-    this.cave.visible = false;
-    this.surface.visible = true;
-    this.liveGroup.visible = true;
+    this.underground = false; this.cave.visible = false; this.surface.visible = true; this.liveGroup.visible = true;
     this.applySurfaceSky();
-    this.position.copy(this.caveEntry).add(new THREE.Vector3(0, 0, 0));
-    // Step back out toward the island centre so you don't re-trigger the door.
-    const toCentre = new THREE.Vector3(-this.caveEntry.x, 0, -this.caveEntry.z).normalize().multiplyScalar(5);
-    this.position.add(toCentre);
+    this.position.copy(this.caveEntry);
+    this.position.add(new THREE.Vector3(-this.caveEntry.x, 0, -this.caveEntry.z).normalize().multiplyScalar(5));
     this.yaw = Math.atan2(-this.position.x, -this.position.z);
+    this.updateChunks();
   }
 
   // ---- per-frame ---------------------------------------------------------
@@ -627,38 +614,55 @@ export class IslandWorldEngine {
     if (fwd) move += 1;
     if (back) move -= 0.6;
     if (move !== 0) {
-      const speed = PLAYER_SPEED * (this.time < this.weaponUntil ? 1.5 : 1);   // sword speeds you up
+      const speed = PLAYER_SPEED * (this.time < this.weaponUntil ? 1.5 : 1);
       const nx = this.position.x - Math.sin(this.yaw) * speed * move * dt;
       const nz = this.position.z - Math.cos(this.yaw) * speed * move * dt;
-      const limit = this.underground ? CAVE_RADIUS - 1 : WORLD_RADIUS;
-      const d = Math.hypot(nx, nz);
-      if (d <= limit) { this.position.x = nx; this.position.z = nz; }
-      else { this.position.x = (nx / d) * limit; this.position.z = (nz / d) * limit; }
+      if (this.underground) {
+        const d = Math.hypot(nx, nz);
+        if (d <= CAVE_RADIUS - 1) { this.position.x = nx; this.position.z = nz; }
+      } else {
+        this.position.x = nx; this.position.z = nz;
+        this.explored = Math.max(this.explored, Math.round(Math.hypot(nx, nz)));
+      }
+      this.walkPhase += dt * 9 * Math.abs(move);
     }
-    this.player.position.set(this.position.x, 0, this.position.z);
+    // Place & face the avatar; animate the walk.
+    this.avatar.position.set(this.position.x, 0, this.position.z);
+    this.avatar.rotation.y = this.yaw + Math.PI;
+    if (this.limbs) {
+      const moving = move !== 0;
+      const swing = moving ? Math.sin(this.walkPhase) * 0.6 : this.limbs.legL.rotation.x * 0.8;
+      this.limbs.legL.rotation.x = swing;
+      this.limbs.legR.rotation.x = -swing;
+      this.limbs.armL.rotation.x = -swing;
+      this.limbs.armR.rotation.x = swing;
+      this.avatar.position.y = moving ? Math.abs(Math.sin(this.walkPhase)) * 0.12 : 0;   // a little bounce
+    }
   }
 
   private followCamera(dt: number) {
-    const target = new THREE.Vector3(
-      this.position.x + Math.sin(this.yaw) * CAM_BACK,
-      CAM_HEIGHT,
-      this.position.z + Math.cos(this.yaw) * CAM_BACK,
-    );
+    const target = new THREE.Vector3(this.position.x + Math.sin(this.yaw) * CAM_BACK, CAM_HEIGHT, this.position.z + Math.cos(this.yaw) * CAM_BACK);
     this.camera.position.lerp(target, Math.min(1, dt * 5));
     this.camera.lookAt(this.position.x, 1.2, this.position.z);
+    // Keep the endless bits centred on the player.
+    if (!this.underground) {
+      this.ground.position.set(this.position.x, 0, this.position.z);
+      const mat = this.ground.material as THREE.MeshLambertMaterial;
+      if (mat.map) mat.map.offset.set(this.position.x / 4, -this.position.z / 4);
+      if (this.skyDome) this.skyDome.position.set(this.position.x, 0, this.position.z);
+      if (this.sparkles) this.sparkles.position.set(this.position.x, 0, this.position.z);
+    }
   }
 
-  private collect(list: Pickup[], radius: number, value: number, onGot: () => void) {
+  private collect(list: Pickup[], radius: number, onGot: (value: number) => void) {
     for (const item of list) {
       if (item.taken) continue;
-      const obj = item.sprite;
-      const dx = obj.position.x - this.position.x;
-      const dz = obj.position.z - this.position.z;
+      const dx = item.obj.position.x - this.position.x, dz = item.obj.position.z - this.position.z;
       if (Math.hypot(dx, dz) < radius) {
-        item.taken = true;
-        obj.visible = false;
-        this.earned += value;
-        onGot();
+        item.taken = true; item.obj.visible = false;
+        this.earned += item.value; onGot(item.value);
+        const id = item.obj.userData.pickupId as string | undefined;
+        if (id) this.takenIds.add(id);
       }
     }
   }
@@ -666,32 +670,54 @@ export class IslandWorldEngine {
   private animatePickups(list: Pickup[], dt: number) {
     for (const item of list) {
       if (item.taken) continue;
-      item.sprite.position.y = item.base + Math.sin(this.time * 2 + item.seed) * 0.18;
-      // Spinning only matters for the 3-D crystals, but harmless on sprites.
-      (item.sprite as unknown as THREE.Object3D).rotation.y += dt * 1.5;
+      const rise = item.obj.userData.rise as number | undefined;
+      if (rise && this.time < rise) item.obj.position.y = 0.3 + (item.base - 0.3) * (1 - (rise - this.time) / 0.4);
+      else item.obj.position.y = item.base + Math.sin(this.time * 2 + item.seed) * 0.18;
+      item.obj.rotation.y += dt * 1.5;
     }
   }
 
   private moveLivePlayers(dt: number) {
-    this.livePlayers.forEach((live) => {
-      live.pos.lerp(live.target, Math.min(1, dt * 8));
-      live.group.position.copy(live.pos);
-      live.group.rotation.y = live.targetYaw;
-    });
+    this.livePlayers.forEach((live) => { live.pos.lerp(live.target, Math.min(1, dt * 8)); live.group.position.copy(live.pos); live.group.rotation.y = live.targetYaw; });
   }
 
   private computePrompt() {
     if (!this.underground && this.position.distanceTo(this.caveEntry) < 4) this.prompt = '🕳️ Press Space to enter the cave';
     else if (this.underground && new THREE.Vector3(this.position.x, 0, this.position.z).distanceTo(this.caveExit) < 3) this.prompt = '🪜 Press Space to climb back up';
-    else if (!this.underground && this.position.distanceTo(this.waterfallAt) < 7) this.prompt = '💧 A magical waterfall!';
-    else this.prompt = '';
-    if (!this.underground && this.position.distanceTo(this.waterfallAt) < 7) this.visitedWaterfall = true;
+    else if (!this.underground && this.position.distanceTo(this.waterfallAt) < 8) { this.prompt = '💧 A magical waterfall!'; this.visitedWaterfall = true; }
+    else this.prompt = this.underground ? '' : '⛏️ Press F (or Dig) to dig the ground';
+  }
+
+  showHint() {
+    const list = this.underground ? this.gems : this.stars;
+    let best: THREE.Object3D | null = null, bestD = Infinity;
+    for (const item of list) { if (item.taken) continue; const d = Math.hypot(item.obj.position.x - this.position.x, item.obj.position.z - this.position.z); if (d < bestD) { bestD = d; best = item.obj; } }
+    if (!best) return;
+    if (!this.beacon) {
+      const geo = this.track(new THREE.CylinderGeometry(0.5, 0.5, 20, 8, 1, true));
+      const mat = this.track(new THREE.MeshBasicMaterial({ color: this.theme.glow, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+      this.beacon = new THREE.Mesh(geo, mat); this.scene.add(this.beacon);
+    }
+    this.beacon.position.set(best.position.x, 10, best.position.z); this.beacon.visible = true; this.hintUntil = this.time + 7;
+  }
+
+  activateBubble(sec = 20) {
+    if (!this.bubbleMesh) {
+      this.bubbleMesh = new THREE.Mesh(this.track(new THREE.SphereGeometry(1.7, 16, 12)), this.track(new THREE.MeshBasicMaterial({ color: '#9fe0ff', transparent: true, opacity: 0.24, depthWrite: false })));
+      this.bubbleMesh.position.y = 1.1; this.avatar.add(this.bubbleMesh);
+    }
+    this.bubbleMesh.visible = true; this.bubbleUntil = this.time + sec;
+  }
+
+  equipWeapon(sec = 20) {
+    if (!this.weaponSprite) { this.weaponSprite = this.emojiSprite('⚔️', 1.3, 0.95, 1.15, 0); this.avatar.add(this.weaponSprite); }
+    this.weaponSprite.visible = true; this.weaponUntil = this.time + sec;
   }
 
   private emit() {
     this.options.onUpdate({
-      earned: this.earned,
-      stars: this.starCount, trinkets: this.trinketCount, gems: this.gemCount,
+      earned: this.earned, stars: this.starCount, trinkets: this.trinketCount, gems: this.gemCount,
+      dug: this.dugCount, explored: this.explored,
       underground: this.underground, visitedCave: this.visitedCave, visitedWaterfall: this.visitedWaterfall,
       livePlayers: this.livePlayers.size, prompt: this.prompt,
       bubbleLeft: Math.max(0, Math.ceil(this.bubbleUntil - this.time)),
@@ -700,7 +726,6 @@ export class IslandWorldEngine {
     });
   }
 
-  /** Expire the timed consumables and gently spin the hint beacon. */
   private tickConsumables(dt: number) {
     if (this.beacon) { if (this.time > this.hintUntil) this.beacon.visible = false; else this.beacon.rotation.y += dt; }
     if (this.bubbleMesh && this.time > this.bubbleUntil) this.bubbleMesh.visible = false;
@@ -710,9 +735,7 @@ export class IslandWorldEngine {
   resize() {
     const w = this.container.clientWidth, h = this.container.clientHeight;
     if (!w || !h) return;
-    this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(w, h);
+    this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); this.renderer.setSize(w, h);
   }
 
   dispose() {
@@ -720,10 +743,10 @@ export class IslandWorldEngine {
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
     this.disposables.forEach((d) => d.dispose());
-    this.renderer.dispose();
-    this.renderer.domElement.remove();
+    this.renderer.dispose(); this.renderer.domElement.remove();
   }
 
+  private lastChunkAt = new THREE.Vector3(999, 0, 999);
   private loop = () => {
     if (!this.running) return;
     const dt = Math.min(this.clock.getDelta(), 0.05);
@@ -735,13 +758,19 @@ export class IslandWorldEngine {
 
     if (this.underground) {
       this.animatePickups(this.gems, dt);
-      this.collect(this.gems, 1.5, GEM_VALUE, () => { this.gemCount += 1; });
+      this.collect(this.gems, 1.5, () => { this.gemCount += 1; });
     } else {
+      // Restream chunks only when you've actually moved to a new chunk.
+      if (Math.abs(this.position.x - this.lastChunkAt.x) > 4 || Math.abs(this.position.z - this.lastChunkAt.z) > 4) {
+        this.lastChunkAt.copy(this.position); this.updateChunks();
+      }
       this.animatePickups(this.stars, dt);
-      this.animatePickups(this.trinkets, dt);
-      this.collect(this.stars, 1.5, STAR_VALUE, () => { this.starCount += 1; });
-      this.collect(this.trinkets, 1.5, TRINKET_VALUE, () => { this.trinketCount += 1; });
-      if (this.sparkles) this.sparkles.rotation.y += dt * 0.05;
+      // Stars, trinkets and buried treasure all ride in one list — tell them apart by value.
+      this.collect(this.stars, 1.5, (v) => {
+        if (v === TRINKET_VALUE) this.trinketCount += 1;
+        else if (v === BURIED_VALUE) this.gemCount += 1;
+        else this.starCount += 1;
+      });
       this.paintWaterfall(this.time);
     }
 
