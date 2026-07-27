@@ -32,7 +32,7 @@ import { emptyWorld } from '../game/voxel';
 import { currentSeason } from '../game/terrain';
 import { islands } from '../game/islands';
 import { getStars } from '../lib/escapeStars';
-import { grantWelcomeKit, awardSeasonalCupIfTop } from '../lib/rewards';
+import { awardSeasonalCupIfTop } from '../lib/rewards';
 import { loadMyHouse, saveMyHouse } from '../lib/houses';
 import { HouseMarketPage } from './HouseMarketPage';
 // three.js is only needed once a survival round actually starts.
@@ -269,9 +269,8 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     supabase.auth.getUser().then(({ data }) => setSignedIn(!!data.user));
   }, []);
 
-  // Everyone gets a welcome kit once, and if you're topping the leaderboard this
-  // season you win that season's champion cup. Both feed the 🔔 with a prize notice.
-  useEffect(() => { grantWelcomeKit(); }, []);
+  // Rewards are earned, not gifted: if you're topping the leaderboard this season
+  // you win that season's champion cup (once). It feeds the 🔔 with a prize notice.
   useEffect(() => {
     if (!signedIn || !username) return;
     let stop = false;
@@ -422,7 +421,6 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <button className="menu-button" onClick={() => setMenuOpen(true)}>☰ Menu</button>
       <button className="friends-button" onClick={() => setFriendsOpen(true)}>Friends ☺{signedIn && Object.entries(msgLatest).some(([id, at]) => messageUnread(at, chatSeenAt(id))) && <i className="friends-unread-dot" />}</button>
       <button className="profile-button" onClick={() => navigate('/profile')} title="My profile" aria-label="My profile"><img src={characterAssets[character]} alt="" /></button>
-      <button className="rewards-button" onClick={() => navigate('/rewards')} title="My rewards" aria-label="My rewards">🏆</button>
       <button className={`crown-button ${isMember ? 'is-member' : ''}`} onClick={() => navigate('/royal')} title="Royal Membership" aria-label="Royal Membership">♛</button>
       <button className={`streak-button ${playedToday ? 'burning' : ''}`} onClick={() => navigate('/streak')} title={playedToday ? '🔥 Your streak is lit for today!' : 'Play a game today to light your streak'} aria-label="Your daily streak"><span>🔥</span><b>{streak}</b></button>
       <button className="notif-button" onClick={() => { setNotifOpen(true); markSeen(); setNotifSeen(loadSeenAt()); }} title="Notifications" aria-label="Notifications">🔔{countUnread(notifs, notifSeen) > 0 && <i className="notif-badge">{Math.min(9, countUnread(notifs, notifSeen))}</i>}</button>

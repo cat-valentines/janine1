@@ -2057,8 +2057,8 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 }
 
 /* ===== Rewards ===== */
-.rewards-button { position: absolute; top: 12px; font-size: 1.15rem; width: 42px; height: 42px; border: 0; border-radius: 12px; background: #fff3c4; box-shadow: 0 3px 0 #caa53e; cursor: pointer; }
-.rewards-button:active { transform: translateY(2px); box-shadow: 0 1px 0 #caa53e; }
+.profile-rewards-hint { color: var(--ink-soft); font-size: .85rem; margin: 2px 0 8px; }
+.profile-rewards .rewards-section { max-width: none; padding: 0; margin: 0 0 16px; }
 
 .rewards-page { min-height: 100dvh; padding: 0 0 60px; background: linear-gradient(#efe7ff, #fff6ea); color: #241f3a; font-family: system-ui, sans-serif; }
 .rewards-top { display: flex; align-items: center; gap: 12px; padding: 16px 18px; max-width: 720px; margin: 0 auto; }

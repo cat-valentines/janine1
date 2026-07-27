@@ -4,6 +4,7 @@ import { USERNAME_RULE, changeUsername, isTakenError, isUsernameFree, loadPrivat
 import { characterAssets, characterCollectibles } from '../game/characters';
 import { ChoiceCard } from '../components/ChoiceCard';
 import { CharacterCustomizer } from '../components/CharacterCustomizer';
+import { RewardsPanel } from '../components/RewardsPanel';
 import { getStars, STAR_GOAL } from '../lib/escapeStars';
 import type { CharacterId, SettingId } from '../game/types';
 import { isIslandOpen } from '../game/progress';
@@ -262,6 +263,12 @@ export function ProfilePage({ character, setting, coins, foodBalance, completedQ
       </dl>
       {userId && <button className="profile-signout" onClick={() => { supabase.auth.signOut(); onBack(); }}>Log out</button>}
     </section>
+
+    {!firstTime && <section className="profile-section profile-rewards">
+      <h3>🏆 Reward history</h3>
+      <p className="profile-rewards-hint">Prizes are earned over time — win a season on the leaderboard for a champion cup and a bundle of potions.</p>
+      <RewardsPanel />
+    </section>}
 
     {isMember && <div className="royal-sign"><span>♛</span><strong>Royal Member</strong><small>Royal islands and games unlocked</small></div>}
   </main>;
