@@ -22,6 +22,7 @@ interface MapPageProps {
   completedQuests: number;
   streak: number;
   isMember: boolean;
+  stars: number;
   onBack: () => void;
   onPlay: (island: number) => void;
   onPlayGame: (gameId: string, islandName: string) => void;
@@ -29,12 +30,12 @@ interface MapPageProps {
   onJoinMembership: () => void;
 }
 
-export function MapPage({ completedQuests, streak, isMember, onBack, onPlay, onPlayGame, onInvite, onJoinMembership }: MapPageProps) {
+export function MapPage({ completedQuests, streak, isMember, stars, onBack, onPlay, onPlayGame, onInvite, onJoinMembership }: MapPageProps) {
   const [selected, setSelected] = useState(1);
   const [mode, setMode] = useState<'solo' | 'friends'>('solo');
   const [playTime, setPlayTime] = useState('');
   const island = islands[selected - 1];
-  const isOpen = (item: typeof island) => isIslandOpen(item, { completedQuests, streak, isMember });
+  const isOpen = (item: typeof island) => isIslandOpen(item, { completedQuests, streak, isMember, stars });
   const unlocked = isOpen(island);
   const route = islands.map((item) => { const { cx, cy } = islandCentre(item); return `${cx},${cy}`; }).join(' ');
 
@@ -75,7 +76,7 @@ export function MapPage({ completedQuests, streak, isMember, onBack, onPlay, onP
           {game.prize > 0 ? <i>+{game.prize} gold</i> : <i className="coins">collect gold</i>}
         </button>)}
       </div>}
-      <button className="map-play" disabled={!unlocked} onClick={() => onPlay(island.id)}>{unlocked ? `Enter Island ${island.id}` : islandLock(island, { completedQuests, streak, isMember })}</button>
+      <button className="map-play" disabled={!unlocked} onClick={() => onPlay(island.id)}>{unlocked ? `Enter Island ${island.id}` : islandLock(island, { completedQuests, streak, isMember, stars })}</button>
     </section>
   </main>;
 }

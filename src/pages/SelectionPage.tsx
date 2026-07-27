@@ -30,6 +30,7 @@ const HouseWorldPage = lazy(() => import('./HouseWorldPage').then((m) => ({ defa
 import { emptyWorld } from '../game/voxel';
 import { currentSeason } from '../game/terrain';
 import { islands } from '../game/islands';
+import { getStars } from '../lib/escapeStars';
 import { loadMyHouse, saveMyHouse } from '../lib/houses';
 import { HouseMarketPage } from './HouseMarketPage';
 // three.js is only needed once a survival round actually starts.
@@ -48,7 +49,7 @@ import { ConnectorPage } from './ConnectorPage';
 import { BlockUpPage } from './BlockUpPage';
 import { TruthOrDarePage } from './TruthOrDarePage';
 import { PiPage } from './PiPage';
-const EscapeRoomPage = lazy(() => import('./EscapeRoomPage').then((m) => ({ default: m.EscapeRoomPage })));
+const IslandWorldPage = lazy(() => import('./IslandWorldPage').then((m) => ({ default: m.IslandWorldPage })));
 import { TongueTwisterPage } from './TongueTwisterPage';
 import { ProveHumanPage } from './ProveHumanPage';
 import { MoreGamesPage } from './MoreGamesPage';
@@ -346,7 +347,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   if (frictionOpen) return <Suspense fallback={<main className="fric-page"><p className="world-loading">Chilling the ice…</p></main>}><FrictionPage onScore={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
   if (humanOpen) return <ProveHumanPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (songOpen) return <SongStudioPage onScore={(coins) => award(coins)} onBack={() => home()} />;
-  if (escapeRoomOpen) return <Suspense fallback={<main className="eroom-page"><p className="world-loading">Locking the door…</p></main>}><EscapeRoomPage onScore={(coins) => { award(coins); setCompletedQuests((q) => q + 1); }} onBack={() => home()} /></Suspense>;
+  if (escapeRoomOpen) return <Suspense fallback={<main className="island-page"><p className="world-loading">Sailing to the island…</p></main>}><IslandWorldPage character={character} onScore={(coins) => { award(coins); setCompletedQuests((q) => q + 1); }} onBack={() => home()} /></Suspense>;
   if (gruitsOpen) return <GruitsPage onScore={(points) => award(Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;
   if (riddleOpen) return <RiddlePage startLevel={riddleLevel}
@@ -380,7 +381,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     onOpenGarden={() => { home(); navigate('/house/build'); }}
     onOpenMarket={() => { home(); navigate('/house/market'); }}
     onInvite={createFriendChallenge} onClose={() => home()} />;
-  if (mapOpen) return <MapPage streak={streak} completedQuests={completedQuests} isMember={isMember} onBack={() => home()} onInvite={createFriendChallenge} onJoinMembership={() => { home(); navigate('/royal'); }} onPlay={() => onStart(selection)} onPlayGame={(gameId, islandName) => { home(); if (gameId === 'medicine') navigate('/play/medicine/' + encodeURIComponent(islandName)); else if (gameId === 'runner') navigate('/play/runner/' + encodeURIComponent(islandName)); }} />;
+  if (mapOpen) return <MapPage streak={streak} completedQuests={completedQuests} isMember={isMember} stars={getStars()} onBack={() => home()} onInvite={createFriendChallenge} onJoinMembership={() => { home(); navigate('/royal'); }} onPlay={() => onStart(selection)} onPlayGame={(gameId, islandName) => { home(); if (gameId === 'medicine') navigate('/play/medicine/' + encodeURIComponent(islandName)); else if (gameId === 'runner') navigate('/play/runner/' + encodeURIComponent(islandName)); }} />;
   if (streakOpen) return <StreakPage
     streak={streak} daysPlayed={daysPlayed} completedQuests={completedQuests}
     isMember={isMember} signedIn={signedIn}

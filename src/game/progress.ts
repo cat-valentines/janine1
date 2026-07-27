@@ -1,7 +1,11 @@
 import type { Island } from './islands';
+import { STAR_GOAL } from '../lib/escapeStars';
 
 /** Quests you must have finished before any new island will open. */
 export const QUESTS_TO_MOVE_UP = 20;
+
+/** Stars from the Island World that open each new island (5,000 per island). */
+export const STARS_TO_MOVE_UP = STAR_GOAL;
 /** Each island wants a longer streak: island 2 wants 200 days, island 3 wants 300. */
 export const STREAK_PER_ISLAND = 100;
 
@@ -11,6 +15,8 @@ export interface Progress {
   completedQuests: number;
   streak: number;
   isMember: boolean;
+  /** Stars banked in the Island World — an alternative way to open islands. */
+  stars?: number;
 }
 
 /** Today, as YYYY-MM-DD. */
@@ -50,6 +56,9 @@ export function countTodayAsPlayed(state: StreakState, now = new Date()): Streak
 export function islandLock(island: Island, progress: Progress): string | null {
   if (island.id <= 1) return null;
   if (island.membersOnly && !progress.isMember) return 'Royal Membership needed';
+  // Enough Island World stars opens the island outright — the quest+streak path
+  // still works too, whichever you reach first.
+  if ((progress.stars ?? 0) >= STARS_TO_MOVE_UP * (island.id - 1)) return null;
   if (progress.completedQuests < island.questsNeeded) {
     return `${island.questsNeeded - progress.completedQuests} more quests`;
   }
