@@ -1,8 +1,17 @@
-import { countTodayAsPlayed, type StreakState } from '../game/progress';
+import { countTodayAsPlayed, todayKey, yesterdayKey, type StreakState } from '../game/progress';
 import { loadLocalProfile, saveLocalProfile } from './localProfile';
 import { recordPlayDay } from './gameData';
+import { spendStreakHolder } from './rewards';
 
 let markedThisVisit = false;
+
+/** Whole days between a YYYY-MM-DD key and today. */
+function dayGap(lastPlayed: string, now = new Date()): number {
+  const then = Date.parse(`${lastPlayed}T00:00:00Z`);
+  const today = Date.parse(`${todayKey(now)}T00:00:00Z`);
+  if (Number.isNaN(then) || Number.isNaN(today)) return 999;
+  return Math.round((today - then) / 86400000);
+}
 
 /**
  * Count today as a real play day — the ONLY way to earn a streak.
@@ -24,14 +33,23 @@ export async function markPlayedToday(): Promise<StreakState | null> {
 
   const profile = loadLocalProfile();
   const before: StreakState = { lastPlayed: profile.lastPlayed, streak: profile.streak, daysPlayed: profile.daysPlayed };
+
+  // Streak Holder: if you missed a day or two (a gap of 2–3 days) but the holder
+  // is armed, spend a charge to bridge the gap so today continues your streak.
+  const gap = before.lastPlayed ? dayGap(before.lastPlayed) : 999;
+  const bridged = gap >= 2 && gap <= 3 && spendStreakHolder();
+  if (bridged) before.lastPlayed = yesterdayKey();
+
   const local = countTodayAsPlayed(before);
-  if (local.lastPlayed !== before.lastPlayed) {
+  if (local.lastPlayed !== profile.lastPlayed || bridged) {
     saveLocalProfile({ ...profile, streak: local.streak, daysPlayed: local.daysPlayed, lastPlayed: local.lastPlayed });
   }
 
   try {
     const row = await recordPlayDay();   // server (authoritative); no-op / throws for guests
-    if (row) {
+    // When the holder bridged a gap, keep the saved on-device streak — the server
+    // clock can't know about the holder, so we don't let it reset us here.
+    if (row && !bridged) {
       const server: StreakState = { lastPlayed: row.last_played ?? local.lastPlayed, streak: row.streak, daysPlayed: row.days_played };
       saveLocalProfile({ ...loadLocalProfile(), ...server });
       return server;

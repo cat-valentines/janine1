@@ -13,6 +13,9 @@ export interface WorldSnapshot {
   visitedWaterfall: boolean;
   livePlayers: number;
   prompt: string;     // a contextual "Press Space to…" hint
+  bubbleLeft: number; // seconds of bubble-potion protection left
+  weaponLeft: number; // seconds the star sword is drawn
+  hintActive: boolean;
 }
 
 interface EngineOptions {
@@ -90,6 +93,11 @@ export class IslandWorldEngine {
 
   private livePlayers = new Map<string, LiveFigure>();
   private liveGroup = new THREE.Group();
+
+  // Quest consumables (potions & weapon) — activated from the items tray.
+  private hintUntil = 0; private beacon: THREE.Mesh | null = null;
+  private bubbleUntil = 0; private bubbleMesh: THREE.Mesh | null = null;
+  private weaponUntil = 0; private weaponSprite: THREE.Sprite | null = null;
 
   private running = true;
   private clock = new THREE.Clock();
@@ -491,6 +499,57 @@ export class IslandWorldEngine {
     return { x: this.position.x, z: this.position.z, yaw: this.yaw, level: this.options.islandId };
   }
 
+  /** The nearest thing worth collecting right now (stars above, gems below). */
+  private nearestPickup(): THREE.Object3D | null {
+    const list = this.underground ? this.gems : this.stars;
+    let best: THREE.Object3D | null = null; let bestD = Infinity;
+    for (const item of list) {
+      if (item.taken) continue;
+      const o = item.sprite as unknown as THREE.Object3D;
+      const d = Math.hypot(o.position.x - this.position.x, o.position.z - this.position.z);
+      if (d < bestD) { bestD = d; best = o; }
+    }
+    return best;
+  }
+
+  /** Hint Potion: shine a bright beacon over the nearest star for a few seconds. */
+  showHint() {
+    const target = this.nearestPickup();
+    if (!target) return;
+    if (!this.beacon) {
+      const geo = this.track(new THREE.CylinderGeometry(0.5, 0.5, 20, 8, 1, true));
+      const mat = this.track(new THREE.MeshBasicMaterial({ color: this.theme.glow, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+      this.beacon = new THREE.Mesh(geo, mat);
+      this.scene.add(this.beacon);
+    }
+    this.beacon.position.set(target.position.x, 10, target.position.z);
+    this.beacon.visible = true;
+    this.hintUntil = this.time + 7;
+  }
+
+  /** Bubble Potion: a protective bubble around you for `sec` seconds. */
+  activateBubble(sec = 20) {
+    if (!this.bubbleMesh) {
+      const geo = this.track(new THREE.SphereGeometry(1.7, 16, 12));
+      const mat = this.track(new THREE.MeshBasicMaterial({ color: '#9fe0ff', transparent: true, opacity: 0.24, depthWrite: false }));
+      this.bubbleMesh = new THREE.Mesh(geo, mat);
+      this.bubbleMesh.position.y = 1.1;
+      this.player.add(this.bubbleMesh);
+    }
+    this.bubbleMesh.visible = true;
+    this.bubbleUntil = this.time + sec;
+  }
+
+  /** Star Sword: draw a glowing blade and move faster for `sec` seconds. */
+  equipWeapon(sec = 20) {
+    if (!this.weaponSprite) {
+      this.weaponSprite = this.emojiSprite('⚔️', 1.3, 0.95, 1.15, 0);
+      this.player.add(this.weaponSprite);
+    }
+    this.weaponSprite.visible = true;
+    this.weaponUntil = this.time + sec;
+  }
+
   /** Draw the real players where they say they are (only on this island). */
   setLivePlayers(players: Array<{ id: string; name: string; x: number; z: number; yaw: number; level: number }>) {
     const here = new Set<string>();
@@ -568,8 +627,9 @@ export class IslandWorldEngine {
     if (fwd) move += 1;
     if (back) move -= 0.6;
     if (move !== 0) {
-      const nx = this.position.x - Math.sin(this.yaw) * PLAYER_SPEED * move * dt;
-      const nz = this.position.z - Math.cos(this.yaw) * PLAYER_SPEED * move * dt;
+      const speed = PLAYER_SPEED * (this.time < this.weaponUntil ? 1.5 : 1);   // sword speeds you up
+      const nx = this.position.x - Math.sin(this.yaw) * speed * move * dt;
+      const nz = this.position.z - Math.cos(this.yaw) * speed * move * dt;
       const limit = this.underground ? CAVE_RADIUS - 1 : WORLD_RADIUS;
       const d = Math.hypot(nx, nz);
       if (d <= limit) { this.position.x = nx; this.position.z = nz; }
@@ -634,7 +694,17 @@ export class IslandWorldEngine {
       stars: this.starCount, trinkets: this.trinketCount, gems: this.gemCount,
       underground: this.underground, visitedCave: this.visitedCave, visitedWaterfall: this.visitedWaterfall,
       livePlayers: this.livePlayers.size, prompt: this.prompt,
+      bubbleLeft: Math.max(0, Math.ceil(this.bubbleUntil - this.time)),
+      weaponLeft: Math.max(0, Math.ceil(this.weaponUntil - this.time)),
+      hintActive: this.time < this.hintUntil,
     });
+  }
+
+  /** Expire the timed consumables and gently spin the hint beacon. */
+  private tickConsumables(dt: number) {
+    if (this.beacon) { if (this.time > this.hintUntil) this.beacon.visible = false; else this.beacon.rotation.y += dt; }
+    if (this.bubbleMesh && this.time > this.bubbleUntil) this.bubbleMesh.visible = false;
+    if (this.weaponSprite && this.time > this.weaponUntil) this.weaponSprite.visible = false;
   }
 
   resize() {
@@ -675,6 +745,7 @@ export class IslandWorldEngine {
       this.paintWaterfall(this.time);
     }
 
+    this.tickConsumables(dt);
     this.computePrompt();
     if (this.time - this.emitAt > 0.15) { this.emitAt = this.time; this.emit(); }
 

@@ -15,11 +15,12 @@ import { navigate, paramOf, useRoute } from '../lib/router';
 import { ensureGuestAccount, isAnonymous } from '../lib/players';
 import { NotificationsPanel } from '../components/NotificationsPanel';
 import { countUnread, loadNotifications, loadSeenAt, markSeen, clearNotifications, type NotificationItem } from '../lib/notifications';
-import { updateProfileSelection, addScore, loadPlayStreak } from '../lib/gameData';
+import { updateProfileSelection, addScore, loadPlayStreak, loadLeaderboard } from '../lib/gameData';
 import type { ShopItem } from '../shop/catalog';
 import { YourHousePage } from './YourHousePage';
 import { MapPage } from './MapPage';
 import { ProfilePage } from './ProfilePage';
+import { RewardsPage } from './RewardsPage';
 import { RoyalMemberPage } from './RoyalMemberPage';
 import { StreakPage } from './StreakPage';
 import { todayKey } from '../game/progress';
@@ -31,6 +32,7 @@ import { emptyWorld } from '../game/voxel';
 import { currentSeason } from '../game/terrain';
 import { islands } from '../game/islands';
 import { getStars } from '../lib/escapeStars';
+import { grantWelcomeKit, awardSeasonalCupIfTop } from '../lib/rewards';
 import { loadMyHouse, saveMyHouse } from '../lib/houses';
 import { HouseMarketPage } from './HouseMarketPage';
 // three.js is only needed once a survival round actually starts.
@@ -70,6 +72,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const escapeOpen = path === '/play/housekeeper';
   const moreOpen = path === '/games';
   const profileOpen = path === '/profile';
+  const rewardsOpen = path === '/rewards';
   const royalOpen = path === '/royal';
   const streakOpen = path === '/streak';
   const builderOpen = path === '/house/build';
@@ -266,6 +269,22 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     supabase.auth.getUser().then(({ data }) => setSignedIn(!!data.user));
   }, []);
 
+  // Everyone gets a welcome kit once, and if you're topping the leaderboard this
+  // season you win that season's champion cup. Both feed the 🔔 with a prize notice.
+  useEffect(() => { grantWelcomeKit(); }, []);
+  useEffect(() => {
+    if (!signedIn || !username) return;
+    let stop = false;
+    loadLeaderboard().then((rows) => {
+      if (stop) return;
+      const idx = rows.findIndex((row) => row.display_name === username);
+      const now = new Date();
+      const cup = awardSeasonalCupIfTop(idx >= 0 ? idx + 1 : null, now.getFullYear(), now.getMonth());
+      if (cup) supabase.auth.getUser().then(({ data }) => { if (data.user && !stop) loadNotifications(data.user.id).then((items) => { if (!stop) setNotifs(items); }); });
+    }).catch(() => undefined);
+    return () => { stop = true; };
+  }, [signedIn, username]);
+
   // Being inside a game (/play/*) long enough that you must actually be playing
   // it also earns the day — this covers games with no score (Truth or Dare,
   // Ping Pong) and playing a round without winning. Opening a game and leaving
@@ -396,12 +415,14 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     character={character}
     onChangeCharacter={setCharacter}
     onDone={(name) => { setUsername(name); setCharacterChosen(true); setSetup(null); }} />;
+  if (rewardsOpen) return <RewardsPage onBack={() => home()} />;
   if (profileOpen || !characterChosen) return <ProfilePage character={character} setting={setting} firstTime={!characterChosen} ownedItems={ownedItems} onChangeCharacter={setCharacter} onChangeAccessory={setAccessory} onBuyAccessory={(id, price) => { if (shopCoins < price) return; setShopCoins((total) => total - price); setOwnedItems((items) => [...items, id]); setAccessory(id); }} onChosen={() => { setCharacterChosen(true); makeGuestReal(); home(); }} coins={shopCoins} foodBalance={foodBalance} completedQuests={completedQuests} streak={streak} isMember={isMember} accessory={accessory} realName={realName} birthday={birthday} country={country} onSavePrivate={(fields) => { setRealName(fields.realName); setBirthday(fields.birthday); setCountry(fields.country); }} onBack={() => home()} />;
   return (
     <main className="selection-page page-shell">
       <button className="menu-button" onClick={() => setMenuOpen(true)}>☰ Menu</button>
       <button className="friends-button" onClick={() => setFriendsOpen(true)}>Friends ☺{signedIn && Object.entries(msgLatest).some(([id, at]) => messageUnread(at, chatSeenAt(id))) && <i className="friends-unread-dot" />}</button>
       <button className="profile-button" onClick={() => navigate('/profile')} title="My profile" aria-label="My profile"><img src={characterAssets[character]} alt="" /></button>
+      <button className="rewards-button" onClick={() => navigate('/rewards')} title="My rewards" aria-label="My rewards">🏆</button>
       <button className={`crown-button ${isMember ? 'is-member' : ''}`} onClick={() => navigate('/royal')} title="Royal Membership" aria-label="Royal Membership">♛</button>
       <button className={`streak-button ${playedToday ? 'burning' : ''}`} onClick={() => navigate('/streak')} title={playedToday ? '🔥 Your streak is lit for today!' : 'Play a game today to light your streak'} aria-label="Your daily streak"><span>🔥</span><b>{streak}</b></button>
       <button className="notif-button" onClick={() => { setNotifOpen(true); markSeen(); setNotifSeen(loadSeenAt()); }} title="Notifications" aria-label="Notifications">🔔{countUnread(notifs, notifSeen) > 0 && <i className="notif-badge">{Math.min(9, countUnread(notifs, notifSeen))}</i>}</button>
@@ -437,7 +458,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <PlayersDirectory onOpenFriends={() => setFriendsOpen(true)} />
       <ChallengeRoom onChallenge={createFriendChallenge} inviteLink={inviteLink} message={challengeMessage} />
       {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); navigate('/market'); }} onSellItems={() => { setMenuOpen(false); navigate('/market/sell'); }} onOpenHouse={() => { setMenuOpen(false); navigate('/house'); }} onOpenMap={() => { setMenuOpen(false); navigate('/map'); }} onInviteFriend={() => { setMenuOpen(false); setFriendsOpen(true); }} />}
-      {notifOpen && <NotificationsPanel items={notifs} signedIn={signedIn} seenAt={notifSeen} onClose={() => setNotifOpen(false)} onOpenFriends={() => { setNotifOpen(false); setFriendsOpen(true); }} onOpenFriend={(fid) => { setNotifOpen(false); setPendingFriend(fid); setFriendsOpen(true); }} onClearAll={() => { clearNotifications(); setNotifs([]); }} />}
+      {notifOpen && <NotificationsPanel items={notifs} signedIn={signedIn} seenAt={notifSeen} onClose={() => setNotifOpen(false)} onOpenFriends={() => { setNotifOpen(false); setFriendsOpen(true); }} onOpenFriend={(fid) => { setNotifOpen(false); setPendingFriend(fid); setFriendsOpen(true); }} onOpenRewards={() => { setNotifOpen(false); navigate('/rewards'); }} onClearAll={() => { clearNotifications(); setNotifs([]); }} />}
       {friendsOpen && <FriendsPanel initialFriendId={pendingFriend} onClose={() => { setFriendsOpen(false); setPendingFriend(''); }} onShare={() => { createFriendChallenge(); setFriendsOpen(false); }} />}
       {authMode && <div className="auth-backdrop" onClick={() => setAuthMode(null)}><div className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="auth-close" onClick={() => setAuthMode(null)}>×</button><Auth key={authMode} initialMode={authMode} /></div></div>}
     </main>

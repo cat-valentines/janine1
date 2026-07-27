@@ -2,10 +2,11 @@ import { supabase } from './supabase';
 import { loadMyFriends, loadAllPlayers } from './players';
 import { parseMedia } from './friends';
 import { storage } from './storage';
+import { peekRewardNotices } from './rewards';
 
 export interface NotificationItem {
   id: string;
-  kind: 'friend' | 'invite' | 'message';
+  kind: 'friend' | 'invite' | 'message' | 'reward';
   text: string;
   /** The other player (who texted / added you), so the panel can open their chat. */
   friendId: string;
@@ -59,6 +60,9 @@ export async function loadNotifications(userId: string): Promise<NotificationIte
         : `💬 @${nameOf(msg.sender_id)} texted you: ${msg.message}`;
     items.push({ id: msg.id, kind: invite ? 'invite' : 'message', at: msg.created_at, friendId: msg.sender_id, text });
   });
+
+  // Prizes you've won (seasonal cups, potions) — kept on-device, shown in the bell.
+  peekRewardNotices().forEach((n) => items.push({ id: n.id, kind: 'reward', at: n.at, friendId: '', text: n.text }));
 
   const cleared = loadClearedAt();
   return items

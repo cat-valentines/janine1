@@ -2055,3 +2055,66 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
   .island-quests-live { max-width: 150px; top: 54px; }
   .island-prompt { bottom: 210px; font-size: .82rem; }
 }
+
+/* ===== Rewards ===== */
+.rewards-button { position: absolute; top: 12px; font-size: 1.15rem; width: 42px; height: 42px; border: 0; border-radius: 12px; background: #fff3c4; box-shadow: 0 3px 0 #caa53e; cursor: pointer; }
+.rewards-button:active { transform: translateY(2px); box-shadow: 0 1px 0 #caa53e; }
+
+.rewards-page { min-height: 100dvh; padding: 0 0 60px; background: linear-gradient(#efe7ff, #fff6ea); color: #241f3a; font-family: system-ui, sans-serif; }
+.rewards-top { display: flex; align-items: center; gap: 12px; padding: 16px 18px; max-width: 720px; margin: 0 auto; }
+.rewards-top button { padding: 8px 14px; border: 0; border-radius: 999px; background: #ffffffcc; font-weight: 800; cursor: pointer; }
+.rewards-top h1 { margin: 0; font-family: "Courier New", monospace; font-size: 1.5rem; }
+.rewards-top .eyebrow { margin: 0; }
+.rewards-count { margin-left: auto; background: #ffe9a0; color: #7a5a10; font-weight: 900; padding: 6px 12px; border-radius: 999px; font-size: .85rem; }
+
+.rewards-section { max-width: 720px; margin: 0 auto 22px; padding: 0 18px; }
+.rewards-section h2 { font-family: "Courier New", monospace; font-size: 1.1rem; margin: 8px 0 10px; }
+.rewards-section h2 small { color: #7a749a; font-weight: 700; }
+.rewards-empty { color: #5c567e; background: #ffffffb0; border: 2px dashed #c7bfe6; border-radius: 14px; padding: 14px; line-height: 1.5; }
+.rewards-note { color: #4a4568; font-size: .88rem; line-height: 1.5; margin: 0 0 12px; }
+
+.rewards-cups { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.reward-cup { text-align: center; background: #fffdf5; border: 3px solid #f0d98a; border-radius: 16px; padding: 14px 10px; box-shadow: 0 8px 20px #0000001f; }
+.reward-cup.winter { border-color: #a8d0ec; background: #f4fbff; }
+.reward-cup.spring { border-color: #b6e0a8; background: #f6fff2; }
+.reward-cup.autumn { border-color: #e6b98a; background: #fff6ec; }
+.reward-cup-art { position: relative; height: 78px; display: grid; place-items: center; }
+.reward-cup-art .cup-icon { font-size: 3.4rem; filter: drop-shadow(0 3px 2px #0002); }
+.reward-cup-art .cup-vines { position: absolute; bottom: 2px; font-size: 1.15rem; letter-spacing: 2px; }
+.reward-cup strong { display: block; font-size: .92rem; margin-top: 6px; }
+.reward-cup small { color: #7a749a; }
+
+.rewards-items { display: grid; gap: 9px; }
+.reward-item { display: flex; align-items: center; gap: 12px; background: #fffdf7; border: 2px solid #e7dfc6; border-radius: 14px; padding: 11px 13px; }
+.reward-item.spent { opacity: .55; filter: grayscale(.5); }
+.reward-item-icon { font-size: 2rem; }
+.reward-item-body { flex: 1; min-width: 0; }
+.reward-item-body strong { display: block; font-size: .95rem; }
+.reward-item-body small { color: #5c567e; font-size: .78rem; line-height: 1.35; }
+.reward-item-side { display: grid; gap: 6px; justify-items: end; }
+.reward-uses { background: #eef0ff; color: #3a3a7a; font-weight: 850; padding: 4px 10px; border-radius: 999px; font-size: .78rem; white-space: nowrap; }
+.reward-arm { border: 0; border-radius: 999px; padding: 6px 13px; background: #4bd07b; color: #05230f; font-weight: 850; cursor: pointer; font-size: .8rem; }
+.reward-arm.on { background: #2fa85c; color: #fff; }
+.rewards-armed { margin-top: 10px; background: #e6f7ff; border: 2px solid #a8d8ec; border-radius: 12px; padding: 10px 13px; color: #175a72; font-weight: 700; }
+
+.rewards-history { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rewards-history li { display: flex; align-items: center; gap: 10px; background: #ffffffcc; border: 2px solid #ece6d2; border-radius: 11px; padding: 8px 12px; }
+.rewards-history li span { font-size: 1.2rem; }
+.rewards-history li p { flex: 1; margin: 0; font-size: .85rem; font-weight: 600; }
+.rewards-history li small { color: #8a849e; white-space: nowrap; }
+
+.notif-item.reward { background: linear-gradient(#fff6d8, #fff); border-left: 4px solid #f0c33c; }
+
+/* Island World — quest items tray */
+.island-hud-stats b.fx { color: #bff0ff; }
+.island-bag { position: absolute; right: 12px; bottom: 250px; width: 48px; height: 48px; border: 0; border-radius: 14px; background: #101018cc; color: #fff; font-size: 1.4rem; cursor: pointer; z-index: 3; }
+.island-tray { position: absolute; right: 12px; bottom: 306px; width: 200px; background: #101018e8; border: 2px solid #6a5aa8; border-radius: 14px; padding: 10px; display: grid; gap: 6px; z-index: 4; }
+.island-tray-title { margin: 0 0 2px; color: #ffe9a8; font-weight: 850; font-size: .82rem; }
+.island-tray-item { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border: 0; border-radius: 10px; background: #241a40; color: #efeaff; cursor: pointer; }
+.island-tray-item:disabled { opacity: .45; cursor: not-allowed; }
+.island-tray-item span { font-size: 1.3rem; }
+.island-tray-item small { flex: 1; text-align: left; font-size: .74rem; font-weight: 700; }
+.island-tray-item b { color: #ffe45e; font-size: .8rem; }
+.island-tray-empty { margin: 2px 0 0; color: #cdbff0; font-size: .72rem; line-height: 1.3; }
+
+@media (max-width: 560px) { .island-bag { bottom: 270px; } .island-tray { bottom: 326px; } }
