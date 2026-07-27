@@ -98,3 +98,46 @@ export const islandGames: Record<number, IslandGame[]> = {
 };
 
 export const gamesForIsland = (id: number) => islandGames[id] ?? [];
+
+/* ---- Reward previews: what a locked island reveals once you open it. ---- */
+
+import { characterAssets } from './characters';
+import type { CharacterId } from './types';
+
+/** Fun game teasers that light up on their way — shown as "coming soon" rewards. */
+const comingSoonByIsland: Record<number, string[]> = {
+  4: ['🎣 Fishing Frenzy'],
+  7: ['🪁 Sky Kite Racer'],
+  12: ['🍭 Candy Kitchen'],
+  16: ['🏄 Wave Rider'],
+  22: ['🐉 Dragon Flight'],
+  27: ['🚀 Star Voyager'],
+};
+
+/** Spread the whole friend roster across the islands so each one reveals new pals. */
+const rewardCharacters: Record<number, CharacterId[]> = (() => {
+  const all = Object.keys(characterAssets) as CharacterId[];
+  const map: Record<number, CharacterId[]> = { 1: all.slice(0, 3) };
+  let cursor = 3;
+  for (let id = 2; id <= 30; id += 1) {
+    const count = [10, 20, 30].includes(id) ? 2 : 1; // Royal islands reveal a rare friend
+    map[id] = all.slice(cursor, cursor + count);
+    cursor += count;
+  }
+  return map;
+})();
+
+export interface IslandReward {
+  characters: CharacterId[];
+  newGames: IslandGame[];
+  comingSoon: string[];
+}
+
+/** Everything you unlock by opening an island — friends, playable games, teasers. */
+export function islandRewards(id: number): IslandReward {
+  return {
+    characters: rewardCharacters[id] ?? [],
+    newGames: gamesForIsland(id),
+    comingSoon: comingSoonByIsland[id] ?? [],
+  };
+}

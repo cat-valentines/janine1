@@ -1,6 +1,22 @@
 import { useState } from 'react';
-import { biomeAssets, gamesForIsland, islandCentre, islands } from '../game/islands';
+import { biomeAssets, gamesForIsland, islandCentre, islandRewards, islands, type IslandReward } from '../game/islands';
+import { characterAssets } from '../game/characters';
 import { isIslandOpen, islandLock, streakNeededFor } from '../game/progress';
+
+/** Little "what you'll unlock" card — friends, games and teasers behind a locked island. */
+function RewardPreview({ reward }: { reward: IslandReward }) {
+  const hasAny = reward.characters.length || reward.newGames.length || reward.comingSoon.length;
+  return <div className="reward-preview">
+    <p className="reward-title">🎁 Unlock to reveal</p>
+    {reward.characters.length > 0 && <div className="reward-friends">
+      {reward.characters.map((id) => <img key={id} src={characterAssets[id]} alt="" draggable={false} />)}
+      <span>{reward.characters.length} new friend{reward.characters.length > 1 ? 's' : ''}</span>
+    </div>}
+    {reward.newGames.map((game) => <span className="reward-game" key={game.id}>{game.icon} {game.name}</span>)}
+    {reward.comingSoon.map((label) => <span className="reward-soon" key={label}>{label} · soon</span>)}
+    {!hasAny && <span className="reward-soon">New adventures await ✨</span>}
+  </div>;
+}
 
 interface MapPageProps {
   completedQuests: number;
@@ -41,11 +57,13 @@ export function MapPage({ completedQuests, streak, isMember, onBack, onPlay, onP
           <span className="ocean-island-name">{item.name}</span>
           <b className="ocean-island-number">{item.id}</b>
           {!open && <i className="ocean-island-lock">{item.membersOnly && !isMember ? '♛' : '🔒'}</i>}
+          {!open && <div className={`island-reward-pop ${item.y < 12 ? 'below' : ''}`}><RewardPreview reward={islandRewards(item.id)} /></div>}
         </button>;
       })}
     </div>
     <section className="island-dock">
       <div><img className="island-big-icon" src={biomeAssets[island.biome]} alt="" /><div><p className="card-kicker">Island {island.id} of 30</p><h2>{island.icon} {island.name}</h2><p>{island.membersOnly ? 'Royal Membership island' : island.id <= 1 ? 'Your starting island' : `${island.questsNeeded} quests · 🔥 ${streakNeededFor(island.id)} day streak`} · {unlocked ? 'Ready to explore' : 'Locked'}</p></div></div>
+      {!unlocked && <RewardPreview reward={islandRewards(island.id)} />}
       <div className="play-mode"><button className={mode === 'solo' ? 'selected' : ''} onClick={() => setMode('solo')}>🗡️ Play alone</button><button className={mode === 'friends' ? 'selected' : ''} onClick={() => setMode('friends')}>👥 With friends</button></div>
       {mode === 'friends' && <div className="schedule-row"><label>Meet-up time <input type="datetime-local" value={playTime} onChange={(event) => setPlayTime(event.target.value)} /></label><button onClick={onInvite}>Invite friends</button><span>🎙️ Live party chat opens when play begins.</span></div>}
       {island.membersOnly && !isMember && <button className="membership-button" onClick={onJoinMembership}>♛ See Royal Membership · $1.90/month</button>}
