@@ -91,7 +91,8 @@ export class IslandWorldEngine {
 
   private ground!: THREE.Mesh;
   private chunks = new Map<string, Chunk>();
-  private stars: Pickup[] = [];      // active surface pickups from loaded chunks + digs
+  private stars: Pickup[] = [];      // active surface pickups from loaded chunks
+  private buried: Pickup[] = [];     // treasure dug out of the ground (dropped when grabbed)
   private gems: Pickup[] = [];
   private takenIds = new Set<string>();
   private dugCells = new Set<string>();
@@ -619,9 +620,10 @@ export class IslandWorldEngine {
       const gem = (lucky % 3) === 0;
       const obj = this.emojiSprite(gem ? '💎' : '⭐', gem ? 1.1 : 1.2, cx, 0.3, cz);
       this.surface.add(obj);
-      this.stars.push({ obj, base: 0.9, seed: 0, taken: false, value: gem ? BURIED_VALUE : STAR_VALUE });
-      // pop it up out of the hole
-      obj.userData.rise = this.time + 0.4;
+      obj.userData.rise = this.time + 0.4;   // pop it up out of the hole
+      this.buried.push({ obj, base: 0.9, seed: 0, taken: false, value: gem ? BURIED_VALUE : STAR_VALUE });
+      // Never let uncollected treasure pile up forever during a long dig session.
+      while (this.buried.length > 60) { const old = this.buried.shift(); if (old) this.surface.remove(old.obj); }
     }
     return { dug: true, treasure };
   }
@@ -758,6 +760,20 @@ export class IslandWorldEngine {
     }
   }
 
+  /** Buried treasure adds star-points but isn't a quest collectible, and is
+   *  removed from the scene the moment you grab it so digging can't leak memory. */
+  private collectBuried() {
+    for (let i = this.buried.length - 1; i >= 0; i -= 1) {
+      const item = this.buried[i];
+      const dx = item.obj.position.x - this.position.x, dz = item.obj.position.z - this.position.z;
+      if (Math.hypot(dx, dz) < 1.5) {
+        this.earned += item.value;
+        this.surface.remove(item.obj);
+        this.buried.splice(i, 1);
+      }
+    }
+  }
+
   private animatePickups(list: Pickup[], dt: number) {
     for (const item of list) {
       if (item.taken) continue;
@@ -858,12 +874,14 @@ export class IslandWorldEngine {
         this.lastChunkAt.copy(this.position); this.updateChunks();
       }
       this.animatePickups(this.stars, dt);
-      // Stars, trinkets and buried treasure all ride in one list — tell them apart by value.
+      // Loose stars vs themed trinkets — tell them apart by value (buried treasure
+      // is handled separately so it can't count toward the CAVE-crystals quest).
       this.collect(this.stars, 1.5, (v) => {
         if (v === TRINKET_VALUE) this.trinketCount += 1;
-        else if (v === BURIED_VALUE) this.gemCount += 1;
         else this.starCount += 1;
       });
+      this.animatePickups(this.buried, dt);
+      this.collectBuried();
       this.paintWaterfall(this.time);
     }
 

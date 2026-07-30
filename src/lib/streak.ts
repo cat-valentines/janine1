@@ -50,7 +50,11 @@ export async function markPlayedToday(): Promise<StreakState | null> {
     // When the holder bridged a gap, keep the saved on-device streak — the server
     // clock can't know about the holder, so we don't let it reset us here.
     if (row && !bridged) {
-      const server: StreakState = { lastPlayed: row.last_played ?? local.lastPlayed, streak: row.streak, daysPlayed: row.days_played };
+      // Keep the higher streak so a holder-bridge from a PREVIOUS session (which
+      // the server never learned about) isn't undone here. In the normal case
+      // local and server already agree, so this is a no-op.
+      const streak = Math.max(row.streak, local.streak);
+      const server: StreakState = { lastPlayed: row.last_played ?? local.lastPlayed, streak, daysPlayed: row.days_played };
       saveLocalProfile({ ...loadLocalProfile(), ...server });
       return server;
     }

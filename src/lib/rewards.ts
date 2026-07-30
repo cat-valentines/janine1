@@ -127,11 +127,16 @@ export function checkSeasonalReward(rank: number | null, year: number, month: nu
   const monthKey = `${year}-${month}`;
   if (!state.lastRewardMonth) { state.lastRewardMonth = monthKey; save(state); return null; }  // baseline, no prize
   if (state.lastRewardMonth === monthKey) return null;                                          // same month, nothing yet
-  // A new month has begun — settle the season that was running.
+  // A new month has begun — settle the month that just CONCLUDED.
   state.lastRewardMonth = monthKey;
   if (rank === null || rank > 3) { save(state); return null; }
-  const season = seasonForMonth(month);
-  const seasonKey = `${season.key}-${year}`;
+  const pm = month === 0 ? 11 : month - 1;
+  const py = month === 0 ? year - 1 : year;
+  const season = seasonForMonth(pm);
+  // Winter spans Dec–Feb across a year boundary; anchor Jan/Feb to the December
+  // it began so the whole winter is ONE season (no double cup at New Year).
+  const seasonYear = (season.key === 'winter' && pm <= 1) ? py - 1 : py;
+  const seasonKey = `${season.key}-${seasonYear}`;
   if (state.earnedSeasons.includes(seasonKey)) { save(state); return null; }
 
   state.earnedSeasons.push(seasonKey);
@@ -144,6 +149,7 @@ export function checkSeasonalReward(rank: number | null, year: number, month: nu
   grantConsumable(state, 'bubble', true);
   grantConsumable(state, 'weapon', true);
   grantConsumable(state, 'hint', true);
+  grantConsumable(state, 'streakHolder', true);
   save(state);
   return cup;
 }
