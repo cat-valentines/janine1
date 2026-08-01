@@ -16,7 +16,7 @@ function friendlyError(raw: string): string {
   return raw;
 }
 
-export function Auth({ initialMode = 'signin' }: { initialMode?: 'signin' | 'signup' }) {
+export function Auth({ initialMode = 'signin', onClose }: { initialMode?: 'signin' | 'signup'; onClose?: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -93,9 +93,15 @@ export function Auth({ initialMode = 'signin' }: { initialMode?: 'signin' | 'sig
   return (
     <section className="card">
       <h2>{mode === 'signin' ? 'Welcome back!' : 'Make an account'}</h2>
+      {onClose && <>
+        <button type="button" className="auth-guest" onClick={onClose}>▶ Just play — no account needed</button>
+        <p className="auth-optional">You can play all the games with no sign-in — great for school. Sign in below only if you want to save your progress across devices and text your friends.</p>
+        <div className="auth-divider"><span>or sign in</span></div>
+      </>}
       <button className="google-auth-button" type="button" disabled={busy} onClick={handleGoogleSignIn}>
         <span aria-hidden="true">G</span> Continue with Google
       </button>
+      <p className="auth-school-note">🏫 At some schools Google sign-in is blocked by the admin. If it says “access blocked”, use email below — or just play with no account.</p>
       <div className="auth-divider"><span>or use email</span></div>
       <form onSubmit={handleSubmit} className="form">
         {mode === 'signup' && <input
