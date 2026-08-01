@@ -61,3 +61,19 @@ export const characterAssets: Record<CharacterId, string> = {
   honey: '/assets/pixel-honey-bee.png', roo: '/assets/pixel-roo.png', snowy: '/assets/pixel-snowy.png',
   pigeon: '/assets/pixel-pigeon.png',
 };
+
+/**
+ * Which island unlocks each character. Characters NOT listed here are starters
+ * — available from the very beginning. The rest unlock as you open islands, and
+ * this is the single source of truth for both the profile picker and the map's
+ * "what you'll unlock here" preview, so the two always agree.
+ */
+export const characterIsland = new Map<CharacterId, number>([
+  ['joy', 2], ['melly', 2], ['martin', 2],
+  ['hazel', 3], ['bubbles', 3],
+  ['rocky', 4], ['ellie', 4],
+  ['pip', 5], ['clover', 6], ['maple', 7], ['lulu', 8],
+  ['finn', 9], ['daisy', 10],
+  ['hattie', 11], ['kiki', 12], ['pango', 13],
+  ['honey', 14], ['roo', 15], ['snowy', 16],
+]);

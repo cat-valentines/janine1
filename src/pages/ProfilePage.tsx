@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { USERNAME_RULE, changeUsername, isTakenError, isUsernameFree, loadPrivateProfile, savePrivateProfile } from '../lib/players';
-import { characterAssets, characterCollectibles } from '../game/characters';
+import { characterAssets, characterCollectibles, characterIsland } from '../game/characters';
 import { ChoiceCard } from '../components/ChoiceCard';
 import { CharacterCustomizer } from '../components/CharacterCustomizer';
 import { RewardsPanel } from '../components/RewardsPanel';
@@ -49,16 +49,6 @@ const characterChoices: Array<[CharacterId, string]> = [
   ['snowy', 'A fluffy baby snow leopard'],
   ['pigeon', 'A cheerful, chubby little pigeon'],
 ];
-const characterIsland = new Map<CharacterId, number>([
-  ['joy', 2], ['melly', 2], ['martin', 2],
-  ['hazel', 3], ['bubbles', 3],
-  ['rocky', 4], ['ellie', 4],
-  ['pip', 5], ['clover', 6], ['maple', 7], ['lulu', 8],
-  ['finn', 9], ['daisy', 10],
-  ['hattie', 11], ['kiki', 12], ['pango', 13],
-  ['honey', 14], ['roo', 15], ['snowy', 16],
-  ['pigeon', 1],
-]);
 const houses: Record<SettingId, string> = { haunted: 'Haunted House', secret: 'Secret Rooms', power: 'Power House' };
 const today = new Date().toISOString().slice(0, 10);
 

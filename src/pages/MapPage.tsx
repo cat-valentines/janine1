@@ -3,16 +3,15 @@ import { biomeAssets, gamesForIsland, islandCentre, islandRewards, islands, type
 import { characterAssets } from '../game/characters';
 import { isIslandOpen, islandLock, streakNeededFor } from '../game/progress';
 
-/** Little "what you'll unlock" card — friends, games and teasers behind a locked island. */
+/** Little "what you'll unlock" card — the new characters and teasers behind a locked island. */
 function RewardPreview({ reward }: { reward: IslandReward }) {
-  const hasAny = reward.characters.length || reward.newGames.length || reward.comingSoon.length;
+  const hasAny = reward.characters.length || reward.comingSoon.length;
   return <div className="reward-preview">
     <p className="reward-title">🎁 Unlock to reveal</p>
     {reward.characters.length > 0 && <div className="reward-friends">
       {reward.characters.map((id) => <img key={id} src={characterAssets[id]} alt="" draggable={false} />)}
-      <span>{reward.characters.length} new friend{reward.characters.length > 1 ? 's' : ''}</span>
+      <span>{reward.characters.length} new character{reward.characters.length > 1 ? 's' : ''}</span>
     </div>}
-    {reward.newGames.map((game) => <span className="reward-game" key={game.id}>{game.icon} {game.name}</span>)}
     {reward.comingSoon.map((label) => <span className="reward-soon" key={label}>{label} · soon</span>)}
     {!hasAny && <span className="reward-soon">New adventures await ✨</span>}
   </div>;

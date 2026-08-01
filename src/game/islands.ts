@@ -101,7 +101,7 @@ export const gamesForIsland = (id: number) => islandGames[id] ?? [];
 
 /* ---- Reward previews: what a locked island reveals once you open it. ---- */
 
-import { characterAssets } from './characters';
+import { characterIsland } from './characters';
 import type { CharacterId } from './types';
 
 /** Fun game teasers that light up on their way — shown as "coming soon" rewards. */
@@ -114,30 +114,19 @@ const comingSoonByIsland: Record<number, string[]> = {
   27: ['🚀 Star Voyager'],
 };
 
-/** Spread the whole friend roster across the islands so each one reveals new pals. */
-const rewardCharacters: Record<number, CharacterId[]> = (() => {
-  const all = Object.keys(characterAssets) as CharacterId[];
-  const map: Record<number, CharacterId[]> = { 1: all.slice(0, 3) };
-  let cursor = 3;
-  for (let id = 2; id <= 30; id += 1) {
-    const count = [10, 20, 30].includes(id) ? 2 : 1; // Royal islands reveal a rare friend
-    map[id] = all.slice(cursor, cursor + count);
-    cursor += count;
-  }
-  return map;
-})();
-
 export interface IslandReward {
+  /** Characters that GENUINELY unlock on this island (never starters you already have). */
   characters: CharacterId[];
-  newGames: IslandGame[];
   comingSoon: string[];
 }
 
-/** Everything you unlock by opening an island — friends, playable games, teasers. */
+/**
+ * What opening a locked island actually gives you: the characters gated to that
+ * island (from the shared characterIsland map — so it matches the profile), plus
+ * any teaser games on the way. Never lists starter characters or games you can
+ * already play.
+ */
 export function islandRewards(id: number): IslandReward {
-  return {
-    characters: rewardCharacters[id] ?? [],
-    newGames: gamesForIsland(id),
-    comingSoon: comingSoonByIsland[id] ?? [],
-  };
+  const characters = [...characterIsland.entries()].filter(([, island]) => island === id).map(([character]) => character);
+  return { characters, comingSoon: comingSoonByIsland[id] ?? [] };
 }
