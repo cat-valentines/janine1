@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 function friendlyError(raw: string): string {
   const text = raw.toLowerCase();
   if (text.includes('invalid login credentials')) return "That email or password isn't right. Try again?";
-  if (text.includes('email not confirmed')) return 'Almost there! Click the link in your email first, then log in.';
+  if (text.includes('email not confirmed')) return "Your account needs the link we emailed you. If it never arrives (some school emails block it), just tap “▶ Just play” to play with no account, or sign up again with a personal email.";
   if (text.includes('user already registered') || text.includes('already been registered')) return 'You already have an account with that email — try logging in instead.';
   if (text.includes('password should be at least')) return 'Your password needs at least 6 letters or numbers.';
   if (text.includes('rate limit') || text.includes('too many requests')) return 'Too many tries just now. Wait a minute, then have another go.';
@@ -59,7 +59,7 @@ export function Auth({ initialMode = 'signin', onClose }: { initialMode?: 'signi
 
       const name = username.trim();
       if (await usernameTaken(name)) {
-        setMessage(`Someone already plays as "${name}". Try another username!`);
+        setMessage(`"${name}" is already taken. Pick a different username — or if it's yours, tap “Log in” below.`);
         return;
       }
       const { data, error } = await supabase.auth.signUp({
@@ -81,12 +81,22 @@ export function Auth({ initialMode = 'signin', onClose }: { initialMode?: 'signi
     }
   }
 
+  async function resendEmail() {
+    setBusy(true);
+    const { error } = await supabase.auth.resend({ type: 'signup', email: sentTo });
+    setMessage(error ? friendlyError(error.message) : '📨 Sent again! Give it a minute.');
+    setBusy(false);
+  }
+
   if (sentTo) {
     return <section className="card auth-sent">
       <h2>📬 Check your email</h2>
       <p>We sent a link to <strong>{sentTo}</strong>. Click it to finish making your account, then come back and log in.</p>
       <p className="auth-tip">Can't find it? Look in your spam or junk folder — it sometimes hides there.</p>
-      <button onClick={() => { setSentTo(''); setMode('signin'); }}>Back to log in</button>
+      <p className="auth-school-note">🏫 On a <strong>school email</strong>? These links are often blocked and never arrive. You don't need an account to play — go back and tap <strong>“▶ Just play — no account needed”</strong>. To keep an account, sign up with a personal email instead.</p>
+      <button type="button" className="ghost" onClick={resendEmail} disabled={busy}>{busy ? '…' : '📨 Resend the email'}</button>
+      {message && <p className="message">{message}</p>}
+      <button onClick={() => { setSentTo(''); setMessage(''); setMode('signin'); }}>Back to log in</button>
     </section>;
   }
 
