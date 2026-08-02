@@ -575,7 +575,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .games-sign { width: fit-content; margin: 6px auto 0; padding: 3px 14px; background: #fffaf0e8; border: 3px solid #6c5c4f; box-shadow: 3px 3px 0 #423b3566; color: #4f4054; font-family: "Courier New", monospace; font-size: .8rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
 
 /* The game shelf: one pill per game, same size, stacked, deepest green first. */
-.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .blockup-button, .truthdare-button, .pi-button, .tongue-button, .friction-button, .song-button, .human-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
+.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .blockup-button, .truthdare-button, .pi-button, .tongue-button, .friction-button, .song-button, .sing-button, .human-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
 
 /* Game shelf as small two-column buttons (emoji + name kept, arrow hidden). */
 .game-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; width: min(100%, 460px); margin: 10px auto 14px; }
@@ -602,6 +602,8 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .friction-button span { margin: 0; }
 .song-button { background: linear-gradient(120deg, #ff6a99, #7c5cff); box-shadow: 0 7px 0 #5a3aa0; }
 .song-button span { margin: 0; }
+.sing-button { background: linear-gradient(120deg, #ff8fb0, #d05a8a); box-shadow: 0 7px 0 #9a3f63; }
+.sing-button span { margin: 0; }
 .human-button { background: linear-gradient(120deg, #5a6b82, #33465c); box-shadow: 0 7px 0 #22303f; }
 .human-button span { margin: 0; }
 
@@ -2135,7 +2137,6 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 @media (max-width: 560px) { .island-actions { bottom: 270px; right: 66px; } }
 
 /* ===== Sing Star — pitch-matching singing trainer ===== */
-.sing-button { background: linear-gradient(120deg, #ff8fb0, #d05a8a); color: #fff; }
 .sing-page { min-height: 100dvh; background: linear-gradient(#241a40, #3a2a5e); color: #f0eaff; font-family: system-ui, sans-serif; }
 .sing-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; }
 .sing-top button { padding: 8px 14px; border: 0; border-radius: 999px; background: #ffffff22; color: #fff; font-weight: 800; cursor: pointer; }
