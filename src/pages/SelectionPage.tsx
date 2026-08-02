@@ -56,6 +56,7 @@ import { TongueTwisterPage } from './TongueTwisterPage';
 import { ProveHumanPage } from './ProveHumanPage';
 import { MoreGamesPage } from './MoreGamesPage';
 import { SongStudioPage } from './SongStudioPage';
+import { SingStarPage } from './SingStarPage';
 import type { GameId } from '../game/gameList';
 import { AccountSetupPage } from './AccountSetupPage';
 import { loadAccountState } from '../lib/players';
@@ -90,6 +91,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const frictionOpen = path === '/play/friction';
   const humanOpen = path === '/play/human';
   const songOpen = path === '/play/song';
+  const singOpen = path === '/play/sing';
   const escapeRoomOpen = path === '/play/escaperoom';
   const medicineIsland = paramOf(path, '/play/medicine');
   const runnerIsland = paramOf(path, '/play/runner');
@@ -359,6 +361,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     if (id === 'friction') navigate('/play/friction');
     if (id === 'human') navigate('/play/human');
     if (id === 'song') navigate('/play/song');
+    if (id === 'singstar') navigate('/play/sing');
   };
 
   if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => home()} />;
@@ -372,6 +375,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   if (frictionOpen) return <Suspense fallback={<main className="fric-page"><p className="world-loading">Chilling the ice…</p></main>}><FrictionPage onScore={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
   if (humanOpen) return <ProveHumanPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (songOpen) return <SongStudioPage onScore={(coins) => award(coins)} onBack={() => home()} />;
+  if (singOpen) return <SingStarPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (escapeRoomOpen) return <Suspense fallback={<main className="island-page"><p className="world-loading">Sailing to the island…</p></main>}><IslandWorldPage character={character} onScore={(coins) => { award(coins); setCompletedQuests((q) => q + 1); }} onBack={() => home()} /></Suspense>;
   if (gruitsOpen) return <GruitsPage onScore={(points) => award(Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;
@@ -456,6 +460,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
         <button className="tongue-button" onClick={() => navigate('/play/tongue')}>👅 Tongue Twister <span>→</span></button>
         <button className="friction-button" onClick={() => navigate('/play/friction')}>🧊 Slip &amp; Grip <span>→</span></button>
         <button className="song-button" onClick={() => navigate('/play/song')}>🎵 Song Studio <span>→</span></button>
+        <button className="sing-button" onClick={() => navigate('/play/sing')}>🎤 Sing Star <span>→</span></button>
         <button className="human-button" onClick={() => navigate('/play/human')}>🤖 Prove You're Human <span>→</span></button>
       </div>
       <button className="more-button" onClick={() => navigate('/games')}>⊞ See all games <span>→</span></button>

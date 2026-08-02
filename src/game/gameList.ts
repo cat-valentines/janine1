@@ -1,6 +1,6 @@
 export type GameId =
   | 'tower' | 'hunger' | 'medicine' | 'runner' | 'drive'
-  | 'riddle' | 'pong' | 'fruit' | 'escape' | 'connector' | 'underwater' | 'blockup' | 'truthdare' | 'pi' | 'tongue' | 'friction' | 'human' | 'song';
+  | 'riddle' | 'pong' | 'fruit' | 'escape' | 'connector' | 'underwater' | 'blockup' | 'truthdare' | 'pi' | 'tongue' | 'friction' | 'human' | 'song' | 'singstar';
 
 export interface GameCard {
   id: GameId;
@@ -37,6 +37,7 @@ export const gameList: GameCard[] = [
   { id: 'tongue', name: 'Tongue Twister', icon: '👅', kind: 'Puzzle', blurb: 'Say the tongue twister 3 times in 20 seconds! Tap record and the game listens to check you got it right. Great for talking clearly and reading fast.', learn: 'Speaking clearly and reading fast — say each tongue twister without tripping up.' },
   { id: 'friction', name: 'Slip & Grip', icon: '🧊', kind: 'Puzzle', blurb: 'Guide a purple block through 100 physics levels by switching friction: 🧊 ICE to slide and build speed, 🟪 GRIP to steer and stop. Cross gaps, ride platforms, bounce pads and dodge spikes!', learn: 'How friction works — low friction (ice) keeps you sliding, high friction (grip) lets you speed up, steer and stop.' },
   { id: 'song', name: 'Song Studio', icon: '🎵', kind: 'Arcade', blurb: 'Make your own original songs! Pick a genre and mood to generate a fresh beat, let the AI write lyrics, record your voice over it, then save it, download it, or make it public for people to hear on your profile. Everything is 100% yours — post it anywhere.', learn: 'How music is built — beats, bass, chords and melody — and how to write song lyrics.' },
+  { id: 'singstar', name: 'Sing Star', icon: '🎤', kind: 'Arcade', blurb: 'A singing trainer! Listen to a tune, then sing it back — the game hears your voice through the mic and scores how close your pitch is, karaoke-style. All original tunes in fun pop styles.', learn: 'Ear training and pitch — how to hear a note and match it with your voice.' },
   { id: 'human', name: "Prove You're Human", icon: '🤖', kind: 'Puzzle', blurb: 'Chat your way past a suspicious robot gatekeeper. Convince it you\'re a REAL human — say human stuff like feelings, memories and jokes — to open the next of 200 gates. It gets much harder the deeper you go!' },
 ];
 
