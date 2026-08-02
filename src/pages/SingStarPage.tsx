@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { SINGS, noteTimes, melodySeconds, beatSeconds, midiRange, rateNote, starsFor, playTone, type Sing, type TimedNote } from '../game/singGame';
+import { SINGS, noteTimes, melodySeconds, beatSeconds, midiRange, rateHold, starsFor, playTone, HOLD_TOLERANCE, type Sing, type TimedNote } from '../game/singGame';
 import { detectPitch, freqToMidi, semitonesOff, noteName } from '../game/pitch';
 
 const PX_PER_SEC = 130;
@@ -23,7 +23,8 @@ export function SingStarPage({ onScore, onBack }: { onScore: (coins: number) => 
   const rafRef = useRef(0);
   const startAtRef = useRef(0);              // ctx time the melody starts
   const notesRef = useRef<TimedNote[]>([]);
-  const bestRef = useRef<number[]>([]);      // best (lowest) semitones-off per note
+  const holdRef = useRef<number[]>([]);      // seconds you held ON-pitch per note
+  const lastTRef = useRef(0);                // previous frame time, for measuring how long you hold
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const paidRef = useRef(false);
@@ -62,20 +63,25 @@ export function SingStarPage({ onScore, onBack }: { onScore: (coins: number) => 
     ctx.strokeStyle = '#ffffff14';
     for (let m = Math.ceil(lo); m <= hi; m += 2) { const y = pitchY(m); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
 
-    // target notes
+    // target notes — the green fill shows HOW LONG you've held each note steady
     notesRef.current.forEach((n, i) => {
       const x = headX + (n.start - t) * PX_PER_SEC;
       const w = n.dur * PX_PER_SEC;
       if (x + w < -20 || x > W + 20) return;
       const y = pitchY(n.midi);
       const active = i === activeIdx;
-      const done = bestRef.current[i] !== undefined && bestRef.current[i] <= 1.3;
-      ctx.fillStyle = active ? '#ffe45e' : done ? '#4bd07b' : '#8a7fd0';
-      const h = 14;
       const bw = Math.max(w, 8);
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(x, y - h / 2, bw, h, 7); else ctx.rect(x, y - h / 2, bw, h);
+      const held = Math.min(1, (holdRef.current[i] ?? 0) / n.dur);
+      const round = () => { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y - 7, bw, 14, 7); else ctx.rect(x, y - 7, bw, 14); };
+      round();
+      ctx.fillStyle = active ? '#ffe45e' : '#8a7fd0';
       ctx.fill();
+      if (held > 0.02) {   // how much of the note you sustained on-pitch, filled in green
+        ctx.save(); round(); ctx.clip();
+        ctx.fillStyle = '#4bd07b';
+        ctx.fillRect(x, y - 7, bw * held, 14);
+        ctx.restore();
+      }
     });
 
     // playhead
@@ -98,7 +104,7 @@ export function SingStarPage({ onScore, onBack }: { onScore: (coins: number) => 
   const finish = () => {
     const notes = notesRef.current;
     let pts = 0;
-    notes.forEach((_, i) => { pts += rateNote(bestRef.current[i] ?? 99).points; });
+    notes.forEach((n, i) => { pts += rateHold(Math.min(1, (holdRef.current[i] ?? 0) / n.dur)).points; });
     const pct = notes.length ? Math.round((pts / (notes.length * 100)) * 100) : 0;
     const s = starsFor(pct);
     setResult({ pct, ...s });
@@ -121,9 +127,13 @@ export function SingStarPage({ onScore, onBack }: { onScore: (coins: number) => 
       if (f > 0) userMidi = freqToMidi(f);
     }
     const active = notesRef.current.findIndex((n) => t >= n.start && t < n.start + n.dur);
-    if (phaseRef.current === 'sing' && active >= 0 && userMidi != null) {
-      const semis = semitonesOff(userMidi, notesRef.current[active].midi);
-      bestRef.current[active] = Math.min(bestRef.current[active] ?? 99, semis);
+    const dt = Math.max(0, Math.min(0.1, t - lastTRef.current));
+    lastTRef.current = t;
+    // Credit the note only while you hold your voice STEADY on it — that's the
+    // breath-control skill. Off-pitch or silent time doesn't count.
+    if (phaseRef.current === 'sing' && active >= 0 && userMidi != null
+      && semitonesOff(userMidi, notesRef.current[active].midi) <= HOLD_TOLERANCE) {
+      holdRef.current[active] = (holdRef.current[active] ?? 0) + dt;
     }
     if (userMidi != null && ctx.currentTime * 8 % 1 < 0.14) setLiveNote(noteName(userMidi));
 
@@ -164,7 +174,8 @@ export function SingStarPage({ onScore, onBack }: { onScore: (coins: number) => 
     }
     const notes = noteTimes(sing);
     notesRef.current = notes;
-    bestRef.current = [];
+    holdRef.current = [];
+    lastTRef.current = 0;
     setResult(null);
     // count-in ticks, then the melody
     const t0 = ctx.currentTime + 0.25 + COUNT_IN * beatSeconds(sing);
@@ -193,7 +204,7 @@ export function SingStarPage({ onScore, onBack }: { onScore: (coins: number) => 
       <header className="sing-top"><button onClick={onBack}>← Back</button><span>🎤 Sing Star</span></header>
       <div className="sing-intro">
         <h1>🎤 Sing Star</h1>
-        <p>Pick a tune, tap <b>🔊 Listen</b> to hear it, then <b>🎤 Sing</b> it back. The game listens to your voice and scores how close your <b>pitch</b> is — a fun way to train your singing ear! 🎧 Headphones help.</p>
+        <p>Pick a tune, tap <b>🔊 Listen</b>, then <b>🎤 Sing</b> it back. The game scores how long you <b>hold each note steady</b> — real breath control, the way a great singer sustains a note. The <b>long notes</b> are where the points are: take a big breath and hold ONE steady pitch as the bar fills green! 🎧 Headphones help.</p>
         <div className="sing-list">
           {SINGS.map((s) => <button key={s.id} className="sing-card" onClick={() => { setSing(s); setPhase('idle'); setResult(null); }}>
             <span className="sing-emoji">{s.emoji}</span>
@@ -217,7 +228,7 @@ export function SingStarPage({ onScore, onBack }: { onScore: (coins: number) => 
     <div className="sing-stage">
       <canvas ref={canvasRef} className="sing-canvas" />
       {phase === 'sing' && countdown > 0 && <div className="sing-count">{countdown}</div>}
-      {phase === 'sing' && countdown === 0 && <div className="sing-live">🎤 Sing! {liveNote && <b>{liveNote}</b>}</div>}
+      {phase === 'sing' && countdown === 0 && <div className="sing-live">🎤 Hold it steady! {liveNote && <b>{liveNote}</b>}</div>}
       {phase === 'listen' && <div className="sing-live">🔊 Listen — this is the tune to match</div>}
       {phase === 'idle' && !result && <div className="sing-hint">🔊 Listen first, then 🎤 Sing it back</div>}
     </div>
