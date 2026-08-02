@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { SINGS, noteTimes, melodySeconds, beatSeconds, midiRange, rateHold, starsFor, playTone, HOLD_TOLERANCE, type Sing, type TimedNote } from '../game/singGame';
+import { SINGS, noteTimes, melodySeconds, beatSeconds, midiRange, rateHold, starsFor, playTone, playVoice, HOLD_TOLERANCE, type Sing, type TimedNote } from '../game/singGame';
 import { detectPitch, freqToMidi, semitonesOff, noteName } from '../game/pitch';
 
 const PX_PER_SEC = 130;
@@ -149,7 +149,7 @@ export function SingStarPage({ onScore, onBack }: { onScore: (coins: number) => 
     const notes = noteTimes(sing);
     notesRef.current = notes;
     const t0 = ctx.currentTime + 0.2;
-    notes.forEach((n) => playTone(ctx, ctx.destination, n.midi, t0 + n.start, n.dur));
+    notes.forEach((n) => playVoice(ctx, ctx.destination, n.midi, t0 + n.start, n.dur));
     startAtRef.current = t0;
     setPhase('listen');
     cancelAnimationFrame(rafRef.current);
@@ -229,7 +229,7 @@ export function SingStarPage({ onScore, onBack }: { onScore: (coins: number) => 
       <canvas ref={canvasRef} className="sing-canvas" />
       {phase === 'sing' && countdown > 0 && <div className="sing-count">{countdown}</div>}
       {phase === 'sing' && countdown === 0 && <div className="sing-live">🎤 Hold it steady! {liveNote && <b>{liveNote}</b>}</div>}
-      {phase === 'listen' && <div className="sing-live">🔊 Listen — this is the tune to match</div>}
+      {phase === 'listen' && <div className="sing-live">🎙️ Listen — a voice sings the tune to match</div>}
       {phase === 'idle' && !result && <div className="sing-hint">🔊 Listen first, then 🎤 Sing it back</div>}
     </div>
 

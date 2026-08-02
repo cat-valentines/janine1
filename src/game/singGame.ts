@@ -121,7 +121,7 @@ export function starsFor(pct: number): { stars: number; message: string } {
   return { stars: 0, message: '🎧 Tip: on the long notes, take a deep breath and hold ONE steady pitch.' };
 }
 
-/** Play one soft tone (used for the sample and the count-in ticks). */
+/** Play one soft tone (used only for the metronome count-in ticks). */
 export function playTone(ctx: AudioContext, dest: AudioNode, midi: number, start: number, dur: number, gain = 0.22, type: OscillatorType = 'triangle') {
   const osc = ctx.createOscillator();
   const g = ctx.createGain();
@@ -135,4 +135,41 @@ export function playTone(ctx: AudioContext, dest: AudioNode, midi: number, start
   g.gain.linearRampToValueAtTime(0, start + dur);
   osc.start(start);
   osc.stop(start + dur + 0.02);
+}
+
+/**
+ * Sing one note as a real-sounding "aah" vowel instead of a beep. This is
+ * formant synthesis: two slightly-detuned voices (a glottal buzz) shaped by
+ * three bandpass "formant" filters — the acoustic fingerprint of a human vowel —
+ * with vibrato. It's synthetic, but it sings "aaah", not "bee-boo".
+ */
+const AAH_FORMANTS: [number, number, number] = [800, 1150, 2800];
+const AAH_GAINS = [1, 0.55, 0.3];
+export function playVoice(ctx: AudioContext, dest: AudioNode, midi: number, start: number, dur: number, gain = 0.5) {
+  const freq = midiToFreq(midi);
+  const amp = ctx.createGain();
+  const a = 0.06, r = Math.min(0.24, dur * 0.35);
+  amp.gain.setValueAtTime(0.0001, start);
+  amp.gain.linearRampToValueAtTime(gain, start + a);
+  amp.gain.setValueAtTime(gain, start + Math.max(a, dur - r));
+  amp.gain.linearRampToValueAtTime(0.0001, start + dur);
+  amp.connect(dest);
+
+  for (const detune of [-9, 9]) {
+    const src = ctx.createOscillator();
+    src.type = 'sawtooth';
+    src.frequency.value = freq;
+    src.detune.value = detune;
+    // a gentle 5.2 Hz vibrato, like a held human note
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 5.2;
+    const lg = ctx.createGain(); lg.gain.value = 9;
+    lfo.connect(lg); lg.connect(src.detune);
+    lfo.start(start); lfo.stop(start + dur + 0.06);
+    AAH_FORMANTS.forEach((ff, i) => {
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = ff; bp.Q.value = 7;
+      const fg = ctx.createGain(); fg.gain.value = AAH_GAINS[i];
+      src.connect(bp); bp.connect(fg); fg.connect(amp);
+    });
+    src.start(start); src.stop(start + dur + 0.06);
+  }
 }
