@@ -200,6 +200,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .auth-guest { display: block; width: 100%; margin-top: 16px; padding: 13px 14px; border: 0; border-radius: 12px; background: linear-gradient(120deg, #4bd07b, #2fa85c); color: #05230f; font-weight: 900; font-size: 1rem; cursor: pointer; box-shadow: 0 4px 0 #1e7a41; }
 .auth-guest:active { transform: translateY(2px); box-shadow: 0 2px 0 #1e7a41; }
 .auth-optional { margin: 10px 2px 0; color: var(--ink-soft); font-size: .8rem; line-height: 1.45; }
+.auth-way-note { margin: 2px 2px 8px; color: var(--ink-soft); font-size: .76rem; line-height: 1.4; }
 .auth-school-note { margin: 8px 2px 0; padding: 8px 10px; background: #fff4d6; border: 1px solid #e6c86a; border-radius: 8px; color: #6f5411; font-size: .74rem; line-height: 1.4; }
 .auth-more-link { display: block; width: 100%; margin-top: 6px; padding: 6px; border: 0; background: none; color: var(--ink-soft); font-size: .78rem; font-weight: 700; cursor: pointer; }
 .auth-divider { display: flex; align-items: center; gap: 10px; margin: 15px 0 2px; color: var(--ink-soft); font-size: .75rem; }

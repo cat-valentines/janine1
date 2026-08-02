@@ -25,8 +25,6 @@ export function Auth({ initialMode = 'signin', onClose }: { initialMode?: 'signi
   const [busy, setBusy] = useState(false);
   /** Set once a confirmation email is on its way, so we can explain what happens next. */
   const [sentTo, setSentTo] = useState('');
-  /** Google is tucked away — it's blocked on school accounts, so it's opt-in. */
-  const [showMore, setShowMore] = useState(false);
 
   async function handleGoogleSignIn() {
     setBusy(true);
@@ -107,9 +105,11 @@ export function Auth({ initialMode = 'signin', onClose }: { initialMode?: 'signi
       <h2>{mode === 'signin' ? 'Welcome back!' : 'Make an account'}</h2>
       {onClose && <>
         <button type="button" className="auth-guest" onClick={onClose}>▶ Just play — no account needed</button>
-        <p className="auth-optional">You can play all the games with no sign-in — great for school. Sign in below only if you want to save your progress across devices and text your friends.</p>
-        <div className="auth-divider"><span>or sign in with email</span></div>
+        <p className="auth-optional">You don't need an account to play. Make one to <b>save your progress</b> and <b>text your friends</b> — two ways, both work:</p>
       </>}
+
+      <div className="auth-divider"><span>① username &amp; password</span></div>
+      <p className="auth-way-note">✅ Works everywhere — even at school.</p>
       <form onSubmit={handleSubmit} className="form">
         {mode === 'signup' && <input
           type="text"
@@ -152,15 +152,11 @@ export function Auth({ initialMode = 'signin', onClose }: { initialMode?: 'signi
         {mode === 'signin' ? 'No account yet? Sign up' : 'Already have an account? Log in'}
       </button>
 
-      <button type="button" className="auth-more-link" onClick={() => setShowMore((v) => !v)}>
-        {showMore ? 'Hide other options' : 'Other ways to sign in ▾'}
+      <div className="auth-divider"><span>② with Google</span></div>
+      <p className="auth-way-note">🏠 Best at home. On a <strong>school</strong> Google account, Google itself blocks it (“access blocked”) — use option ① instead.</p>
+      <button className="google-auth-button" type="button" disabled={busy} onClick={handleGoogleSignIn}>
+        <span aria-hidden="true">G</span> Continue with Google
       </button>
-      {showMore && <>
-        <button className="google-auth-button" type="button" disabled={busy} onClick={handleGoogleSignIn}>
-          <span aria-hidden="true">G</span> Continue with Google
-        </button>
-        <p className="auth-school-note">🏫 Heads up: Google sign-in is usually <strong>blocked on school accounts</strong> (“access blocked” / “admin needs to review”). That's Google's block, not the game — use email above, or just play with no account.</p>
-      </>}
     </section>
   );
 }
