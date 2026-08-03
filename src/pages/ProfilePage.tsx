@@ -89,7 +89,9 @@ export function ProfilePage({ character, setting, coins, foodBalance, completedQ
   const [nameNote, setNameNote] = useState('');
   const [nameTaken, setNameTaken] = useState(false);
   const collectible = characterCollectibles[character];
-  const progress = { completedQuests, streak, isMember };
+  // Include stars so characters unlock the moment their island opens — islands
+  // open via the 5,000-star gate too, not just quests + streak.
+  const progress = { completedQuests, streak, isMember, stars: getStars() };
 
   const saveUsername = async (event: React.FormEvent) => {
     event.preventDefault();
