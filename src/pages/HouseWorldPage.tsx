@@ -99,7 +99,7 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
         <button className="world-view-toggle" onClick={() => setView(view === 'third' ? 'first' : 'third')}>
           {view === 'third' ? '👁️ First person' : '🧍 See my character'}
         </button>
-        <p className="world-help">Click the world, then use <b>W A S D</b> to walk, <b>Space</b> to jump, mouse to look. Press <b>Esc</b> to let go.</p>
+        <p className="world-help">Click the world, then use the <b>arrow keys</b> to walk, <b>Space</b> to jump, mouse to look. Press <b>Esc</b> to let go.</p>
       </>}
       {mode === 'build' && <p className="world-help">{erasing
         ? <>🧽 <b>Eraser on</b> — click any block to rub it out. Pick a block to build again.</>

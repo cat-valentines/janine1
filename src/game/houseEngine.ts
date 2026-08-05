@@ -57,6 +57,12 @@ export class HouseEngine {
   private livestockGroup = new THREE.Group();
   private wanderers: Wanderer[] = [];
   private avatar = new THREE.Group();
+  // Limb pivots so the arms and legs swing from the shoulder/hip when walking.
+  private legL: THREE.Group | null = null;
+  private legR: THREE.Group | null = null;
+  private armL: THREE.Group | null = null;
+  private armR: THREE.Group | null = null;
+  private walkPhase = 0;
   private highlight: THREE.LineSegments;
 
   private world: string;
@@ -271,16 +277,23 @@ export class HouseEngine {
 
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.28), shirt);
     body.position.y = 0.95;
-    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.58, 0.16), skin);
-    armL.position.set(-0.34, 0.95, 0);
-    const armR = armL.clone();
-    armR.position.x = 0.34;
-    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.62, 0.18), legs);
-    legL.position.set(-0.13, 0.32, 0);
-    const legR = legL.clone();
-    legR.position.x = 0.13;
 
-    this.avatar.add(head, body, armL, armR, legL, legR);
+    // Each limb hangs inside a pivot group placed at the shoulder/hip, so
+    // rotating the group swings the whole limb from the top like a real leg.
+    const limb = (w: number, h: number, d: number, mat: THREE.Material, px: number, pivotY: number) => {
+      const g = new THREE.Group();
+      g.position.set(px, pivotY, 0);
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      mesh.position.y = -h / 2;
+      g.add(mesh);
+      return g;
+    };
+    this.armL = limb(0.16, 0.58, 0.16, skin, -0.34, 1.24);
+    this.armR = limb(0.16, 0.58, 0.16, skin, 0.34, 1.24);
+    this.legL = limb(0.18, 0.62, 0.18, legs, -0.13, 0.63);
+    this.legR = limb(0.18, 0.62, 0.18, legs, 0.13, 0.63);
+
+    this.avatar.add(head, body, this.armL, this.armR, this.legL, this.legR);
   }
 
   private resetPlayer() {
@@ -402,7 +415,8 @@ export class HouseEngine {
 
   private onKeyDown = (event: KeyboardEvent) => {
     this.keys.add(event.code);
-    if (event.code === 'Space' && this.mode === 'walk') event.preventDefault();
+    // Stop arrows/space from scrolling the page while you're walking.
+    if (this.mode === 'walk' && ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) event.preventDefault();
   };
   private onKeyUp = (event: KeyboardEvent) => this.keys.delete(event.code);
 
@@ -526,14 +540,27 @@ export class HouseEngine {
   }
 
   private walk(dt: number) {
-    const forward = (this.keys.has('KeyW') ? 1 : 0) - (this.keys.has('KeyS') ? 1 : 0);
-    const strafe = (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0);
+    // Arrow keys walk you around (WASD still works too).
+    const forward = ((this.keys.has('ArrowUp') || this.keys.has('KeyW')) ? 1 : 0) - ((this.keys.has('ArrowDown') || this.keys.has('KeyS')) ? 1 : 0);
+    const strafe = ((this.keys.has('ArrowRight') || this.keys.has('KeyD')) ? 1 : 0) - ((this.keys.has('ArrowLeft') || this.keys.has('KeyA')) ? 1 : 0);
     const move = new THREE.Vector3(
       Math.sin(this.yaw) * -forward + Math.cos(this.yaw) * strafe,
       0,
       Math.cos(this.yaw) * -forward - Math.sin(this.yaw) * strafe,
     );
-    if (move.lengthSq() > 0) move.normalize().multiplyScalar(SPEED * dt);
+    const moving = move.lengthSq() > 0;
+    if (moving) move.normalize().multiplyScalar(SPEED * dt);
+
+    // Swing the arms and legs so the character actually walks.
+    this.walkPhase += (moving ? dt * 9 : 0);
+    const swing = moving ? Math.sin(this.walkPhase) * 0.6 : 0;
+    const ease = Math.min(1, dt * 12);
+    if (this.legL && this.legR && this.armL && this.armR) {
+      this.legL.rotation.x += (swing - this.legL.rotation.x) * ease;
+      this.legR.rotation.x += (-swing - this.legR.rotation.x) * ease;
+      this.armL.rotation.x += (-swing - this.armL.rotation.x) * ease;
+      this.armR.rotation.x += (swing - this.armR.rotation.x) * ease;
+    }
 
     if (this.grounded && this.keys.has('Space')) this.velocity.y = JUMP;
     this.velocity.y -= GRAVITY * dt;
