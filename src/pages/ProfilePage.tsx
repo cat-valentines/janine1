@@ -10,7 +10,7 @@ import type { CharacterId, SettingId } from '../game/types';
 import { isIslandOpen } from '../game/progress';
 import { islands } from '../game/islands';
 
-const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal', misha: 'Misha', joy: 'Joy', melly: 'Melly', martin: 'Martin', hazel: 'Hazel', bubbles: 'Bubbles', rocky: 'Rocky', ellie: 'Ellie', pip: 'Pip', clover: 'Clover', maple: 'Maple', lulu: 'Lulu', finn: 'Finn', daisy: 'Daisy', hattie: 'Hattie', kiki: 'Kiki', pango: 'Pango', honey: 'Honey', roo: 'Roo', snowy: 'Snowy', pigeon: 'Pigeon' };
+const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal', misha: 'Misha', joy: 'Joy', melly: 'Melly', martin: 'Martin', hazel: 'Hazel', bubbles: 'Bubbles', rocky: 'Rocky', ellie: 'Ellie', pip: 'Pip', clover: 'Clover', maple: 'Maple', lulu: 'Lulu', finn: 'Finn', daisy: 'Daisy', hattie: 'Hattie', kiki: 'Kiki', pango: 'Pango', honey: 'Honey Bee', roo: 'Roo', snowy: 'Snowy', pigeon: 'Pigeon', honey_bear: 'Honey', emi: 'Emi', micheal: 'Micheal', emily: 'Emily', frog: 'Frog', butterfly: 'Butterfly', thomas: 'Thomas' };
 const characterChoices: Array<[CharacterId, string]> = [
   ['cottontail', 'A cheerful little house explorer'],
   ['momo', 'Cheerful treasure penguin'],
@@ -48,6 +48,13 @@ const characterChoices: Array<[CharacterId, string]> = [
   ['roo', 'A bouncy baby kangaroo'],
   ['snowy', 'A fluffy baby snow leopard'],
   ['pigeon', 'A cheerful, chubby little pigeon'],
+  ['honey_bear', 'A sweet golden bear who loves honey'],
+  ['emi', 'A wise and cuddly lavender owl'],
+  ['micheal', 'A cheerful little turtle with a round shell'],
+  ['emily', 'A playful two-legged baby dolphin'],
+  ['frog', 'A bouncy green frog with rosy cheeks'],
+  ['butterfly', 'A pastel butterfly with tiny walking feet'],
+  ['thomas', 'A brave and friendly baby eagle'],
 ];
 const houses: Record<SettingId, string> = { haunted: 'Haunted House', secret: 'Secret Rooms', power: 'Power House' };
 const today = new Date().toISOString().slice(0, 10);

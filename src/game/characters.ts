@@ -43,6 +43,13 @@ export const characterCollectibles: Record<CharacterId, CharacterCollectible> = 
   roo: { asset: '/assets/pixel-leaf.png', singular: 'leaf', plural: 'leaves' },
   snowy: { asset: '/assets/pixel-apple.png', singular: 'berry', plural: 'berries' },
   pigeon: { asset: '/assets/pixel-apple.png', singular: 'seed', plural: 'seeds' },
+  honey_bear: { asset: '/assets/pixel-honey.png', singular: 'honeypot', plural: 'honeypots' },
+  emi: { asset: '/assets/pixel-apple.png', singular: 'berry', plural: 'berries' },
+  micheal: { asset: '/assets/pixel-leaf.png', singular: 'leaf', plural: 'leaves' },
+  emily: { asset: '/assets/pixel-fish.png', singular: 'fish', plural: 'fish' },
+  frog: { asset: '/assets/pixel-leaf.png', singular: 'lily pad', plural: 'lily pads' },
+  butterfly: { asset: '/assets/pixel-apple.png', singular: 'flower', plural: 'flowers' },
+  thomas: { asset: '/assets/pixel-fish.png', singular: 'fish', plural: 'fish' },
 };
 
 export const characterAssets: Record<CharacterId, string> = {
@@ -60,6 +67,9 @@ export const characterAssets: Record<CharacterId, string> = {
   hattie: '/assets/pixel-hattie.png', kiki: '/assets/pixel-kiki.png', pango: '/assets/pixel-pango.png',
   honey: '/assets/pixel-honey-bee.png', roo: '/assets/pixel-roo.png', snowy: '/assets/pixel-snowy.png',
   pigeon: '/assets/pixel-pigeon.png',
+  honey_bear: '/assets/pixel-honey-bear.png', emi: '/assets/pixel-emi.png', micheal: '/assets/pixel-micheal.png',
+  emily: '/assets/pixel-emily.png', frog: '/assets/pixel-frog.png', butterfly: '/assets/pixel-butterfly.png',
+  thomas: '/assets/pixel-thomas.png',
 };
 
 /**
@@ -76,4 +86,6 @@ export const characterIsland = new Map<CharacterId, number>([
   ['finn', 9], ['daisy', 10],
   ['hattie', 11], ['kiki', 12], ['pango', 13],
   ['honey', 14], ['roo', 15], ['snowy', 16],
+  ['honey_bear', 17], ['emi', 18], ['micheal', 19], ['emily', 20],
+  ['frog', 21], ['butterfly', 22], ['thomas', 23],
 ]);

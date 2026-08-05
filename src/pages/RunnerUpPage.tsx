@@ -4,7 +4,7 @@ import { runnerThemes } from '../game/runner';
 import { characterAssets } from '../game/characters';
 import type { CharacterId } from '../game/types';
 
-const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal', misha: 'Misha', joy: 'Joy', melly: 'Melly', martin: 'Martin', hazel: 'Hazel', bubbles: 'Bubbles', rocky: 'Rocky', ellie: 'Ellie', pip: 'Pip', clover: 'Clover', maple: 'Maple', lulu: 'Lulu', finn: 'Finn', daisy: 'Daisy', hattie: 'Hattie', kiki: 'Kiki', pango: 'Pango', honey: 'Honey', roo: 'Roo', snowy: 'Snowy', pigeon: 'Pigeon' };
+const names: Record<CharacterId, string> = { cottontail: 'Cottontail', momo: 'Momo', toby: 'Toby', ollie: 'Ollie', coral: 'Coral', biscuit: 'Biscuit', koala: 'Bridey', teddy: 'Adi', panda: 'Scarlet', tiger: 'Elena', piggy: 'Piggy', parrot: 'Polly', mila: 'Mila', gabby: 'Gabby', amsaal: 'Amsaal', misha: 'Misha', joy: 'Joy', melly: 'Melly', martin: 'Martin', hazel: 'Hazel', bubbles: 'Bubbles', rocky: 'Rocky', ellie: 'Ellie', pip: 'Pip', clover: 'Clover', maple: 'Maple', lulu: 'Lulu', finn: 'Finn', daisy: 'Daisy', hattie: 'Hattie', kiki: 'Kiki', pango: 'Pango', honey: 'Honey Bee', roo: 'Roo', snowy: 'Snowy', pigeon: 'Pigeon', honey_bear: 'Honey', emi: 'Emi', micheal: 'Micheal', emily: 'Emily', frog: 'Frog', butterfly: 'Butterfly', thomas: 'Thomas' };
 
 interface RunnerUpPageProps {
   character: CharacterId;

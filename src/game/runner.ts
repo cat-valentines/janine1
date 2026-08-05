@@ -166,6 +166,34 @@ export const runnerThemes: Record<CharacterId, RunnerTheme> = {
     name: 'The City Garden', icon: '🐦', skyTop: '#acd9eb', skyLow: '#edf0df', ground: '#84966a', groundDark: '#5e704b', groundLine: '#48573a',
     obstacle: '#8f8172', obstacleDark: '#655a50', decor: ['🌳', '⛲', '🌼'], far: '#a9b78d',
   },
+  honey_bear: {
+    name: 'The Golden Honey Woods', icon: '🐻', skyTop: '#efd39a', skyLow: '#f8ecd0', ground: '#8da45d', groundDark: '#657743', groundLine: '#4d5c34',
+    obstacle: '#9f7445', obstacleDark: '#704f30', decor: ['🍯', '🐝', '🌻'], far: '#b8c581',
+  },
+  emi: {
+    name: 'The Twilight Forest', icon: '🦉', skyTop: '#9b91c5', skyLow: '#ddd5e9', ground: '#6d7652', groundDark: '#4e563c', groundLine: '#3c432f',
+    obstacle: '#796456', obstacleDark: '#55463c', decor: ['🌙', '✨', '🌲'], far: '#8e9270',
+  },
+  micheal: {
+    name: 'The Turtle Cove', icon: '🐢', skyTop: '#8ed4d4', skyLow: '#e0efd2', ground: '#b49b63', groundDark: '#826f46', groundLine: '#655637',
+    obstacle: '#6f9171', obstacleDark: '#4d6650', decor: ['🐚', '🌴', '🌊'], far: '#a7bd82',
+  },
+  emily: {
+    name: 'The Dolphin Bay', icon: '🐬', skyTop: '#77bfe5', skyLow: '#d9f1f4', ground: '#d7c991', groundDark: '#aa9b68', groundLine: '#81764e',
+    obstacle: '#5ca7b6', obstacleDark: '#3f7682', decor: ['🌊', '🐚', '🫧'], far: '#85c4d2',
+  },
+  frog: {
+    name: 'The Lily Pond', icon: '🐸', skyTop: '#a8dcd2', skyLow: '#e2f0ce', ground: '#739a55', groundDark: '#526f3d', groundLine: '#3f562f',
+    obstacle: '#789064', obstacleDark: '#536447', decor: ['🪷', '🍃', '💧'], far: '#94b877',
+  },
+  butterfly: {
+    name: 'The Butterfly Garden', icon: '🦋', skyTop: '#efc7dc', skyLow: '#fff0cf', ground: '#85a965', groundDark: '#607b49', groundLine: '#4a6039',
+    obstacle: '#af806c', obstacleDark: '#7c594a', decor: ['🌸', '🌼', '🦋'], far: '#b8cb8b',
+  },
+  thomas: {
+    name: 'The Eagle Peaks', icon: '🦅', skyTop: '#9fc9e4', skyLow: '#e9eef0', ground: '#9b8d6c', groundDark: '#70654c', groundLine: '#574e3b',
+    obstacle: '#7d7469', obstacleDark: '#575047', decor: ['🏔️', '☁️', '🌲'], far: '#b0ad94',
+  },
 };
 
 export type ObstacleKind = 'spike' | 'block' | 'spikes3';
