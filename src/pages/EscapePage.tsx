@@ -102,12 +102,25 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
   // friend standing in a corner shows up standing in that corner, not roaming.
   useEffect(() => {
     if (!started || mode !== 'everybody' || !userId) return;
-    const live = joinLiveGame('housekeeper', userId, (peers) => engine.current?.setLivePlayers(peers));
+    // One player (the lowest id present) hosts the housekeepers and broadcasts
+    // them, so EVERYONE sees the SAME two keepers instead of their own copies.
+    let host = true;
+    const live = joinLiveGame('housekeeper', userId,
+      (peers) => {
+        engine.current?.setLivePlayers(peers);
+        host = peers.every((p) => userId <= p.id);
+        engine.current?.setHost(host);
+      },
+      undefined,
+      (data) => { if (!host) engine.current?.setKeepersState(data); },
+    );
+    engine.current?.setHost(true);
     heartbeat('housekeeper');
     const beat = setInterval(() => heartbeat('housekeeper'), 5000);
     const shout = setInterval(() => {
       const state = engine.current?.getSelfState();
       if (state) live.send({ name: myName, ...state });
+      if (host) { const keepers = engine.current?.getKeepersState(); if (keepers) live.sendKeepers(keepers); }
     }, 120);
     return () => { clearInterval(beat); clearInterval(shout); live.leave(); leaveGame(); };
   }, [started, mode, userId, myName]);

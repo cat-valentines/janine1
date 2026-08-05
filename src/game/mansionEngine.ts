@@ -40,6 +40,12 @@ interface EngineOptions {
   onUpdate: (snapshot: MansionSnapshot) => void;
 }
 
+/** The shared housekeepers, sent by the host so every player sees the same two. */
+export interface KeeperSync {
+  k1: { x: number; z: number; yaw: number; state: 'patrol' | 'chase' | 'search' };
+  k2: { x: number; z: number; yaw: number } | null;
+}
+
 /** A real player somewhere else in the world, drawn where they actually are. */
 interface LiveFigure {
   group: THREE.Group;
@@ -141,6 +147,12 @@ export class MansionEngine {
   private clatterAt: THREE.Vector3 | null = null;
   /** Party mode: a second keeper, roaming bot players, and unlockable levels. */
   private party = false;
+  // In "everybody" mode one player (the host) simulates the housekeepers and
+  // broadcasts them, so EVERYONE sees the SAME two keepers. Non-hosts render the
+  // keepers they receive and only check whether their own player got caught.
+  private isHost = true;
+  private netK1: { pos: THREE.Vector3; yaw: number; state: 'patrol' | 'chase' | 'search' } | null = null;
+  private netK2: { pos: THREE.Vector3; yaw: number } | null = null;
   private level = 1;
   private speedMul = 1;
   private keeper2: Roamer | null = null;
@@ -666,6 +678,40 @@ export class MansionEngine {
   /** My position, for broadcasting to the other real players in the match. */
   getSelfState() {
     return { x: this.position.x, z: this.position.z, yaw: this.yaw, level: this.level };
+  }
+
+  /** Am I the one simulating the shared housekeepers? Set from the live channel. */
+  setHost(host: boolean) { this.isHost = host; }
+
+  /** Host only: the current housekeeper positions, to broadcast to everyone. */
+  getKeepersState(): KeeperSync {
+    return {
+      k1: { x: this.keeperPos.x, z: this.keeperPos.z, yaw: this.keeperYaw, state: this.keeperState },
+      k2: this.keeper2 ? { x: this.keeper2.pos.x, z: this.keeper2.pos.z, yaw: this.keeper2.yaw } : null,
+    };
+  }
+
+  /** Non-host: the housekeepers the host just sent — we render exactly these. */
+  setKeepersState(data: unknown) {
+    const s = data as KeeperSync;
+    if (!s?.k1) return;
+    if (!this.netK1) this.netK1 = { pos: new THREE.Vector3(), yaw: 0, state: 'patrol' };
+    this.netK1.pos.set(s.k1.x, 0, s.k1.z); this.netK1.yaw = s.k1.yaw; this.netK1.state = s.k1.state;
+    if (s.k2) { if (!this.netK2) this.netK2 = { pos: new THREE.Vector3(), yaw: 0 }; this.netK2.pos.set(s.k2.x, 0, s.k2.z); this.netK2.yaw = s.k2.yaw; }
+  }
+
+  /** Non-host: glide the shared keepers toward where the host said they are. */
+  private applyNetKeepers(dt: number) {
+    const ease = Math.min(1, dt * 9);
+    if (this.netK1) { this.keeperPos.lerp(this.netK1.pos, ease); this.keeperYaw = this.netK1.yaw; this.keeperState = this.netK1.state; }
+    if (this.netK2 && this.keeper2) { this.keeper2.pos.lerp(this.netK2.pos, ease); this.keeper2.yaw = this.netK2.yaw; }
+  }
+
+  /** Non-host: a shared keeper can still catch ME — check my own player each frame. */
+  private checkCaughtByKeepers() {
+    if (this.hidden || this.status !== 'playing') return;
+    if (this.keeperPos.distanceTo(this.position) < KEEPER_REACH) { this.caught('🖐️ A housekeeper caught you!'); return; }
+    if (this.keeper2 && this.keeper2.pos.distanceTo(this.position) < KEEPER_REACH) this.caught('🪓 The second housekeeper caught you!');
   }
 
   /**
@@ -1196,8 +1242,16 @@ export class MansionEngine {
     this.time += dt;
     if (this.status === 'playing') {
       this.movePlayer(dt);
-      this.moveKeeper(dt);
-      if (this.party) { this.moveKeeper2(dt); this.moveBots(dt); }
+      if (this.party && !this.isHost) {
+        // The host owns the housekeepers; I just render the ones they send me
+        // and check whether they've caught ME. Bots stay local (harmless filler).
+        this.applyNetKeepers(dt);
+        this.checkCaughtByKeepers();
+        this.moveBots(dt);
+      } else {
+        this.moveKeeper(dt);
+        if (this.party) { this.moveKeeper2(dt); this.moveBots(dt); }
+      }
     }
     this.updateDoors(dt);
 
