@@ -182,6 +182,8 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
           <div><span>🪵</span><strong>Mind the floorboards</strong><small>The worn brown boards creak if you run over them, and she hears it from anywhere.</small></div>
           <div><span>🪤</span><strong>Watch for bear traps</strong><small>Step in one and you are held there for a few seconds, yelling — and she comes running. You can always walk around them.</small></div>
           <div><span>🪨</span><strong>Throw a stone</strong><small>Press E to lob one. It clatters where it lands and she goes to look — which buys you the room she was in. {STONES_PER_NIGHT} a night.</small></div>
+          <div><span>🫧</span><strong>Invisibility bubble</strong><small>Press <b>I</b> to vanish for 10 seconds — she can't see, hear or catch you. Just one bubble each night, so save it for a tight spot!</small></div>
+          <div><span>🗄️</span><strong>The big hallway cabinet</strong><small>A proper hideout: she can <b>never</b> open it, so you're safe inside — but it's stuffy, so you can only stay <b>20 seconds</b> before you slip out.</small></div>
           <div><span>🌙</span><strong>You get {DAYS} nights</strong><small>She catches you, you wake up and it is the next night — but you keep every key you already found.</small></div>
           <div><span>🤫</span><strong>Sneak</strong><small>Hold Shift to walk quietly. Running is loud — she can hear it through walls.</small></div>
         </div>
@@ -205,6 +207,7 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
         </div>
         <div className="escape-stones"><strong>🪨 {snapshot?.stones ?? STONES_PER_NIGHT}</strong><small>stones</small></div>
         <div className="escape-night"><strong>🌙 Night {snapshot?.day ?? 1}</strong><small>of {DAYS}</small></div>
+        <div className={`escape-night ${(snapshot?.invisLeft ?? 0) > 0 ? 'invis-on' : ''}`}><strong>{(snapshot?.invisLeft ?? 0) > 0 ? `🫧 ${snapshot!.invisLeft}s` : snapshot?.invisReady ? '🫧 Ready' : '🫧 Used'}</strong><small>invisible (I)</small></div>
         {snapshot?.party && <div className="escape-night"><strong>🔒 Level {snapshot.level}</strong><small>go deeper</small></div>}
         <div className="escape-state">
           <strong>{(snapshot?.trapped ?? 0) > 0 ? `🪤 Stuck! ${snapshot?.trapped}s` : snapshot?.hidden ? '🤫 Hidden' : snapshot?.keeperState === 'chase' ? '🏃 She sees you!' : snapshot?.keeperState === 'search' ? '👀 She is looking' : '🚶 She is patrolling'}</strong>
@@ -228,6 +231,7 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
         <KeyPad dirs={controls === 'buttons' ? ['up', 'down', 'left', 'right'] : []} actions={[
           { codes: ['Space'], label: '✋' },
           { codes: ['KeyE'], label: '🪨' },
+          { codes: ['KeyI'], label: '🫧' },
         ]} />
       </>}
       {snapshot?.status === 'playing' && <p className="escape-help">

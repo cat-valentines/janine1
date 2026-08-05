@@ -6,6 +6,7 @@ import {
   PLAYER_EYE, PLAYER_RADIUS, PLAYER_SPEED, ROWS, SEARCH_HIDE_DISTANCE, SNEAK_SPEED, TURN_SPEED,
   STONES_PER_NIGHT, THROW_DISTANCE, THROW_HEARD, TRAP_SECONDS, WALL_H, cellAt, colOf, creakySpots,
   doorSpot, hideSpots, isWall, keySpots, rowOf, startSpot, stoneSpots, trapSpots, worldOf,
+  CABINET_HIDE_SECONDS, INVIS_SECONDS,
   type HideKind,
 } from './mansion';
 
@@ -31,6 +32,9 @@ export interface MansionSnapshot {
   party: boolean;
   level: number;
   message: string;
+  /** Invisibility power: one charge each night, 10 seconds when used. */
+  invisReady: boolean;
+  invisLeft: number;   // seconds of invisibility left, or 0
 }
 
 interface EngineOptions {
@@ -173,6 +177,12 @@ export class MansionEngine {
   private hideKind: HideKind | null = null;
   /** She watched you get in, so hiding will not save you this time. */
   private busted = false;
+  /** The big-cabinet hideout kicks you out at this time (a 20s safe hide). */
+  private cabinetUntil = 0;
+  /** Invisibility bubble: one charge per night; active until this time. */
+  private invisReady = true;
+  private invisUntil = 0;
+  private invisBubble: THREE.Mesh | null = null;
   /** Creaky boards already trodden on this trip across them. */
   private creakedAt = '';
   /** Set for one frame when a board groans, so she comes looking. */
@@ -487,6 +497,19 @@ export class MansionEngine {
         this.hideMeshes.push({ mesh: wardrobe, at, kind: 'wardrobe', doors });
         return;
       }
+      if (at.kind === 'cabinet') {
+        // The big hallway cabinet — a proper hideout she can't open (but stuffy).
+        const cabGeo = new THREE.BoxGeometry(CELL * 0.94, 2.7, CELL * 0.62);
+        this.disposables.push(cabGeo);
+        const cab = new THREE.Mesh(cabGeo, wood);
+        cab.position.set(world.x, 1.35, world.z);
+        const doors = this.addDoors(world.x, 1.35, world.z + CELL * 0.31 + 0.02, CELL * 0.46, 2.5, doorMat, handleMat, 1.7);
+        const glow = new THREE.PointLight('#8fe0ff', 0.7, 3, 2);
+        glow.position.set(world.x, 2.4, world.z);
+        this.scene.add(cab, glow);
+        this.hideMeshes.push({ mesh: cab, at, kind: 'cabinet', doors });
+        return;
+      }
       // A bed on legs, with a gap underneath to slide into.
       const frame = new THREE.Mesh(bedGeo, wood);
       frame.position.set(world.x, 0.62, world.z);
@@ -709,7 +732,7 @@ export class MansionEngine {
 
   /** Non-host: a shared keeper can still catch ME — check my own player each frame. */
   private checkCaughtByKeepers() {
-    if (this.hidden || this.status !== 'playing') return;
+    if (this.hidden || this.invisible() || this.status !== 'playing') return;
     if (this.keeperPos.distanceTo(this.position) < KEEPER_REACH) { this.caught('🖐️ A housekeeper caught you!'); return; }
     if (this.keeper2 && this.keeper2.pos.distanceTo(this.position) < KEEPER_REACH) this.caught('🪓 The second housekeeper caught you!');
   }
@@ -770,12 +793,23 @@ export class MansionEngine {
   // ---- input -------------------------------------------------------------
 
   private onKeyDown = (event: KeyboardEvent) => {
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'KeyE'].includes(event.code)) event.preventDefault();
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'KeyE', 'KeyI'].includes(event.code)) event.preventDefault();
     if (this.keys.has(event.code)) return;
     this.keys.add(event.code);
     if (event.code === 'Space') this.useSpace();
     if (event.code === 'KeyE') this.throwStone();
+    if (event.code === 'KeyI') this.useInvisibility();
   };
+
+  private invisible() { return this.time < this.invisUntil; }
+
+  /** The invisibility bubble: press I once a night to vanish for 10 seconds. */
+  private useInvisibility() {
+    if (this.status !== 'playing' || this.hidden || !this.invisReady) return;
+    this.invisReady = false;
+    this.invisUntil = this.time + INVIS_SECONDS;
+    this.say('🫧 Invisible! She can\'t see you for 10 seconds — run!', 2.4);
+  }
   private onKeyUp = (event: KeyboardEvent) => this.keys.delete(event.code);
 
   private say(text: string, seconds = 2.2) {
@@ -836,14 +870,22 @@ export class MansionEngine {
     if (cabinet && cabinet.distance < 1.9) { this.openCabinet(cabinet.index); return; }
     const hide = this.nearestHide();
     if (hide && hide.distance < HIDE_DISTANCE) {
-      // If she watched you climb in, hiding will not save you — she comes to look.
-      this.busted = this.canSee();
       this.hidden = true;
       this.hideKind = hide.kind;
       this.hideAt.set(hide.world.x, 0, hide.world.z);
       if (hide.doors) { hide.doors.pulse = 0.7; this.hiddenDoors = hide.doors; }         // doors swing as you climb in
-      if (this.busted) this.say('😱 She saw you get in!', 2.4);
-      else this.say(hide.kind === 'bed' ? '🛏️ Under the bed. Stay still…' : '🚪 In the wardrobe. Stay still…', 2);
+      if (hide.kind === 'cabinet') {
+        // The big cabinet is a proper hideout: she can NEVER open it — but you can
+        // only stay 20 seconds before it gets too stuffy and you slip out.
+        this.busted = false;
+        this.cabinetUntil = this.time + CABINET_HIDE_SECONDS;
+        this.say('🚪 In the big cabinet — she can\'t find you! But only 20 seconds…', 2.6);
+      } else {
+        // A wardrobe or bed: if she watched you climb in, she comes to look.
+        this.busted = this.canSee();
+        if (this.busted) this.say('😱 She saw you get in!', 2.4);
+        else this.say(hide.kind === 'bed' ? '🛏️ Under the bed. Stay still…' : '🚪 In the wardrobe. Stay still…', 2);
+      }
       return;
     }
     if (this.atDoor()) {
@@ -944,7 +986,7 @@ export class MansionEngine {
 
   /** Can a keeper at this spot, facing this way, see you? */
   private canSeeFrom(pos: THREE.Vector3, yaw: number) {
-    if (this.hidden || this.status !== 'playing') return false;
+    if (this.hidden || this.invisible() || this.status !== 'playing') return false;
     const to = new THREE.Vector3().subVectors(this.position, pos);
     const distance = to.length();
     if (distance > KEEPER_SIGHT) return false;
@@ -992,7 +1034,7 @@ export class MansionEngine {
       if (!k.path.length) { k.patrolAt = (k.patrolAt + 1) % this.patrolPoints.length; k.path = findPath(here, this.patrolPoints[k.patrolAt]); }
       this.advance(k, dt, KEEPER_PATROL_SPEED * this.speedMul);
     }
-    if (!this.hidden && k.pos.distanceTo(this.position) < KEEPER_REACH) this.caught('🪓 The second housekeeper caught you!');
+    if (!this.hidden && !this.invisible() && k.pos.distanceTo(this.position) < KEEPER_REACH) this.caught('🪓 The second housekeeper caught you!');
   }
 
   /**
@@ -1034,6 +1076,7 @@ export class MansionEngine {
     this.level += 1;
     this.speedMul += 0.12;
     this.collected = 0;
+    this.invisReady = true; this.invisUntil = 0; this.cabinetUntil = 0;   // fresh bubble on a new level
     this.keyMeshes.forEach((cab) => {
       cab.opened = false; cab.taken = false; cab.cooldown = 0; cab.key.visible = false;
       cab.doors.target = 0; cab.doors.open = 0; cab.doors.pulse = 0;
@@ -1054,9 +1097,9 @@ export class MansionEngine {
     this.say(`🔒 Level ${this.level} unlocked! Find the keys again — the house is more dangerous now.`, 4.5);
   }
 
-  /** Running is loud. Sneaking is not. */
+  /** Running is loud. Sneaking is not. (But invisible players make no noise she minds.) */
   private canHear() {
-    if (this.hidden || this.status !== 'playing') return false;
+    if (this.hidden || this.invisible() || this.status !== 'playing') return false;
     const running = (this.keys.has('ArrowUp') || this.keys.has('ArrowDown'))
       && !(this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'));
     if (!running) return false;
@@ -1149,7 +1192,7 @@ export class MansionEngine {
       }
     }
 
-    if (!this.hidden && this.keeperPos.distanceTo(this.position) < KEEPER_REACH) {
+    if (!this.hidden && !this.invisible() && this.keeperPos.distanceTo(this.position) < KEEPER_REACH) {
       this.caught('🖐️ She caught you!');
     }
   }
@@ -1187,6 +1230,7 @@ export class MansionEngine {
     this.trapped = 0;
     this.stones = STONES_PER_NIGHT;
     this.trapMeshes.forEach((trap) => { trap.sprung = false; trap.mesh.scale.set(1, 1, 1); });
+    this.invisReady = true; this.invisUntil = 0; this.cabinetUntil = 0;   // a fresh bubble each night
     this.status = 'playing';
     this.say(`🌙 Night ${this.day}. She is walking again…`, 3);
   }
@@ -1199,6 +1243,30 @@ export class MansionEngine {
       else d.open += (d.target - d.open) * Math.min(1, dt * 9);
       d.left.rotation.y = -d.open * d.max;
       d.right.rotation.y = d.open * d.max;
+    }
+  }
+
+  /** Per-frame upkeep for the two powers: the cabinet timeout and the bubble. */
+  private tickPowers() {
+    // Big cabinet: once your 20 seconds are up, you're forced out into the open.
+    if (this.hidden && this.hideKind === 'cabinet' && this.time > this.cabinetUntil) {
+      this.hidden = false; this.hideKind = null;
+      if (this.hiddenDoors) { this.hiddenDoors.pulse = 0.7; this.hiddenDoors = null; }
+      this.say('😮‍💨 Too stuffy — you slip out of the cabinet!', 2.2);
+    }
+    // The invisibility bubble tints your view while it's up.
+    if (this.invisible()) {
+      if (!this.invisBubble) {
+        const geo = new THREE.SphereGeometry(1.4, 16, 12);
+        const mat = new THREE.MeshBasicMaterial({ color: '#8fe0ff', transparent: true, opacity: 0.16, side: THREE.BackSide, depthWrite: false });
+        this.disposables.push(geo, mat);
+        this.invisBubble = new THREE.Mesh(geo, mat);
+        this.scene.add(this.invisBubble);
+      }
+      this.invisBubble.visible = true;
+      this.invisBubble.position.set(this.position.x, PLAYER_EYE, this.position.z);
+    } else if (this.invisBubble) {
+      this.invisBubble.visible = false;
     }
   }
 
@@ -1216,6 +1284,8 @@ export class MansionEngine {
       status: this.status,
       party: this.party, level: this.level,
       message: this.time < this.messageUntil ? this.message : '',
+      invisReady: this.invisReady,
+      invisLeft: this.invisible() ? Math.ceil(this.invisUntil - this.time) : 0,
     };
   }
 
@@ -1252,6 +1322,7 @@ export class MansionEngine {
         this.moveKeeper(dt);
         if (this.party) { this.moveKeeper2(dt); this.moveBots(dt); }
       }
+      this.tickPowers();
     }
     this.updateDoors(dt);
 

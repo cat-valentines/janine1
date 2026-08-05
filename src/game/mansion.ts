@@ -22,7 +22,7 @@ export const LAYOUT = [
   '#..K..#...C..T.#...#',
   '#.....#....H...#.P.#',
   '#.....##########.S.#',
-  '#....B.............#',
+  '#....B.........G...#',
   '#########D##########',
 ];
 
@@ -55,15 +55,21 @@ function find(mark: string): Spot[] {
   return spots;
 }
 
-export type HideKind = 'wardrobe' | 'bed';
+export type HideKind = 'wardrobe' | 'bed' | 'cabinet';
 export interface HideSpot extends Spot { kind: HideKind }
 
 export const keySpots = find('K');
-/** Wardrobes to climb into, and beds to slide under. */
+/** Wardrobes to climb into, beds to slide under, and the big hallway cabinet. */
 export const hideSpots: HideSpot[] = [
   ...find('H').map((spot) => ({ ...spot, kind: 'wardrobe' as const })),
   ...find('B').map((spot) => ({ ...spot, kind: 'bed' as const })),
+  ...find('G').map((spot) => ({ ...spot, kind: 'cabinet' as const })),
 ];
+
+/** The big hallway cabinet is a SAFE hideout — she can't find you — but only for
+ *  this long, then you're forced out. And the one-shot invisibility bubble. */
+export const CABINET_HIDE_SECONDS = 20;
+export const INVIS_SECONDS = 10;
 /** Floorboards that groan. Tread on one at a run and she comes looking. */
 export const creakySpots = find('C');
 /** Bear traps. Step in one and you are held there, yelling. */

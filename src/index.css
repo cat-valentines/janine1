@@ -2175,3 +2175,6 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .sing-btn.listen { background: #6d5ac4; color: #fff; }
 .sing-btn.sing { background: linear-gradient(120deg, #ff8fb0, #d05a8a); color: #fff; }
 .sing-btn.stop { background: #c0455a; color: #fff; }
+
+/* Housekeeper — invisibility bubble HUD highlight */
+.escape-night.invis-on strong { color: #8fe0ff; text-shadow: 0 0 8px #8fe0ff88; }
