@@ -6,10 +6,13 @@ export interface FriendMessage {
 }
 
 export async function loadFriendMessages(friendId: string) {
+  // Newest 50, then flip to chronological — so a just-sent photo always shows,
+  // instead of being cut off past the oldest 50 in a busy chat.
   const { data, error } = await supabase.from('friend_messages').select('*')
-    .or(`sender_id.eq.${friendId},recipient_id.eq.${friendId}`).order('created_at').limit(50);
+    .or(`sender_id.eq.${friendId},recipient_id.eq.${friendId}`)
+    .order('created_at', { ascending: false }).limit(50);
   if (error) throw error;
-  return (data ?? []) as FriendMessage[];
+  return ((data ?? []) as FriendMessage[]).reverse();
 }
 
 export async function sendFriendMessage(senderId: string, recipientId: string, message: string) {
@@ -45,6 +48,14 @@ type SeenMap = Record<string, string>;
 function readSeen(): SeenMap { try { return JSON.parse(storage.get(CHAT_SEEN_KEY) ?? '{}') as SeenMap; } catch { return {}; } }
 export function chatSeenAt(friendId: string): string { return readSeen()[friendId] ?? ''; }
 export function markChatSeen(friendId: string) { const all = readSeen(); all[friendId] = new Date().toISOString(); storage.set(CHAT_SEEN_KEY, JSON.stringify(all)); }
+
+// "Clear this chat": a per-device timestamp; messages older than it are hidden
+// from YOUR view only. Your private saved selfies live in a separate place and
+// are untouched. Clearing never deletes anything for the other person.
+const CHAT_CLEAR_KEY = 'chatClearedAt';
+function readChatClears(): Record<string, string> { try { return JSON.parse(storage.get(CHAT_CLEAR_KEY) ?? '{}') as Record<string, string>; } catch { return {}; } }
+export function chatClearedAt(friendId: string): string { return readChatClears()[friendId] ?? ''; }
+export function clearChatView(friendId: string) { const all = readChatClears(); all[friendId] = new Date().toISOString(); storage.set(CHAT_CLEAR_KEY, JSON.stringify(all)); }
 
 // A one-time baseline set the first time unread-tracking runs on this device.
 // Without it, EVERY message you'd already read long ago would look "unread" and

@@ -2178,3 +2178,9 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 
 /* Housekeeper — invisibility bubble HUD highlight */
 .escape-night.invis-on strong { color: #8fe0ff; text-shadow: 0 0 8px #8fe0ff88; }
+
+/* Friend 1:1 chat — Clear button */
+.chat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.chat-head h3 { margin: 0; }
+.chat-clear { flex: none; padding: 5px 11px; border: 0; border-radius: 999px; background: #ece6f6; color: #5a4f7a; font-weight: 800; font-size: .74rem; cursor: pointer; }
+.chat-clear:active { transform: translateY(1px); }

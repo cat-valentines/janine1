@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { loadFriendMessages, sendFriendMessage, parseMedia, loadSavedSelfies, markChatSeen, chatSeenAt, messageUnread, loadIncomingLatest, type FriendMessage, type MediaKind } from '../lib/friends';
+import { loadFriendMessages, sendFriendMessage, parseMedia, loadSavedSelfies, markChatSeen, chatSeenAt, chatClearedAt, clearChatView, messageUnread, loadIncomingLatest, type FriendMessage, type MediaKind } from '../lib/friends';
 import { mediaSignedUrl, resendMedia, saveMediaPrivate } from '../lib/media';
 import { createGroup, loadMyGroups, loadGroupMessages, loadGroupMemberIds, addGroupMember, sendGroupText, clearedAt, clearGroupView, groupSeenAt, markGroupSeen, groupUnread, loadGroupLatest, type ChatGroup, type GroupMessage } from '../lib/groups';
 import { acceptFriend, addFriend, changeUsername, isTakenError, isUsernameFree, loadAllPlayers, loadMyFriends, loadMyStats, removeFriend, searchPlayers, USERNAME_RULE, type FoundPlayer, type FriendRow } from '../lib/players';
@@ -74,6 +74,8 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
     setReads((prev) => ({ ...prev, [id]: new Date().toISOString() }));
     return loadFriendMessages(id).then(setChat).catch(() => setChat([]));
   };
+  // Clear the chat from YOUR view only (your saved selfies are untouched).
+  const clearChat = () => { if (selected) { clearChatView(selected.id); setChat((c) => [...c]); } };
 
   // Tapped a notification → jump straight to that friend and open their chat.
   useEffect(() => {
@@ -383,12 +385,21 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
             <button className="invite-send" onClick={sendPlan}>📅 Send to {inviteFriends.size || 'no'} {inviteFriends.size === 1 ? 'friend' : 'friends'}</button>
           </div>}
 
-          {showChat && <div className="chat-box"><h3>Chat with {selected.name}</h3>{chat.map((item) => {
-            const media = parseMedia(item.message);
-            const mine = item.sender_id === userId;
-            if (media) return <ChatMedia key={item.id} mine={mine} kind={media.kind} path={media.path} onSave={() => saveMedia(media.kind, media.path)} onResend={mine ? () => setResend({ kind: media.kind, path: media.path }) : undefined} />;
-            return <p className={mine ? 'chat-mine' : ''} key={item.id}>{item.message}</p>;
-          })}{!chat.length && <p className="friend-empty">Say hi! @{selected.name} gets a 🔔 when you text.</p>}<div><input value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && send()} placeholder="Write a message…" maxLength={500} autoFocus /><button onClick={send}>Send</button></div></div>}
+          {showChat && (() => {
+            const cut = chatClearedAt(selected.id);
+            const shown = chat.filter((item) => !cut || item.created_at > cut);
+            return <div className="chat-box">
+              <div className="chat-head"><h3>Chat with {selected.name}</h3><button className="chat-clear" onClick={clearChat} title="Clear these messages from your view (your saved selfies stay)">🧹 Clear</button></div>
+              {shown.map((item) => {
+                const media = parseMedia(item.message);
+                const mine = item.sender_id === userId;
+                if (media) return <ChatMedia key={item.id} mine={mine} kind={media.kind} path={media.path} onSave={() => saveMedia(media.kind, media.path)} onResend={mine ? () => setResend({ kind: media.kind, path: media.path }) : undefined} />;
+                return <p className={mine ? 'chat-mine' : ''} key={item.id}>{item.message}</p>;
+              })}
+              {!shown.length && <p className="friend-empty">Say hi! @{selected.name} gets a 🔔 when you text.</p>}
+              <div><input value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && send()} placeholder="Write a message…" maxLength={500} autoFocus /><button onClick={send}>Send</button></div>
+            </div>;
+          })()}
         </>}
       </>}{note && <p className="friend-note">{note}</p>}
 
