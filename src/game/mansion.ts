@@ -111,6 +111,8 @@ export const SEARCH_HIDE_DISTANCE = 1.9;
 
 /** How long a bear trap holds you. Long enough to be terrifying. */
 export const TRAP_SECONDS = 3.2;
+/** A hop with J: for this long you're in the air and leap clean over a bear trap. */
+export const JUMP_SECONDS = 0.7;
 /** How far a thrown stone flies, and how far away she hears it land. */
 export const THROW_DISTANCE = 11;
 export const THROW_HEARD = 15;

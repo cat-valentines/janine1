@@ -11,7 +11,7 @@ import { useEffect, useRef } from 'react';
 
 const KEY_FOR_CODE: Record<string, string> = {
   ArrowUp: 'ArrowUp', ArrowDown: 'ArrowDown', ArrowLeft: 'ArrowLeft', ArrowRight: 'ArrowRight',
-  KeyW: 'w', KeyA: 'a', KeyS: 's', KeyD: 'd', KeyE: 'e', KeyF: 'f',
+  KeyW: 'w', KeyA: 'a', KeyS: 's', KeyD: 'd', KeyE: 'e', KeyF: 'f', KeyI: 'i', KeyJ: 'j',
   Space: ' ', ShiftLeft: 'Shift', Digit1: '1', Digit2: '2', Digit3: '3',
 };
 

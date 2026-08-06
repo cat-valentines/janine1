@@ -184,7 +184,8 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
           <div><span>🚪</span><strong>Get to the door</strong><small>It glows faintly. Stand at it and press Space once you have every key.</small></div>
           <div><span>🚪</span><strong>Hide</strong><small>Press Space at a wardrobe to climb in, or at a bed to slide underneath. But if she watches you get in, she will come and open it.</small></div>
           <div><span>🪵</span><strong>Mind the floorboards</strong><small>The worn brown boards creak if you run over them, and she hears it from anywhere.</small></div>
-          <div><span>🪤</span><strong>Watch for bear traps</strong><small>Step in one and you are held there for a few seconds, yelling — and she comes running. You can always walk around them.</small></div>
+          <div><span>🪤</span><strong>Watch for bear traps</strong><small>Step in one and you are held there for a few seconds, yelling — and she comes running. Deeper levels drop one right in the middle of a hallway: press <b>J</b> to 🦘 hop clean over it, or walk around.</small></div>
+          <div><span>🦘</span><strong>Hop over traps</strong><small>Press <b>J</b> to jump. You are in the air for a moment — time it to leap right over a bear trap. Hop as often as you like.</small></div>
           <div><span>🪨</span><strong>Throw a stone</strong><small>Press E to lob one. It clatters where it lands and she goes to look — which buys you the room she was in. {STONES_PER_NIGHT} a night.</small></div>
           <div><span>🫧</span><strong>Invisibility bubble</strong><small>Press <b>I</b> to vanish for 10 seconds — she can't see, hear or catch you. Just one bubble each night, so save it for a tight spot!</small></div>
           <div><span>🗄️</span><strong>The big hallway cabinet</strong><small>A proper hideout: she can <b>never</b> open it, so you're safe inside — but it's stuffy, so you can only stay <b>20 seconds</b> before you slip out.</small></div>
@@ -236,10 +237,11 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
           { codes: ['Space'], label: '✋' },
           { codes: ['KeyE'], label: '🪨' },
           { codes: ['KeyI'], label: '🫧' },
+          { codes: ['KeyJ'], label: '🦘' },
         ]} />
       </>}
       {snapshot?.status === 'playing' && <p className="escape-help">
-        <b>↑ ↓</b> walk · <b>← →</b> turn · <b>Shift</b> sneak · <b>E</b> throw a stone · <b>Space</b> {snapshot.hidden ? 'come back out' : snapshot.nearKey ? '🔑 open the cabinet' : snapshot.nearHide ? 'hide here' : snapshot.nearDoor ? 'open the door' : 'search cabinets / hide'}
+        <b>↑ ↓</b> walk · <b>← →</b> turn · <b>Shift</b> sneak · <b>J</b> 🦘 hop over traps · <b>E</b> throw a stone · <b>Space</b> {snapshot.hidden ? 'come back out' : snapshot.nearKey ? '🔑 open the cabinet' : snapshot.nearHide ? 'hide here' : snapshot.nearDoor ? 'open the door' : 'search cabinets / hide'}
       </p>}
 
       {caught && <div className="quest-over">

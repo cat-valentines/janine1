@@ -6,7 +6,7 @@ import {
   PLAYER_EYE, PLAYER_RADIUS, PLAYER_SPEED, ROWS, SEARCH_HIDE_DISTANCE, SNEAK_SPEED, TURN_SPEED,
   STONES_PER_NIGHT, THROW_DISTANCE, THROW_HEARD, TRAP_SECONDS, WALL_H, cellAt, colOf, creakySpots,
   doorSpot, hideSpots, isWall, keySpots, rowOf, startSpot, stoneSpots, trapSpots, worldOf,
-  CABINET_HIDE_SECONDS, INVIS_SECONDS,
+  CABINET_HIDE_SECONDS, INVIS_SECONDS, JUMP_SECONDS,
   type HideKind,
 } from './mansion';
 
@@ -198,6 +198,8 @@ export class MansionEngine {
   private creaked = false;
   /** Seconds still held by a bear trap. */
   private trapped = 0;
+  /** While time < jumpUntil you're airborne — you leap clean over bear traps. */
+  private jumpUntil = 0;
   private trapMeshes: Array<{ mesh: THREE.Object3D; at: Cell; sprung: boolean }> = [];
   private stones = STONES_PER_NIGHT;
   private thrown: Array<{ mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; t: number }> = [];
@@ -857,13 +859,23 @@ export class MansionEngine {
   // ---- input -------------------------------------------------------------
 
   private onKeyDown = (event: KeyboardEvent) => {
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'KeyE', 'KeyI'].includes(event.code)) event.preventDefault();
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'KeyE', 'KeyI', 'KeyJ'].includes(event.code)) event.preventDefault();
     if (this.keys.has(event.code)) return;
     this.keys.add(event.code);
     if (event.code === 'Space') this.useSpace();
     if (event.code === 'KeyE') this.throwStone();
     if (event.code === 'KeyI') this.useInvisibility();
+    if (event.code === 'KeyJ') this.jump();
   };
+
+  /** Press J to hop: for a moment you're in the air and clear any bear trap you
+   *  cross. You can jump as often as you like — timing it over a trap is the skill. */
+  private jump() {
+    if (this.status !== 'playing' || this.hidden || this.trapped > 0) return;
+    if (this.time < this.jumpUntil) return;           // already mid-hop
+    this.jumpUntil = this.time + JUMP_SECONDS;
+    this.say('🦘 Hop! Leap over the bear trap!', 1.1);
+  }
 
   private invisible() { return this.time < this.invisUntil; }
 
@@ -1023,8 +1035,10 @@ export class MansionEngine {
     if (!this.blocked(this.position.x + dx, this.position.z)) this.position.x += dx;
     if (!this.blocked(this.position.x, this.position.z + dz)) this.position.z += dz;
 
-    // Bear traps. They do not care how quietly you were walking.
-    const trap = this.trapMeshes.find((item) => !item.sprung
+    // Bear traps. They do not care how quietly you were walking — but if you
+    // hopped with J you sail clean over them.
+    const airborne = this.time < this.jumpUntil;
+    const trap = !airborne && this.trapMeshes.find((item) => !item.sprung
       && item.at.col === colOf(this.position.x) && item.at.row === rowOf(this.position.z));
     if (trap) {
       trap.sprung = true;
@@ -1141,7 +1155,7 @@ export class MansionEngine {
     this.day = 1;                                                        // each new level starts on Night 1
     this.speedMul = 1 + Math.min(1.4, (this.level - 1) * 0.1);           // harder each level, capped so it stays playable
     this.collected = 0;
-    this.stones = STONES_PER_NIGHT; this.trapped = 0;
+    this.stones = STONES_PER_NIGHT; this.trapped = 0; this.jumpUntil = 0;
     this.invisReady = true; this.invisUntil = 0; this.cabinetUntil = 0;  // fresh bubble on a new level
     this.layoutLevel();                                                  // keys move somewhere new + more traps
     const start = worldOf(startSpot.col, startSpot.row);
@@ -1289,7 +1303,7 @@ export class MansionEngine {
     this.keeperState = 'patrol';
     this.path = [];
     this.alarm = 0;
-    this.trapped = 0;
+    this.trapped = 0; this.jumpUntil = 0;
     this.stones = STONES_PER_NIGHT;
     this.trapMeshes.forEach((trap) => { trap.sprung = false; trap.mesh.scale.set(1, 1, 1); });
     this.invisReady = true; this.invisUntil = 0; this.cabinetUntil = 0;   // a fresh bubble each night
@@ -1426,7 +1440,10 @@ export class MansionEngine {
     });
 
     // Hiding drops you down inside the wardrobe and kills your torch.
-    const eye = !this.hidden ? PLAYER_EYE : this.hideKind === 'bed' ? 0.45 : 1.05;
+    // A little hop arc when you press J, so a jump really lifts you off the floor.
+    const jumpLeft = this.jumpUntil - this.time;
+    const hop = jumpLeft > 0 ? Math.sin((1 - jumpLeft / JUMP_SECONDS) * Math.PI) * 0.75 : 0;
+    const eye = (!this.hidden ? PLAYER_EYE : this.hideKind === 'bed' ? 0.45 : 1.05) + hop;
     this.camera.position.set(this.position.x, eye, this.position.z);
     const look = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).negate();
     this.camera.lookAt(this.camera.position.clone().add(look));
