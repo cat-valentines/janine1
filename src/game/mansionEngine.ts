@@ -41,7 +41,16 @@ interface EngineOptions {
   characterAsset: string;
   /** "Play with everybody": a second housekeeper and a house full of bots. */
   party?: boolean;
+  /** Resume at this level (saved from a previous session). Harder as it climbs. */
+  startLevel?: number;
   onUpdate: (snapshot: MansionSnapshot) => void;
+}
+
+export const MAX_LEVELS = 200;
+/** Seeded RNG so a given level always lays the house out the same way. */
+function levelRng(seed: number) {
+  let a = (seed >>> 0) || 1;
+  return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
 /** The shared housekeepers, sent by the host so every player sees the same two. */
@@ -259,6 +268,11 @@ export class MansionEngine {
       this.buildParty();
     }
 
+    // Resume at your saved level, harder as it climbs, with a fresh layout.
+    this.level = Math.max(1, Math.min(MAX_LEVELS, Math.round(options.startLevel ?? 1)));
+    this.speedMul = 1 + Math.min(1.4, (this.level - 1) * 0.1);
+    if (this.level > 1) this.layoutLevel();
+
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     // Dev-only: lets the headless test look straight at the housekeeper.
@@ -338,17 +352,67 @@ export class MansionEngine {
     const plateGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.06, 10);
     const iron = new THREE.MeshLambertMaterial({ color: '#8b8b95', emissive: '#1a1a20' });
     this.disposables.push(jawGeo, plateGeo, iron);
-    trapSpots.forEach((at) => {
-      const world = worldOf(at.col, at.row);
+    // A pool of traps: the first few sit at the layout's marked spots (level 1),
+    // the rest wait off-stage until higher levels scatter more of them in.
+    const POOL = 16;
+    for (let i = 0; i < POOL; i += 1) {
       const group = new THREE.Group();
       const jaws = new THREE.Mesh(jawGeo, iron);
       jaws.rotation.x = Math.PI / 2;
       const plate = new THREE.Mesh(plateGeo, iron);
       plate.position.y = -0.02;
       group.add(jaws, plate);
-      group.position.set(world.x, 0.09, world.z);
+      const at = trapSpots[i];
+      if (at) { const w = worldOf(at.col, at.row); group.position.set(w.x, 0.09, w.z); }
+      else { group.position.set(0, -20, 0); group.visible = false; }
       this.scene.add(group);
-      this.trapMeshes.push({ mesh: group, at, sprung: false });
+      this.trapMeshes.push({ mesh: group, at: at ?? { col: -1, row: -1 }, sprung: false });
+    }
+  }
+
+  /**
+   * Lay the level out afresh: move the key cabinets somewhere new and scatter
+   * more bear traps the deeper you are — so every level plays differently and
+   * gets harder. Seeded by the level, so it's the same house each time you're on it.
+   */
+  private layoutLevel() {
+    const rand = levelRng(this.level * 99991 + 7);
+    const key = (c: Cell) => `${c.col},${c.row}`;
+    const forbidden = new Set<string>([key(startSpot), key(doorSpot), key({ col: doorSpot.col, row: doorSpot.row - 1 })]);
+    const pool = this.floorCells.filter((c) => !forbidden.has(key(c)));
+    for (let i = pool.length - 1; i > 0; i -= 1) { const j = Math.floor(rand() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+
+    // Keys: spread out so they aren't all in one corner.
+    const keyCells: Cell[] = [];
+    for (const c of pool) {
+      if (keyCells.every((k) => Math.abs(k.col - c.col) + Math.abs(k.row - c.row) >= 3)) keyCells.push(c);
+      if (keyCells.length >= this.keyMeshes.length) break;
+    }
+    this.keyMeshes.forEach((cab, i) => {
+      const to = keyCells[i] ?? cab.at;
+      const dx = (to.col - cab.at.col) * CELL, dz = (to.row - cab.at.row) * CELL;
+      cab.group.position.x += dx; cab.group.position.z += dz;
+      cab.key.position.x += dx; cab.key.position.z += dz;
+      cab.doors.left.position.x += dx; cab.doors.left.position.z += dz;
+      cab.doors.right.position.x += dx; cab.doors.right.position.z += dz;
+      cab.at = to;
+      cab.opened = false; cab.taken = false; cab.cooldown = 0; cab.key.visible = false;
+      cab.doors.target = 0; cab.doors.open = 0; cab.doors.pulse = 0; cab.doors.left.rotation.y = 0; cab.doors.right.rotation.y = 0;
+    });
+
+    // Traps: more the deeper you go (2 at level 1 → the whole pool by level ~14).
+    const trapCount = Math.min(this.trapMeshes.length, 2 + this.level);
+    let pick = this.keyMeshes.length;
+    this.trapMeshes.forEach((trap, i) => {
+      if (i < trapCount) {
+        const c = pool[pick % pool.length] ?? { col: 1, row: 1 }; pick += 1;
+        const w = worldOf(c.col, c.row);
+        trap.mesh.position.set(w.x, 0.09, w.z);
+        trap.mesh.visible = true; trap.mesh.scale.set(1, 1, 1);
+        trap.at = c; trap.sprung = false;
+      } else {
+        trap.mesh.visible = false; trap.mesh.position.set(0, -20, 0); trap.at = { col: -1, row: -1 };
+      }
     });
   }
 
@@ -1073,15 +1137,13 @@ export class MansionEngine {
 
   /** Escaping in party mode opens a deeper, harder level instead of winning. */
   private nextLevel() {
-    this.level += 1;
-    this.speedMul += 0.12;
+    this.level = Math.min(MAX_LEVELS, this.level + 1);
+    this.day = 1;                                                        // each new level starts on Night 1
+    this.speedMul = 1 + Math.min(1.4, (this.level - 1) * 0.1);           // harder each level, capped so it stays playable
     this.collected = 0;
-    this.invisReady = true; this.invisUntil = 0; this.cabinetUntil = 0;   // fresh bubble on a new level
-    this.keyMeshes.forEach((cab) => {
-      cab.opened = false; cab.taken = false; cab.cooldown = 0; cab.key.visible = false;
-      cab.doors.target = 0; cab.doors.open = 0; cab.doors.pulse = 0;
-      cab.doors.left.rotation.y = 0; cab.doors.right.rotation.y = 0;
-    });
+    this.stones = STONES_PER_NIGHT; this.trapped = 0;
+    this.invisReady = true; this.invisUntil = 0; this.cabinetUntil = 0;  // fresh bubble on a new level
+    this.layoutLevel();                                                  // keys move somewhere new + more traps
     const start = worldOf(startSpot.col, startSpot.row);
     this.position.set(start.x, 0, start.z);
     this.yaw = Math.PI;

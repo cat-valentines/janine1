@@ -80,14 +80,18 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
   const update = useRef<(s: MansionSnapshot) => void>(() => undefined);
   update.current = (next) => {
     setSnapshot(next);
+    // Remember which level you reached, so you resume there next time.
+    if (next.party) storage.set('housekeeperLevel', String(next.level));
     if (next.status === 'escaped' && !paid.current) { paid.current = true; onEscape(ESCAPE_PRIZE); }
   };
 
   useEffect(() => {
     if (!started || !mount.current) return;
+    const savedLevel = (() => { const n = parseInt(storage.get('housekeeperLevel') ?? '1', 10); return Number.isFinite(n) && n >= 1 ? Math.min(200, n) : 1; })();
     const created = new MansionEngine(mount.current, {
       characterAsset: characterAssets[character],
       party: mode === 'everybody',
+      startLevel: savedLevel,
       onUpdate: (next) => update.current(next),
     });
     engine.current = created;
