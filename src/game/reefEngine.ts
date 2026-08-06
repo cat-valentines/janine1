@@ -64,6 +64,22 @@ interface Options {
 
 const cellKey = (c: Cell) => `${c.col},${c.row}`;
 
+/** Another real player, swimming live over the network with their @name above. */
+interface LiveFish {
+  group: THREE.Group;
+  tail: THREE.Object3D | null;
+  pos: THREE.Vector3;
+  target: THREE.Vector3;
+  yaw: number;
+  targetYaw: number;
+}
+
+function hashHue(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) % 360;
+  return h;
+}
+
 export class ReefEngine {
   private container: HTMLElement;
   private options: Options;
@@ -110,6 +126,9 @@ export class ReefEngine {
   private bubble: THREE.Mesh | null = null;
   private message = '';
   private messageUntil = 0;
+
+  // other real players, swimming live over the network
+  private livePlayers = new Map<string, LiveFish>();
 
   private pressed = new Set<string>();
 
@@ -358,6 +377,79 @@ export class ReefEngine {
     );
     this.bubble.visible = false;
     this.scene.add(this.bubble);
+  }
+
+  /** A little floating name-tag (drawn on a canvas) that hangs over a player. */
+  private nameSprite(text: string) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#062033d8';
+      ctx.fillRect(0, 0, 256, 64);
+      ctx.strokeStyle = '#8fe3ff';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(2, 2, 252, 60);
+      ctx.font = 'bold 24px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#d6f3ff';
+      ctx.fillText(text.slice(0, 16), 128, 34);
+    }
+    const mat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false, transparent: true });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(3.2, 0.8, 1);
+    sprite.position.y = 2.0;
+    return sprite;
+  }
+
+  /** My position (and depth), to shout to the other real players in this reef. */
+  getSelfState() {
+    return { x: this.pos.x, z: this.pos.z, yaw: this.yaw, level: 0, y: this.pos.y };
+  }
+
+  /**
+   * Draw the *other* real players where they just said they are. Each is a
+   * softly-glowing fish wearing their @name, driven entirely by the network — so
+   * what you see is genuinely where they are swimming, not a bot. Because every
+   * player in "everybody" mode shares the same reef seed, their position lands in
+   * the exact same spot of the maze for you. Anyone who left is cleared away.
+   */
+  setLivePlayers(players: Array<{ id: string; name: string; x: number; z: number; yaw: number; y?: number }>) {
+    const here = new Set<string>();
+    players.forEach((player) => {
+      here.add(player.id);
+      const y = player.y ?? CRUISE;
+      let live = this.livePlayers.get(player.id);
+      if (!live) {
+        const hue = hashHue(player.id);
+        const body = `hsl(${hue}, 70%, 58%)`;
+        const belly = `hsl(${hue}, 60%, 82%)`;
+        const { group, tail } = this.buildFish(body, belly, `hsl(${(hue + 40) % 360}, 70%, 45%)`, '#fff2c8', 'clown', 1);
+        group.add(this.nameSprite(`@${player.name}`));
+        this.scene.add(group);
+        live = {
+          group, tail,
+          pos: new THREE.Vector3(player.x, y, player.z),
+          target: new THREE.Vector3(player.x, y, player.z),
+          yaw: player.yaw, targetYaw: player.yaw,
+        };
+        this.livePlayers.set(player.id, live);
+      }
+      live.target.set(player.x, y, player.z);
+      live.targetYaw = player.yaw;
+    });
+    this.livePlayers.forEach((live, id) => {
+      if (here.has(id)) return;
+      this.scene.remove(live.group);
+      live.group.traverse((obj) => {
+        const mesh = obj as THREE.Mesh & { material?: THREE.Material & { map?: THREE.Texture } };
+        mesh.geometry?.dispose?.();
+        const mat = mesh.material as (THREE.Material & { map?: THREE.Texture }) | undefined;
+        if (mat) { mat.map?.dispose?.(); mat.dispose?.(); }
+      });
+      this.livePlayers.delete(id);
+    });
   }
 
   /** A blocky pixel fish with a wagging tail and flapping side fins. */
@@ -877,6 +969,21 @@ export class ReefEngine {
       p.group.rotation.y = p.yaw;
       if (p.tail) p.tail.rotation.y = Math.sin(this.time * 6 + p.phase) * 0.6;
       p.segments.forEach((seg, i) => { seg.position.x = Math.sin(this.time * 5 + p.phase - i * 0.6) * 0.28; });
+    }
+
+    // other real players glide smoothly toward the position they last sent us
+    if (this.livePlayers.size) {
+      const ease = Math.min(1, dt * 10);
+      this.livePlayers.forEach((live) => {
+        live.pos.lerp(live.target, ease);
+        live.group.position.copy(live.pos);
+        let dy = live.targetYaw - live.yaw;
+        while (dy > Math.PI) dy -= Math.PI * 2;
+        while (dy < -Math.PI) dy += Math.PI * 2;
+        live.yaw += dy * ease;
+        live.group.rotation.y = live.yaw;
+        if (live.tail) live.tail.rotation.y = Math.sin(this.time * 9 + live.pos.x) * 0.5;
+      });
     }
 
     // spin the coins and bob the keys

@@ -3,6 +3,13 @@ import { ReefEngine, type ReefSnapshot } from '../game/reefEngine';
 import { coralFacts, fishKinds, KEYS_TO_WIN, START_LIVES, type FishId } from '../game/reef';
 import { Joystick } from '../components/Joystick';
 import { storage } from '../lib/storage';
+import { joinLiveGame } from '../lib/liveGame';
+import { heartbeat, leaveGame } from '../lib/presence';
+import { supabase } from '../lib/supabase';
+
+/** Everyone in "play with everybody" shares this one reef, so their positions
+ *  land in the exact same spot of the maze for each other. */
+const SHARED_REEF_SEED = 24601;
 
 interface UnderwaterMazePageProps {
   onCoins: (coins: number) => void;
@@ -15,6 +22,11 @@ export function UnderwaterMazePage({ onCoins, onBack }: UnderwaterMazePageProps)
   const [round, setRound] = useState(1);
   const [snapshot, setSnapshot] = useState<ReefSnapshot | null>(null);
   const [factIndex, setFactIndex] = useState(0);
+  // Play alone, or in the shared reef with every other real player online now.
+  const [mode, setMode] = useState<'solo' | 'everybody'>('solo');
+  const [userId, setUserId] = useState('');
+  const [myName, setMyName] = useState('a friend');
+  const [liveCount, setLiveCount] = useState(0);
   // Phone: swim with a finger joystick or with the on-screen buttons (your choice).
   const [controls, setControls] = useState<'buttons' | 'joystick'>(() => (storage.get('reefControls') === 'joystick' ? 'joystick' : 'buttons'));
   const chooseControls = (mode: 'buttons' | 'joystick') => { setControls(mode); storage.set('reefControls', mode); };
@@ -30,18 +42,45 @@ export function UnderwaterMazePage({ onCoins, onBack }: UnderwaterMazePageProps)
     return () => clearInterval(id);
   }, []);
 
+  // who am I? — so my @name floats over my fish for everyone else
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return;
+      setUserId(data.user.id);
+      setMyName((data.user.user_metadata.display_name as string | undefined) ?? 'a friend');
+    });
+  }, []);
+
   useEffect(() => {
     if (!started || !fish || !mount.current) return;
     const created = new ReefEngine(mount.current, {
       fish,
-      seed: 1234 + round * 17,
+      // Everybody-mode players all swim the SAME reef so they line up.
+      seed: mode === 'everybody' ? SHARED_REEF_SEED : 1234 + round * 17,
       onUpdate: setSnapshot,
     });
     engine.current = created;
     const resize = () => created.resize();
     window.addEventListener('resize', resize);
     return () => { window.removeEventListener('resize', resize); created.dispose(); engine.current = null; };
-  }, [started, fish, round]);
+  }, [started, fish, round, mode]);
+
+  // Live multiplayer: shout my position several times a second, and draw every
+  // other real player exactly where they are — wearing their @name.
+  useEffect(() => {
+    if (!started || mode !== 'everybody' || !userId) return;
+    const live = joinLiveGame('reef', userId, (peers) => {
+      engine.current?.setLivePlayers(peers);
+      setLiveCount(peers.length);
+    });
+    heartbeat('reef');
+    const beat = setInterval(() => heartbeat('reef'), 5000);
+    const shout = setInterval(() => {
+      const state = engine.current?.getSelfState();
+      if (state) live.send({ name: myName, ...state });
+    }, 120);
+    return () => { clearInterval(beat); clearInterval(shout); live.leave(); leaveGame(); setLiveCount(0); };
+  }, [started, mode, userId, myName]);
 
   // hand out the coins you gathered when the dive ends
   useEffect(() => {
@@ -94,8 +133,14 @@ export function UnderwaterMazePage({ onCoins, onBack }: UnderwaterMazePageProps)
           <div><b>🕳️ Caves</b><span>coins wait inside — but so do hungry surprises</span></div>
         </div>
 
+        <div className="escape-mode">
+          <button className={mode === 'solo' ? 'on' : ''} onClick={() => setMode('solo')}>🎮 Play alone</button>
+          <button className={mode === 'everybody' ? 'on' : ''} onClick={() => setMode('everybody')}>🌍 Play with everybody</button>
+        </div>
+        {mode === 'everybody' && <p className="escape-invite-note">🌍 Swim the <strong>same reef</strong> as everyone playing right now — you'll see other real players with their <strong>@name</strong> floating above them, and you all hunt for coins and keys together. {!userId && <em>Log in from the front page so your name shows too.</em>}</p>}
+
         <button className="reef-start" disabled={!fish} onClick={() => { paid.current = false; setStarted(true); }}>
-          {fish ? '🤿 Dive in!' : 'Pick a fish first'}
+          {fish ? (mode === 'everybody' ? '🌍 Dive in with everybody!' : '🤿 Dive in!') : 'Pick a fish first'}
         </button>
       </section>
 
@@ -131,6 +176,7 @@ export function UnderwaterMazePage({ onCoins, onBack }: UnderwaterMazePageProps)
         </div>
         <div className={`reef-shield-chip ${bubbleOn ? 'on' : ''}`}><b>{shield > 0 ? `${Math.ceil(shield)}s` : '⏳'}</b><span>{bubbleOn ? '🫧 on' : 'bubble'}</span></div>
         {inCave && <div className="reef-shield-chip on"><b>{Math.ceil(caveLeft)}s</b><span>🪨 hidden</span></div>}
+        {mode === 'everybody' && <div className="reef-shield-chip on"><b>{liveCount + 1}</b><span>🌍 live</span></div>}
         {snapshot?.hasAllKeys && <div className="reef-goal">🐚 Find a shell lock!</div>}
       </div>
 

@@ -9,6 +9,8 @@ export interface LivePlayer {
   z: number;
   yaw: number;
   level: number;
+  /** Depth, for games where players move up and down too (the Underwater Maze). */
+  y?: number;
 }
 
 export interface LiveGame {
