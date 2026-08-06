@@ -60,9 +60,12 @@ interface EngineOptions {
   garden: Array<Plot | null>;
   onChangeWorld: (update: (previous: string) => string) => void;
   onPlaceFurniture: (cell: { x: number; y: number; z: number }) => void;
+  /** Called when you walk into an apple to forage it — adds to your food. */
+  onFood?: () => void;
 }
 
 interface Wanderer { sprite: THREE.Sprite; x: number; z: number; dir: number; speed: number; phase: number }
+interface Apple { mesh: THREE.Mesh; x: number; z: number; y: number; regrowAt: number }
 
 /** Emoji drawn to a texture, so shop furniture shows up in the 3D house. */
 function emojiTexture(emoji: string) {
@@ -87,6 +90,9 @@ export class HouseEngine {
   private raycaster = new THREE.Raycaster();
   private blockGroup = new THREE.Group();
   private terrainGroup = new THREE.Group();
+  private forageGroup = new THREE.Group();
+  private apples: Apple[] = [];
+  private forageTime = 0;
   private furnitureGroup = new THREE.Group();
   private livestockGroup = new THREE.Group();
   private wanderers: Wanderer[] = [];
@@ -150,7 +156,7 @@ export class HouseEngine {
     sun.position.set(18, 30, 12);
     this.scene.add(sun);
 
-    this.scene.add(this.blockGroup, this.terrainGroup, this.furnitureGroup, this.livestockGroup, this.avatar);
+    this.scene.add(this.blockGroup, this.terrainGroup, this.forageGroup, this.furnitureGroup, this.livestockGroup, this.avatar);
 
     const edge = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
     this.highlight = new THREE.LineSegments(edge, new THREE.LineBasicMaterial({ color: '#20222a' }));
@@ -211,6 +217,68 @@ export class HouseEngine {
       mesh.instanceMatrix.needsUpdate = true;
       this.terrainGroup.add(mesh);
     });
+    this.buildForage();
+  }
+
+  /** Scatter apple trees and bushes across the land, with apples you can forage. */
+  private buildForage() {
+    this.forageGroup.clear();
+    this.apples = [];
+    let s = ((this.seed || 1) * 2654435761) >>> 0;
+    const rng = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+    const trunkMat = new THREE.MeshLambertMaterial({ color: '#7b5330' });
+    const leafMat = new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].leaves });
+    const bushMat = new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].leavesAlt });
+    const appleMat = new THREE.MeshLambertMaterial({ color: '#e0453a', emissive: '#4a1410' });
+    const trunkGeo = new THREE.CylinderGeometry(0.28, 0.4, 3, 6);
+    const canopyGeo = new THREE.SphereGeometry(1.7, 8, 6);
+    const bushGeo = new THREE.SphereGeometry(0.85, 7, 5);
+    const appleGeo = new THREE.SphereGeometry(0.22, 8, 6);
+    // A ring around your plot so the endless land is dotted with orchards.
+    const spot = () => { const a = rng() * Math.PI * 2, r = SX * 0.65 + rng() * 34; return { x: SX / 2 + Math.cos(a) * r, z: SZ / 2 + Math.sin(a) * r }; };
+    for (let i = 0; i < 16; i += 1) {
+      const { x, z } = spot();
+      const y = this.groundY(x, z);
+      const tree = new THREE.Group();
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat); trunk.position.y = 1.5; tree.add(trunk);
+      const canopy = new THREE.Mesh(canopyGeo, leafMat); canopy.position.y = 3.4; tree.add(canopy);
+      tree.position.set(x, y, z);
+      tree.scale.setScalar(0.8 + rng() * 0.5);
+      this.forageGroup.add(tree);
+      const n = 2 + Math.floor(rng() * 3);
+      for (let j = 0; j < n; j += 1) {
+        const ax = x + (rng() - 0.5) * 2.6, az = z + (rng() - 0.5) * 2.6;
+        const ay = this.groundY(ax, az) + 0.35;
+        const apple = new THREE.Mesh(appleGeo, appleMat);
+        apple.position.set(ax, ay, az);
+        this.forageGroup.add(apple);
+        this.apples.push({ mesh: apple, x: ax, z: az, y: ay, regrowAt: 0 });
+      }
+    }
+    for (let i = 0; i < 22; i += 1) {
+      const { x, z } = spot();
+      const bush = new THREE.Mesh(bushGeo, bushMat);
+      bush.position.set(x, this.groundY(x, z) + 0.5, z);
+      bush.scale.set(1 + rng() * 0.6, 0.8 + rng() * 0.4, 1 + rng() * 0.6);
+      this.forageGroup.add(bush);
+    }
+  }
+
+  /** Walk into an apple to forage it for food; apples grow back after a while. */
+  private checkForage(dt: number) {
+    this.forageTime += dt;
+    for (const apple of this.apples) {
+      if (apple.regrowAt > 0) {
+        if (this.forageTime >= apple.regrowAt) { apple.regrowAt = 0; apple.mesh.visible = true; }
+        continue;
+      }
+      const dx = apple.x - this.position.x, dz = apple.z - this.position.z;
+      if (dx * dx + dz * dz < 1.6) {
+        apple.mesh.visible = false;
+        apple.regrowAt = this.forageTime + 18;   // grows back in 18s
+        this.options.onFood?.();
+      }
+    }
   }
 
   setSeason(season: Season) {
@@ -582,9 +650,11 @@ export class HouseEngine {
   }
 
   private walk(dt: number) {
-    // Arrow keys walk you around (WASD still works too).
+    // Easy controls: ↑↓ walk, ←→ turn — no mouse needed. (W/S walk, A/D strafe too.)
     const forward = ((this.keys.has('ArrowUp') || this.keys.has('KeyW')) ? 1 : 0) - ((this.keys.has('ArrowDown') || this.keys.has('KeyS')) ? 1 : 0);
-    const strafe = ((this.keys.has('ArrowRight') || this.keys.has('KeyD')) ? 1 : 0) - ((this.keys.has('ArrowLeft') || this.keys.has('KeyA')) ? 1 : 0);
+    const turn = (this.keys.has('ArrowLeft') ? 1 : 0) - (this.keys.has('ArrowRight') ? 1 : 0);
+    const strafe = (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0);
+    if (turn) this.yaw += turn * 2.2 * dt;
     const move = new THREE.Vector3(
       Math.sin(this.yaw) * -forward + Math.cos(this.yaw) * strafe,
       0,
@@ -679,7 +749,7 @@ export class HouseEngine {
     if (!this.running) return;
     const dt = Math.min(this.clock.getDelta(), 0.05);
     if (this.wanderers.length) this.moveAnimals(dt);
-    if (this.mode === 'walk') this.walk(dt);
+    if (this.mode === 'walk') { this.walk(dt); this.checkForage(dt); }
     else {
       this.hovered = this.pick();
       if (this.hovered) {

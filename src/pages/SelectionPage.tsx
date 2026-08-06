@@ -124,7 +124,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const [msgLatest, setMsgLatest] = useState<Record<string, string>>({});
   const [groupLatest, setGroupLatest] = useState<Record<string, string>>({});
   const [worldMode, setWorldMode] = useState<'build' | 'walk'>('build');
-  const [foodBalance] = useState(savedProfile.foodBalance);
+  const [foodBalance, setFoodBalance] = useState(savedProfile.foodBalance);
   const [shopCoins, setShopCoins] = useState(savedProfile.shopCoins);
   /** Every game's reward: spend it in the shop AND collect it on the leaderboard. */
   // A streak is only earned by ACTUALLY PLAYING a game — never by just opening
@@ -387,7 +387,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   if (medicineIsland) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the herb forest…</p></main>}><MedicineMissionPage islandName={medicineIsland} onWin={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
   if (hungerOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the forest…</p></main>}><HungerQuestPage character={character} onWin={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
   if (worldOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading your 3D house…</p></main>}><HouseWorldPage character={character} initialMode={worldMode} season={houseSeason || currentSeason()} seed={houseSeed} onChangeSeason={setHouseSeason} houseName={houseName} houseWorld={houseWorld} furniture={houseFurniture} ownedItems={ownedItems} animals={animals} garden={garden}
-    coins={shopCoins} onSpendCoins={(amount) => setShopCoins((c) => Math.max(0, c - amount))}
+    coins={shopCoins} onSpendCoins={(amount) => setShopCoins((c) => Math.max(0, c - amount))} onFood={() => setFoodBalance((f) => f + 1)}
     onChangeWorld={(update) => { setHouseWorld((previous) => update(previous || emptyWorld())); setOwnsHouse(true); if (!houseSource) setHouseSource('built'); }}
     onChangeFurniture={setHouseFurniture}
     onRename={setHouseName}

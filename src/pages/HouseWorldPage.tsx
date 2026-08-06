@@ -24,6 +24,7 @@ interface HouseWorldPageProps {
   garden: Array<Plot | null>;
   coins: number;
   onSpendCoins: (amount: number) => void;
+  onFood: () => void;
   onChangeWorld: (update: (previous: string) => string) => void;
   onChangeFurniture: (furniture: Furniture[]) => void;
   onRename: (name: string) => void;
@@ -41,7 +42,9 @@ const FURNITURE_COLORS = ['#ffffff', '#e0685f', '#e8a04f', '#f2d05e', '#6fbf6a',
 const FURNITURE_COST = 20;
 
 export function HouseWorldPage(props: HouseWorldPageProps) {
-  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, onSpendCoins, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
+  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, onSpendCoins, onFood, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
+  const onFoodRef = useRef(onFood);
+  onFoodRef.current = onFood;
   const mount = useRef<HTMLDivElement>(null);
   const engine = useRef<HouseEngine | null>(null);
   const [mode, setMode] = useState<Mode>(initialMode ?? 'build');
@@ -86,6 +89,7 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       garden,
       onChangeWorld: (update) => changeWorld.current(update),
       onPlaceFurniture: (cell) => placeFurniture.current(cell),
+      onFood: () => onFoodRef.current(),
     });
     engine.current = created;
     const resize = () => created.resize();
@@ -122,7 +126,7 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
         <button className="world-view-toggle" onClick={() => setView(view === 'third' ? 'first' : 'third')}>
           {view === 'third' ? '👁️ First person' : '🧍 See my character'}
         </button>
-        <p className="world-help">Click the world, then use the <b>arrow keys</b> to walk, <b>Space</b> to jump, mouse to look. Press <b>Esc</b> to let go.</p>
+        <p className="world-help">Use the <b>arrow keys</b> — <b>↑↓</b> walk, <b>←→</b> turn (no mouse needed!) · <b>Space</b> jump · walk into the 🍎 <b>apples</b> on the trees to collect food.</p>
       </>}
       {mode === 'build' && <p className="world-help">{erasing
         ? <>🧽 <b>Eraser on</b> — click any block to rub it out. Pick a block to build again.</>
