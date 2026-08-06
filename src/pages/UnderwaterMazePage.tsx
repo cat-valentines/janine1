@@ -113,8 +113,10 @@ export function UnderwaterMazePage({ onCoins, onBack }: UnderwaterMazePageProps)
   const won = snapshot?.status === 'won';
   const over = snapshot?.status === 'over';
   const shield = snapshot?.shield ?? 0;
-  const shieldReady = snapshot?.shieldReady ?? true;
-  const shieldLabel = shield > 0 ? `🫧 ${Math.ceil(shield)}s` : shieldReady ? '🫧 Bubble' : '🫧 …';
+  const bubbleOn = snapshot?.bubbleOn ?? false;
+  const inCave = snapshot?.inCave ?? false;
+  const caveLeft = snapshot?.caveLeft ?? 0;
+  const shieldLabel = bubbleOn ? `🫧 ${Math.ceil(shield)}s (off)` : shield > 0 ? `🫧 Bubble ${Math.ceil(shield)}s` : '🫧 …';
 
   return <main className="reef-page">
     <div className="reef-stage">
@@ -127,7 +129,8 @@ export function UnderwaterMazePage({ onCoins, onBack }: UnderwaterMazePageProps)
         <div className="reef-lives" aria-label={`${lives} lives left`}>
           {Array.from({ length: START_LIVES }, (_, i) => <i key={i}>{i < lives ? '❤️' : '🖤'}</i>)}
         </div>
-        <div className={`reef-shield-chip ${shield > 0 ? 'on' : ''}`}><b>{shield > 0 ? `${Math.ceil(shield)}s` : shieldReady ? '🫧' : '⏳'}</b><span>bubble</span></div>
+        <div className={`reef-shield-chip ${bubbleOn ? 'on' : ''}`}><b>{shield > 0 ? `${Math.ceil(shield)}s` : '⏳'}</b><span>{bubbleOn ? '🫧 on' : 'bubble'}</span></div>
+        {inCave && <div className="reef-shield-chip on"><b>{Math.ceil(caveLeft)}s</b><span>🪨 hidden</span></div>}
         {snapshot?.hasAllKeys && <div className="reef-goal">🐚 Find a shell lock!</div>}
       </div>
 
@@ -154,13 +157,13 @@ export function UnderwaterMazePage({ onCoins, onBack }: UnderwaterMazePageProps)
             </div>
           : <div className="reef-joy-slot" />}
         <div className="reef-vert">
-          <button className={`reef-bubble-btn ${shield > 0 ? 'active' : ''}`} disabled={!shieldReady && shield <= 0} onPointerDown={(event) => { event.preventDefault(); engine.current?.blowBubble(); }}>{shieldLabel}</button>
+          <button className={`reef-bubble-btn ${bubbleOn ? 'active' : ''}`} disabled={!bubbleOn && shield <= 0} onPointerDown={(event) => { event.preventDefault(); engine.current?.blowBubble(); }}>{shieldLabel}</button>
           <button onPointerDown={touch('rise', true)} onPointerUp={touch('rise', false)} onPointerLeave={touch('rise', false)}>🔼 Up</button>
           <button onPointerDown={touch('dive', true)} onPointerUp={touch('dive', false)} onPointerLeave={touch('dive', false)}>🔽 Dive</button>
         </div>
       </div>
 
-      {snapshot?.status === 'swim' && <p className="reef-help"><b>↑↓</b> swim · <b>←→</b> turn · <b>Space</b> 🫧 bubble · <b>Shift</b> up · <b>Ctrl</b> dive</p>}
+      {snapshot?.status === 'swim' && <p className="reef-help"><b>↑↓</b> swim · <b>←→</b> turn · <b>Space</b> 🫧 bubble on/off (turn it off to save it!) · hide in 🪨 caves · <b>Shift</b> up · <b>Ctrl</b> dive</p>}
 
       {(won || over) && <div className="quest-over">
         <div className={`quest-over-card ${won ? 'win' : ''}`}>

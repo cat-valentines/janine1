@@ -22,6 +22,7 @@ const HOLE_DIST = 2.6;        // reach for a key-hole
 const HURT_INVULN = 1.6;      // seconds of safety after being caught
 const SHIELD_TIME = 20;       // a bubble shield lasts 20 seconds
 const SHIELD_COOLDOWN = 8;    // then you must wait before blowing another
+const CAVE_HIDE_TIME = 20;    // you can hide from predators in a cave for 20 seconds
 
 interface Predator {
   kind: 'shark' | 'eel' | 'big';
@@ -47,8 +48,11 @@ export interface ReefSnapshot {
   status: 'swim' | 'won' | 'over';
   hasAllKeys: boolean; nearHole: boolean;
   hurt: number;           // >0 = flash red
-  shield: number;         // seconds of bubble shield left
-  shieldReady: boolean;   // can you blow a new bubble?
+  shield: number;         // seconds of bubble left in the bank
+  shieldReady: boolean;   // can you turn a bubble on?
+  bubbleOn: boolean;      // is the bubble currently up?
+  inCave: boolean;        // hidden from predators in a cave right now
+  caveLeft: number;       // seconds of cave-hiding left
   message: string;
 }
 
@@ -98,8 +102,11 @@ export class ReefEngine {
   private status: 'swim' | 'won' | 'over' = 'swim';
   private hurt = 0;
   private invuln = 0;
-  private shield = 0;
+  private shield = SHIELD_TIME;   // seconds of bubble left in your bank
+  private bubbleOn = false;       // is the bubble up right now (and draining)?
   private shieldCooldown = 0;
+  private inCave = false;         // hidden from predators inside a cave
+  private caveBudget = CAVE_HIDE_TIME;
   private bubble: THREE.Mesh | null = null;
   private message = '';
   private messageUntil = 0;
@@ -571,18 +578,33 @@ export class ReefEngine {
     if (on) this.pressed.add(code); else this.pressed.delete(code);
   }
 
-  /** Blow a 20-second protective bubble (from Space or the on-screen button). */
+  /** Toggle the bubble. It only drains while it's up, so turn it OFF when no
+   *  predators are near to save the seconds for later — a smart-bubble economy. */
   blowBubble() {
     if (this.status !== 'swim') return;
-    if (this.shield > 0) { this.say('🫧 Your bubble is already up!', 1.4); return; }
-    if (this.shieldCooldown > 0) { this.say(`🫧 Bubble recharging — ${Math.ceil(this.shieldCooldown)}s.`, 1.4); return; }
-    this.shield = SHIELD_TIME;
-    this.say('🫧 Bubble shield! You are safe for 20 seconds.', 2.6);
+    if (this.bubbleOn) { this.bubbleOn = false; this.say(`🫧 Bubble off — ${Math.ceil(this.shield)}s saved for later.`, 2); return; }
+    if (this.shield <= 0) { this.say(`🫧 Bubble empty — recharging (${Math.ceil(this.shieldCooldown)}s).`, 1.6); return; }
+    this.bubbleOn = true;
+    this.say('🫧 Bubble ON — you\'re safe. Tap again to turn it off and save it!', 3);
   }
 
   private say(text: string, seconds = 2.4) {
     this.message = text;
     this.messageUntil = this.time + seconds;
+  }
+
+  /** Duck into a cave to hide from predators — for up to 20 seconds, then it's
+   *  too tight and you must come out. Your hide-time refills while you're out. */
+  private checkCave(dt: number) {
+    const inCaveCell = this.reef.caves.has(`${colOf(this.pos.x)},${rowOf(this.pos.z)}`);
+    if (inCaveCell && this.caveBudget > 0) {
+      this.inCave = true;
+      this.caveBudget = Math.max(0, this.caveBudget - dt);
+      if (this.caveBudget === 0) this.say('🪨 Too cramped — you have to leave the cave!', 2);
+    } else {
+      this.inCave = false;
+      if (!inCaveCell) this.caveBudget = Math.min(CAVE_HIDE_TIME, this.caveBudget + dt * 0.6);
+    }
   }
 
   // ---- movement --------------------------------------------------------------
@@ -729,7 +751,7 @@ export class ReefEngine {
 
       // a predator reaches you
       if (this.status === 'swim' && flat < p.reach && Math.abs(this.pos.y - p.pos.y) < 2.2) {
-        if (this.shield > 0) {
+        if (this.bubbleOn || this.inCave) {
           // the bubble protects you — bump the attacker away and send it fleeing
           const away = Math.atan2(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
           p.pos.x = this.pos.x + Math.sin(away) * (p.reach + 1.4);
@@ -769,7 +791,10 @@ export class ReefEngine {
       nearHole: false, // set by loop
       hurt: this.hurt,
       shield: this.shield,
-      shieldReady: this.shield <= 0 && this.shieldCooldown <= 0,
+      shieldReady: this.shield > 0 && !this.bubbleOn,
+      bubbleOn: this.bubbleOn,
+      inCave: this.inCave,
+      caveLeft: this.caveBudget,
       message: this.time < this.messageUntil ? this.message : '',
     };
   }
@@ -777,7 +802,7 @@ export class ReefEngine {
   restart() {
     // simplest safe reset: rebuild from a fresh seed by reloading the page-level engine
     this.collectedKeys = 0; this.coins = 0; this.lives = START_LIVES;
-    this.status = 'swim'; this.hurt = 0; this.invuln = 0; this.shield = 0; this.shieldCooldown = 0;
+    this.status = 'swim'; this.hurt = 0; this.invuln = 0; this.shield = SHIELD_TIME; this.bubbleOn = false; this.shieldCooldown = 0; this.inCave = false; this.caveBudget = CAVE_HIDE_TIME;
     this.coinMeshes.forEach((c) => { c.taken = false; c.mesh.visible = true; });
     this.keyMeshes.forEach((k) => { k.taken = false; k.mesh.visible = true; });
     const start = worldOf(this.reef.start.col, this.reef.start.row);
@@ -815,17 +840,19 @@ export class ReefEngine {
     this.time += dt;
     if (this.hurt > 0) this.hurt = Math.max(0, this.hurt - dt * 1.5);
     if (this.invuln > 0) this.invuln = Math.max(0, this.invuln - dt);
-    if (this.shield > 0) {
+    if (this.bubbleOn) {
       this.shield = Math.max(0, this.shield - dt);
-      if (this.shield === 0) { this.shieldCooldown = SHIELD_COOLDOWN; this.say('🫧 Your bubble popped!', 2); }
-    } else if (this.shieldCooldown > 0) {
+      if (this.shield === 0) { this.bubbleOn = false; this.shieldCooldown = SHIELD_COOLDOWN; this.say('🫧 Bubble used up! Recharging…', 2); }
+    } else if (this.shield <= 0 && this.shieldCooldown > 0) {
       this.shieldCooldown = Math.max(0, this.shieldCooldown - dt);
+      if (this.shieldCooldown === 0) { this.shield = SHIELD_TIME; this.say('🫧 A fresh bubble is ready!', 2); }
     }
 
     let nearHole = false;
     if (this.status === 'swim') {
       this.movePlayer(dt);
       this.collect();
+      this.checkCave(dt);
       nearHole = this.checkHoles();
       this.movePredators(dt);
     }
@@ -834,9 +861,9 @@ export class ReefEngine {
     this.player.position.copy(this.pos);
     this.player.rotation.set(this.pitch, this.yaw, 0);
     if (this.bubble) {
-      this.bubble.visible = this.shield > 0;
+      this.bubble.visible = this.bubbleOn;
       this.bubble.position.copy(this.pos);
-      const flicker = this.shield > 0 && this.shield < 4 ? (Math.sin(this.time * 14) > 0 ? 1 : 0.4) : 1;
+      const flicker = this.bubbleOn && this.shield < 4 ? (Math.sin(this.time * 14) > 0 ? 1 : 0.4) : 1;
       this.bubble.scale.setScalar((1 + Math.sin(this.time * 3) * 0.05) * flicker);
     }
     const wag = Math.sin(this.time * 9) * 0.5;
