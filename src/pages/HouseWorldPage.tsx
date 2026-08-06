@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { HouseEngine, type Mode, type View } from '../game/houseEngine';
 import { blocks, type Animal, type Plot } from '../game/building';
-import { emptyWorld, normaliseWorld, type Furniture } from '../game/voxel';
+import { emptyWorld, normaliseWorld, type Furniture, type FurnitureKind } from '../game/voxel';
 import { characterAssets } from '../game/characters';
 import { seasonOrder, seasonStyles, type Season } from '../game/terrain';
 import { itemById, shopItems } from '../shop/catalog';
@@ -22,14 +22,26 @@ interface HouseWorldPageProps {
   /** The animals and crops you're raising, so they appear out on your land. */
   animals: Animal[];
   garden: Array<Plot | null>;
+  coins: number;
+  onSpendCoins: (amount: number) => void;
   onChangeWorld: (update: (previous: string) => string) => void;
   onChangeFurniture: (furniture: Furniture[]) => void;
   onRename: (name: string) => void;
   onBack: () => void;
 }
 
+const FURNITURE_KINDS: Array<{ kind: FurnitureKind; icon: string; name: string }> = [
+  { kind: 'table', icon: '🪵', name: 'Table' },
+  { kind: 'chair', icon: '🪑', name: 'Chair' },
+  { kind: 'sofa', icon: '🛋️', name: 'Sofa' },
+  { kind: 'bed', icon: '🛏️', name: 'Bed' },
+  { kind: 'lamp', icon: '💡', name: 'Lamp' },
+];
+const FURNITURE_COLORS = ['#ffffff', '#e0685f', '#e8a04f', '#f2d05e', '#6fbf6a', '#5a9fe0', '#9a6fd0', '#f28fb0', '#8a5a3a', '#3a3a44'];
+const FURNITURE_COST = 20;
+
 export function HouseWorldPage(props: HouseWorldPageProps) {
-  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
+  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, onSpendCoins, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
   const mount = useRef<HTMLDivElement>(null);
   const engine = useRef<HouseEngine | null>(null);
   const [mode, setMode] = useState<Mode>(initialMode ?? 'build');
@@ -37,6 +49,10 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   const [picked, setPicked] = useState('W');
   const [pickedItem, setPickedItem] = useState('');
   const [erasing, setErasing] = useState(false);
+  // The colourable furniture you're about to buy (20 coins) and place.
+  const [furnKind, setFurnKind] = useState<FurnitureKind | ''>('');
+  const [furnColor, setFurnColor] = useState('#ffffff');
+  const [buyMsg, setBuyMsg] = useState('');
   const world = normaliseWorld(houseWorld);
   const myFurniture = shopItems.filter((item) => item.category === 'furniture' && ownedItems.includes(item.id));
 
@@ -45,6 +61,12 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   const placeFurniture = useRef<(cell: { x: number; y: number; z: number }) => void>(() => undefined);
   changeWorld.current = onChangeWorld;
   placeFurniture.current = (cell) => {
+    if (furnKind) {
+      if (coins < FURNITURE_COST) { setBuyMsg(`You need ${FURNITURE_COST} coins to place a ${furnKind}.`); return; }
+      onSpendCoins(FURNITURE_COST);
+      onChangeFurniture([...furniture, { id: `f-${Date.now()}`, item: '', kind: furnKind, color: furnColor, x: cell.x, y: cell.y, z: cell.z, rot: 0 }]);
+      return;
+    }
     if (!pickedItem) return;
     onChangeFurniture([...furniture, { id: `${pickedItem}-${Date.now()}`, item: pickedItem, x: cell.x, y: cell.y, z: cell.z, rot: 0 }]);
   };
@@ -78,9 +100,10 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   useEffect(() => { engine.current?.setMode(mode); }, [mode]);
   useEffect(() => { engine.current?.setView(view); }, [view]);
   useEffect(() => {
-    if (pickedItem) engine.current?.setPickedFurniture(pickedItem);
+    if (furnKind) engine.current?.setPickedFurniture('__custom__');
+    else if (pickedItem) engine.current?.setPickedFurniture(pickedItem);
     else engine.current?.setPicked(picked);
-  }, [picked, pickedItem]);
+  }, [picked, pickedItem, furnKind]);
   useEffect(() => { engine.current?.setErasing(erasing); }, [erasing]);
 
   return <main className="house-world-page">
@@ -117,21 +140,47 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
     {mode === 'build' && <section className="world-palette">
       <div className="block-palette">
         {blocks.map((block) => <button
-          className={!pickedItem && !erasing && picked === block.id ? 'selected' : ''}
+          className={!pickedItem && !erasing && !furnKind && picked === block.id ? 'selected' : ''}
           key={block.id}
-          onClick={() => { setPicked(block.id); setPickedItem(''); setErasing(false); }}
+          onClick={() => { setPicked(block.id); setPickedItem(''); setFurnKind(''); setErasing(false); }}
         ><i style={{ background: block.colour }} />{block.name}</button>)}
-        <button className={`eraser ${erasing ? 'selected' : ''}`} onClick={() => setErasing(!erasing)}>🧽 Eraser</button>
+        <button className={`eraser ${erasing ? 'selected' : ''}`} onClick={() => { setErasing(!erasing); setFurnKind(''); }}>🧽 Eraser</button>
       </div>
+
+      <div className="furniture-shop">
+        <strong>🪑 Furniture <small>· {FURNITURE_COST} coins each · 🪙 {coins}</small></strong>
+        <div className="furn-kinds">
+          {FURNITURE_KINDS.map((f) => <button
+            className={furnKind === f.kind ? 'selected' : ''}
+            key={f.kind}
+            style={furnKind === f.kind ? { borderColor: furnColor } : undefined}
+            onClick={() => { setFurnKind(furnKind === f.kind ? '' : f.kind); setPickedItem(''); setErasing(false); setBuyMsg(''); }}
+          ><span>{f.icon}</span>{f.name}</button>)}
+        </div>
+        {furnKind && <>
+          <div className="furn-colors">
+            {FURNITURE_COLORS.map((c) => <button
+              key={c}
+              className={`furn-swatch ${furnColor === c ? 'selected' : ''}`}
+              style={{ background: c }}
+              onClick={() => setFurnColor(c)}
+              aria-label={`colour ${c}`}
+            />)}
+          </div>
+          <small>Pick a colour, then <b>click your house</b> to place your {furnKind} for {FURNITURE_COST} coins.</small>
+          {buyMsg && <small className="furn-warn">{buyMsg}</small>}
+        </>}
+      </div>
+
       <div className="furniture-palette">
-        <strong>Your furniture</strong>
+        <strong>Your shop furniture</strong>
         {myFurniture.length
           ? myFurniture.map((item) => <button
             className={pickedItem === item.id ? 'selected' : ''}
             key={item.id}
-            onClick={() => { setPickedItem(pickedItem === item.id ? '' : item.id); setErasing(false); }}
+            onClick={() => { setPickedItem(pickedItem === item.id ? '' : item.id); setFurnKind(''); setErasing(false); }}
           ><span>{item.icon}</span>{item.name}</button>)
-          : <small>Buy furniture in the shop and it will show up here to place in your house.</small>}
+          : <small>Buy furniture in the shop and it will show up here too.</small>}
         {furniture.length > 0 && <button className="clear-furniture" onClick={() => onChangeFurniture([])}>🧹 Clear furniture ({furniture.length})</button>}
       </div>
       <div className="world-actions">

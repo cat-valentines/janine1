@@ -1,6 +1,40 @@
 import * as THREE from 'three';
 import { EMPTY, animalById, blockById, cropById, cropReady, type Animal, type Plot } from './building';
-import { SX, SY, SZ, blocksMovement, inside, isSolid, spawnHeight, voxelAt, withVoxel, type Furniture } from './voxel';
+import { SX, SY, SZ, blocksMovement, inside, isSolid, spawnHeight, voxelAt, withVoxel, type Furniture, type FurnitureKind } from './voxel';
+
+/** Build a solid-colour 3-D furniture piece (table/chair/sofa/bed/lamp). */
+export function buildFurnitureMesh(kind: FurnitureKind, color: string): THREE.Group {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color });
+  const legMat = new THREE.MeshLambertMaterial({ color: '#6a4a30' });
+  const box = (w: number, h: number, d: number, x: number, y: number, z: number, m: THREE.Material = mat) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); mesh.position.set(x, y, z); g.add(mesh); return mesh;
+  };
+  if (kind === 'table') {
+    box(0.9, 0.09, 0.9, 0, 0.55, 0);
+    [[-0.38, -0.38], [0.38, -0.38], [-0.38, 0.38], [0.38, 0.38]].forEach(([x, z]) => box(0.08, 0.5, 0.08, x, 0.27, z, legMat));
+  } else if (kind === 'chair') {
+    box(0.5, 0.08, 0.5, 0, 0.44, 0);
+    box(0.5, 0.5, 0.08, 0, 0.68, -0.21);
+    [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]].forEach(([x, z]) => box(0.06, 0.42, 0.06, x, 0.21, z, legMat));
+  } else if (kind === 'sofa') {
+    box(0.95, 0.28, 0.55, 0, 0.28, 0.03);
+    box(0.95, 0.42, 0.13, 0, 0.5, -0.2);
+    box(0.13, 0.34, 0.55, -0.42, 0.4, 0.03);
+    box(0.13, 0.34, 0.55, 0.42, 0.4, 0.03);
+  } else if (kind === 'bed') {
+    box(0.9, 0.22, 1.3, 0, 0.28, 0);
+    box(0.68, 0.12, 0.32, 0, 0.44, -0.45, new THREE.MeshLambertMaterial({ color: '#f4efe8' }));   // pillow
+    box(0.94, 0.5, 0.08, 0, 0.42, -0.68);   // headboard
+  } else {  // lamp
+    box(0.28, 0.06, 0.28, 0, 0.03, 0, legMat);
+    box(0.06, 0.95, 0.06, 0, 0.5, 0, legMat);
+    const shade = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.34, 12), new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.5 }));
+    shade.position.y = 1.08; g.add(shade);
+    const light = new THREE.PointLight(color, 0.7, 4.5, 2); light.position.y = 1.0; g.add(light);
+  }
+  return g;
+}
 import { buildTerrain, isTerrainSolid, seasonStyles, terrainHeight, type Season } from './terrain';
 
 export type Mode = 'build' | 'walk';
@@ -358,6 +392,14 @@ export class HouseEngine {
   private rebuildFurniture() {
     this.furnitureGroup.clear();
     this.furniture.forEach((piece) => {
+      if (piece.kind) {
+        // A solid-colour 3-D piece you bought and coloured yourself.
+        const mesh = buildFurnitureMesh(piece.kind, piece.color ?? '#ffffff');
+        mesh.position.set(piece.x + 0.5, piece.y, piece.z + 0.5);
+        mesh.rotation.y = (piece.rot ?? 0) * Math.PI / 2;
+        this.furnitureGroup.add(mesh);
+        return;
+      }
       const icon = this.options.furnitureIcons[piece.item] ?? '📦';
       const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTexture(icon) }));
       sprite.scale.set(0.9, 0.9, 0.9);

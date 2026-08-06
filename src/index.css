@@ -2184,3 +2184,17 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .chat-head h3 { margin: 0; }
 .chat-clear { flex: none; padding: 5px 11px; border: 0; border-radius: 999px; background: #ece6f6; color: #5a4f7a; font-weight: 800; font-size: .74rem; cursor: pointer; }
 .chat-clear:active { transform: translateY(1px); }
+
+/* House — furniture picker (colourable 3D furniture) */
+.furniture-shop { display: grid; gap: 7px; padding: 8px 10px; background: #fff7ec; border: 2px solid #e6d3b0; border-radius: 12px; margin: 6px 0; }
+.furniture-shop > strong { font-size: .82rem; }
+.furniture-shop > strong small { color: var(--ink-soft); font-weight: 700; }
+.furn-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.furn-kinds button { display: flex; align-items: center; gap: 4px; padding: 6px 9px; border: 2px solid #d8c8a8; border-radius: 9px; background: #fff; font-size: .74rem; font-weight: 700; cursor: pointer; }
+.furn-kinds button span { font-size: 1.05rem; }
+.furn-kinds button.selected { border-width: 3px; background: #fff0d6; }
+.furn-colors { display: flex; flex-wrap: wrap; gap: 6px; }
+.furn-swatch { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #b8ae9e; cursor: pointer; padding: 0; }
+.furn-swatch.selected { border-color: #3a3a44; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #3a3a44; }
+.furniture-shop small { color: var(--ink-soft); font-size: .72rem; line-height: 1.35; }
+.furn-warn { color: #b04a3a !important; font-weight: 800; }
