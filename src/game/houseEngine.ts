@@ -141,6 +141,7 @@ export class HouseEngine {
   private armL: THREE.Group | null = null;
   private armR: THREE.Group | null = null;
   private walkPhase = 0;
+  private sitting = false;   // relaxing on a chair/sofa — frozen until you stand
   /** Other real players on the land right now, keyed by their user id. */
   private neighbours = new Map<string, Neighbour>();
   private highlight: THREE.LineSegments;
@@ -591,7 +592,45 @@ export class HouseEngine {
     return { x: this.position.x, z: this.position.z, yaw: this.yaw, level: 0 };
   }
 
-  /** Show the apples stashed in your house as a little basket by your door. */
+  /** The nearest chair/sofa you're standing by (to sit on), or null. */
+  getNearbySeat() { return this.nearestFurniture(['chair', 'sofa'], 1.8); }
+  /** The nearest bed you're standing by (to sleep in), or null. */
+  getNearbyBed() { return this.nearestFurniture(['bed'], 2.2); }
+
+  private nearestFurniture(kinds: FurnitureKind[], range: number): { x: number; z: number } | null {
+    let best: { x: number; z: number } | null = null;
+    let bestD = range;
+    this.furniture.forEach((piece) => {
+      if (!piece.kind || !kinds.includes(piece.kind)) return;
+      const cx = piece.x + 0.5, cz = piece.z + 0.5;
+      const d = Math.hypot(this.position.x - cx, this.position.z - cz);
+      if (d < bestD) { bestD = d; best = { x: cx, z: cz }; }
+    });
+    return best;
+  }
+
+  /** Sit down on the chair/sofa you're next to. You stay put until you stand. */
+  sit() {
+    if (this.sitting || this.mode !== 'walk') return false;
+    const seat = this.getNearbySeat();
+    if (!seat) return false;
+    this.position.x = seat.x; this.position.z = seat.z;
+    this.velocity.set(0, 0, 0);
+    this.sitting = true;
+    return true;
+  }
+  standUp() { this.sitting = false; }
+  isSitting() { return this.sitting; }
+
+  /** Sleep in the bed you're next to: skip the night straight to a fresh morning. */
+  sleep() {
+    if (this.mode !== 'walk' || !this.getNearbyBed()) return false;
+    this.dayTime = 0.26;   // just after dawn
+    this.sitting = false;
+    return true;
+  }
+
+  /** Show the food + treasures stashed in your house as a chest by your door. */
   setPantry(count: number) {
     this.pantryGroup.traverse((obj) => {
       const mesh = obj as THREE.Mesh;
@@ -600,19 +639,29 @@ export class HouseEngine {
       (Array.isArray(mat) ? mat : mat ? [mat] : []).forEach((m) => m.dispose());
     });
     this.pantryGroup.clear();
-    if (count <= 0) return;
+    if (count < 0) return;   // hidden (e.g. while you're visiting someone else's house)
     const bx = SX / 2 + 4, bz = SZ / 2;
     const by = this.groundY(bx, bz);
-    const basket = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.56, 0.5, 12), new THREE.MeshLambertMaterial({ color: '#8a5a2f' }));
-    basket.position.set(bx, by + 0.25, bz);
-    this.pantryGroup.add(basket);
-    const appleGeo = new THREE.SphereGeometry(0.16, 8, 6);
+    // A wooden storage chest that always stands by your house — your box for food
+    // (and, once you're mining, jewels too).
+    const wood = new THREE.MeshLambertMaterial({ color: '#8a5a2f' });
+    const iron = new THREE.MeshLambertMaterial({ color: '#c9a24a', emissive: '#3a2c08' });
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.6, 0.8), wood);
+    base.position.set(bx, by + 0.3, bz);
+    const lid = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.28, 0.84), wood);
+    lid.position.set(bx, by + 0.72, bz);
+    const latch = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.22, 0.08), iron);
+    latch.position.set(bx, by + 0.6, bz + 0.42);
+    this.pantryGroup.add(base, lid, latch);
+    if (count <= 0) return;
+    // A few apples heaped on the lid so you can see it's stocked.
+    const appleGeo = new THREE.SphereGeometry(0.14, 8, 6);
     const appleMat = new THREE.MeshLambertMaterial({ color: '#e0453a', emissive: '#4a1410' });
-    const shown = Math.min(count, 16);
+    const shown = Math.min(count, 8);
     for (let i = 0; i < shown; i += 1) {
       const apple = new THREE.Mesh(appleGeo, appleMat);
-      const ang = i * 2.399, r = 0.1 + (i % 3) * 0.16;
-      apple.position.set(bx + Math.cos(ang) * r, by + 0.5 + Math.floor(i / 6) * 0.2, bz + Math.sin(ang) * r);
+      const ang = i * 2.399, r = 0.08 + (i % 3) * 0.14;
+      apple.position.set(bx + Math.cos(ang) * r, by + 0.92 + Math.floor(i / 4) * 0.16, bz + Math.sin(ang) * r * 0.6);
       this.pantryGroup.add(apple);
     }
   }
@@ -937,6 +986,18 @@ export class HouseEngine {
   }
 
   private walk(dt: number) {
+    // Sitting still: bend into the seat and don't move until you stand up.
+    if (this.sitting) {
+      const e = Math.min(1, dt * 12);
+      if (this.legL && this.legR && this.armL && this.armR) {
+        this.legL.rotation.x += (-1.4 - this.legL.rotation.x) * e;
+        this.legR.rotation.x += (-1.4 - this.legR.rotation.x) * e;
+        this.armL.rotation.x += (-0.35 - this.armL.rotation.x) * e;
+        this.armR.rotation.x += (-0.35 - this.armR.rotation.x) * e;
+      }
+      this.velocity.set(0, 0, 0);
+      return;
+    }
     // Easy controls: ↑↓ walk, ←→ turn — no mouse needed. (W/S walk, A/D strafe too.)
     const forward = ((this.keys.has('ArrowUp') || this.keys.has('KeyW')) ? 1 : 0) - ((this.keys.has('ArrowDown') || this.keys.has('KeyS')) ? 1 : 0);
     const turn = (this.keys.has('ArrowLeft') ? 1 : 0) - (this.keys.has('ArrowRight') ? 1 : 0);
@@ -996,6 +1057,7 @@ export class HouseEngine {
     }
     this.avatar.visible = this.view === 'third';
     this.avatar.position.copy(this.position);
+    if (this.sitting) this.avatar.position.y += 0.4;   // perched on the seat
     this.avatar.rotation.y = this.yaw;
 
     const look = new THREE.Vector3(

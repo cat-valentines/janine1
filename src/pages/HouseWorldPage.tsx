@@ -164,10 +164,20 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   // Show neighbours walking around — but hide them while you're inside a house.
   useEffect(() => { engine.current?.setLivePlayers(visiting ? [] : peers); }, [peers, visiting]);
 
-  // Once you walk up close to someone's house, offer to knock on their door.
+  // Poll what you're standing near: a neighbour's door, a chair, a bed.
   const [nearby, setNearby] = useState<{ id: string; name: string } | null>(null);
+  const [nearSeat, setNearSeat] = useState(false);
+  const [nearBed, setNearBed] = useState(false);
+  const [sitting, setSitting] = useState(false);
   useEffect(() => {
-    const id = setInterval(() => setNearby(visiting || mode !== 'walk' ? null : (engine.current?.getNearbyVisit() ?? null)), 300);
+    const id = setInterval(() => {
+      const e = engine.current;
+      if (!e || mode !== 'walk') { setNearby(null); setNearSeat(false); setNearBed(false); setSitting(false); return; }
+      setNearby(visiting ? null : (e.getNearbyVisit() ?? null));
+      setSitting(e.isSitting());
+      setNearSeat(!!e.getNearbySeat());
+      setNearBed(!!e.getNearbyBed());
+    }, 300);
     return () => clearInterval(id);
   }, [visiting, mode]);
 
@@ -182,8 +192,8 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
     else engine.current?.setPicked(picked);
   }, [picked, pickedItem, furnKind]);
   useEffect(() => { engine.current?.setErasing(erasing); }, [erasing]);
-  // Show your stashed apples as a basket by the house (hidden while visiting).
-  useEffect(() => { engine.current?.setPantry(visiting ? 0 : applePantry); }, [applePantry, visiting]);
+  // Show your storage chest by the house — hidden (-1) while visiting someone else.
+  useEffect(() => { engine.current?.setPantry(visiting ? -1 : applePantry); }, [applePantry, visiting]);
   // Toasts fade on their own after a few seconds.
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(''), 3500); return () => clearTimeout(id); }, [toast]);
 
@@ -249,6 +259,13 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
         disabled={applePantry <= 0}
         onClick={() => { if (applePantry > 0) { onEatApple(); setToast('😋 Yum! You ate an apple. (+1 food)'); } }}
       >🍎 Eat an apple <b>({applePantry})</b></button>}
+
+      {/* Context actions: sit on a chair, sleep in a bed, when you're next to one. */}
+      {mode === 'walk' && (sitting || nearSeat || nearBed) && <div className="house-actions">
+        {sitting && <button className="house-action-btn" onClick={() => { engine.current?.standUp(); setToast('🧍 You stood up.'); }}>🧍 Stand up</button>}
+        {!sitting && nearSeat && <button className="house-action-btn" onClick={() => { if (engine.current?.sit()) setToast('🪑 You sat down. Ahh, comfy!'); }}>🪑 Sit down</button>}
+        {!sitting && nearBed && <button className="house-action-btn bed" onClick={() => { if (engine.current?.sleep()) setToast('🛏️ You slept! Good morning ☀️'); }}>🛏️ Sleep till morning</button>}
+      </div>}
       {mode === 'walk' && <>
         <button className="world-view-toggle" onClick={() => setView(view === 'third' ? 'first' : 'third')}>
           {view === 'third' ? '👁️ First person' : '🧍 See my character'}
