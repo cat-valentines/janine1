@@ -80,8 +80,8 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
   const update = useRef<(s: MansionSnapshot) => void>(() => undefined);
   update.current = (next) => {
     setSnapshot(next);
-    // Remember which level you reached, so you resume there next time.
-    if (next.party) storage.set('housekeeperLevel', String(next.level));
+    // Remember your OWN level (not one you're just visiting), so you resume there.
+    if (next.party) storage.set('housekeeperLevel', String(next.homeLevel));
     if (next.status === 'escaped' && !paid.current) { paid.current = true; onEscape(ESCAPE_PRIZE); }
   };
 
@@ -153,7 +153,7 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
         </div>
 
         {mode === 'everybody' && <div className="escape-invite">
-          <p className="escape-invite-note">🌍 A house full of players! <strong>Two housekeepers</strong> patrol, and everyone races to find the keys without getting caught. Escape and you unlock a deeper, harder level. You'll see <strong>other real players live</strong> — wearing their @name, exactly where they really are — even friends who've raced ahead to a deeper level (their tag shows <strong>·L3</strong>), because the house is the same halls on every level. 🤖 bots fill out the house.</p>
+          <p className="escape-invite-note">🌍 A house full of players! <strong>Two housekeepers</strong> patrol, and everyone races to find the keys without getting caught. Escape and you unlock a deeper, harder level. You'll see <strong>other real players live</strong> — wearing their @name, exactly where they really are — even friends who've raced ahead to a deeper level (their tag shows <strong>·L3</strong>), because the house is the same halls on every level. If a friend is deeper than you, tap <strong>🚪 Go deeper</strong> to go through the door into their harder level and help them — then come back to your own level whenever you like. 🤖 bots fill out the house.</p>
         </div>}
 
         {mode === 'friends' && <div className="escape-invite">
@@ -213,7 +213,7 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
         <div className="escape-stones"><strong>🪨 {snapshot?.stones ?? STONES_PER_NIGHT}</strong><small>stones</small></div>
         <div className="escape-night"><strong>🌙 Night {snapshot?.day ?? 1}</strong><small>of {DAYS}</small></div>
         <div className={`escape-night ${(snapshot?.invisLeft ?? 0) > 0 ? 'invis-on' : ''}`}><strong>{(snapshot?.invisLeft ?? 0) > 0 ? `🫧 ${snapshot!.invisLeft}s` : snapshot?.invisReady ? '🫧 Ready' : '🫧 Used'}</strong><small>invisible (I)</small></div>
-        {snapshot?.party && <div className="escape-night"><strong>🔒 Level {snapshot.level}</strong><small>go deeper</small></div>}
+        {snapshot?.party && <div className={`escape-night ${snapshot.visiting ? 'invis-on' : ''}`}><strong>{snapshot.visiting ? `🚪 Visiting L${snapshot.level}` : `🔒 Level ${snapshot.level}`}</strong><small>{snapshot.visiting ? `home L${snapshot.homeLevel}` : 'go deeper'}</small></div>}
         <div className="escape-state">
           <strong>{(snapshot?.trapped ?? 0) > 0 ? `🪤 Stuck! ${snapshot?.trapped}s` : snapshot?.hidden ? '🤫 Hidden' : snapshot?.keeperState === 'chase' ? '🏃 She sees you!' : snapshot?.keeperState === 'search' ? '👀 She is looking' : '🚶 She is patrolling'}</strong>
           <i className="escape-alarm"><s style={{ width: `${Math.round((snapshot?.alarm ?? 0) * 100)}%` }} /></i>
@@ -232,6 +232,9 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
         </div>
         {/* Tap to sneak — walk quietly so she can't hear you (no need to hold it). */}
         <button className={`sneak-toggle ${sneaking ? 'on' : ''}`} onClick={toggleSneak}>🤫 {sneaking ? 'Sneaking' : 'Sneak'}</button>
+        {/* The co-op door: join a friend who's raced ahead to a deeper level, then come back. */}
+        {(snapshot?.deeperLevel ?? 0) > 0 && <button className="deeper-door-btn" onClick={() => engine.current?.goDeeper()}>🚪 Go deeper with your friend (L{snapshot!.deeperLevel})</button>}
+        {snapshot?.visiting && <button className="deeper-door-btn back" onClick={() => engine.current?.returnHome()}>🚪 Come back to my Level {snapshot.homeLevel}</button>}
         {controls === 'joystick' && <Joystick />}
         <KeyPad dirs={controls === 'buttons' ? ['up', 'down', 'left', 'right'] : []} actions={[
           { codes: ['Space'], label: '✋' },

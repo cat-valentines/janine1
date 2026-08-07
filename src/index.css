@@ -1884,6 +1884,12 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
   .escape-ctl-toggle button.on { background: #5f8fd0; color: #fff; }
 }
 
+/* ---- The co-op door: a pulsing call-to-action to join a friend's deeper level
+   (or come back to your own). Shown on every device, not just touch. ---- */
+.deeper-door-btn { position: fixed; left: 50%; transform: translateX(-50%); top: 92px; z-index: 44; padding: 11px 20px; border: 0; border-radius: 999px; background: #7a4a22ee; color: #ffe8c8; font-weight: 850; font-size: .95rem; box-shadow: 0 4px 0 #3a1e08, 0 0 0 3px #f2c94c66; cursor: pointer; animation: doorPulse 1.4s ease-in-out infinite; }
+.deeper-door-btn.back { background: #2a5540ee; color: #d6ffe8; box-shadow: 0 4px 0 #123a28, 0 0 0 3px #6fd0a066; }
+@keyframes doorPulse { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.05); } }
+
 /* ---- Market: choose joystick or buttons to walk; ⤴ picks/interacts (touch only). ---- */
 .control-mode-toggle, .joy-action { display: none; }
 @media (hover: none) and (pointer: coarse) {

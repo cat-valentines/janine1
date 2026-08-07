@@ -31,6 +31,12 @@ export interface MansionSnapshot {
   status: 'playing' | 'caught' | 'escaped' | 'lost';
   party: boolean;
   level: number;
+  /** Your own saved level — stays put even while you visit a friend's deeper house. */
+  homeLevel: number;
+  /** True while you've stepped through the co-op door into a friend's harder level. */
+  visiting: boolean;
+  /** >your level when a higher-level friend is here whose door you can go through. */
+  deeperLevel: number;
   message: string;
   /** Invisibility power: one charge each night, 10 seconds when used. */
   invisReady: boolean;
@@ -167,6 +173,12 @@ export class MansionEngine {
   private netK1: { pos: THREE.Vector3; yaw: number; state: 'patrol' | 'chase' | 'search' } | null = null;
   private netK2: { pos: THREE.Vector3; yaw: number } | null = null;
   private level = 1;
+  /** Your own saved level. Equal to `level` unless you're visiting a friend's. */
+  private homeLevel = 1;
+  /** True while you've gone through the co-op door into a friend's deeper level. */
+  private visiting = false;
+  /** The highest level among the real friends here right now (0 if none). */
+  private maxPeerLevel = 0;
   private speedMul = 1;
   private keeper2: Roamer | null = null;
   private bots: Array<Roamer & { flash: number }> = [];
@@ -272,6 +284,7 @@ export class MansionEngine {
 
     // Resume at your saved level, harder as it climbs, with a fresh layout.
     this.level = Math.max(1, Math.min(MAX_LEVELS, Math.round(options.startLevel ?? 1)));
+    this.homeLevel = this.level;
     this.speedMul = 1 + Math.min(1.4, (this.level - 1) * 0.1);
     if (this.level > 1) this.layoutLevel();
 
@@ -764,9 +777,10 @@ export class MansionEngine {
     }
   }
 
-  /** My position, for broadcasting to the other real players in the match. */
+  /** My position, for broadcasting to the other real players in the match. We
+   *  broadcast our HOME level (who we really are), not the level we're visiting. */
   getSelfState() {
-    return { x: this.position.x, z: this.position.z, yaw: this.yaw, level: this.level };
+    return { x: this.position.x, z: this.position.z, yaw: this.yaw, level: this.homeLevel };
   }
 
   /** Am I the one simulating the shared housekeepers? Set from the live channel. */
@@ -812,6 +826,8 @@ export class MansionEngine {
    * AI — so what you see is genuinely where they are. Anyone who left is removed.
    */
   setLivePlayers(players: Array<{ id: string; name: string; x: number; z: number; yaw: number; level: number }>) {
+    // The deepest friend here decides how far the co-op door can take you.
+    this.maxPeerLevel = players.reduce((m, p) => Math.max(m, p.level), 0);
     const here = new Set<string>();
     players.forEach((player) => {
       here.add(player.id);
@@ -970,7 +986,10 @@ export class MansionEngine {
     }
     if (this.atDoor()) {
       if (this.collected >= KEYS_TO_ESCAPE) {
-        if (this.party) this.nextLevel();
+        // Getting out while visiting a friend's deeper level pops you home — it
+        // never bumps your own saved level. Otherwise a real level-up (or escape).
+        if (this.visiting) { this.say('🚪 You helped your friend out! Coming back to your own level…', 3); this.returnHome(); }
+        else if (this.party) this.nextLevel();
         else { this.status = 'escaped'; this.say('🚪 You got out!', 6); }
       } else {
         this.say(`🔒 Locked. You need ${KEYS_TO_ESCAPE - this.collected} more keys.`, 2.4);
@@ -1153,9 +1172,9 @@ export class MansionEngine {
     });
   }
 
-  /** Escaping in party mode opens a deeper, harder level instead of winning. */
-  private nextLevel() {
-    this.level = Math.min(MAX_LEVELS, this.level + 1);
+  /** Lay out whatever `this.level` now is: fresh keys/traps, everyone back at the
+   *  start, a fresh night. Shared by climbing a level and by the co-op door. */
+  private relayoutForLevel(message: string) {
     this.day = 1;                                                        // each new level starts on Night 1
     this.speedMul = 1 + Math.min(1.4, (this.level - 1) * 0.1);           // harder each level, capped so it stays playable
     this.collected = 0;
@@ -1166,6 +1185,7 @@ export class MansionEngine {
     this.position.set(start.x, 0, start.z);
     this.yaw = Math.PI;
     this.hidden = false; this.hideKind = null; this.busted = false;
+    this.status = 'playing';
     // The others follow you into the new level — back at the start with you.
     const spots = this.cellsNearStart(8);
     this.bots.forEach((bot, i) => {
@@ -1174,7 +1194,33 @@ export class MansionEngine {
       bot.pos.set(world.x + (Math.random() - 0.5) * 1.2, 0, world.z + (Math.random() - 0.5) * 1.2);
       bot.path = [];
     });
-    this.say(`🔒 Level ${this.level} unlocked! Find the keys again — the house is more dangerous now.`, 4.5);
+    this.say(message, 4.5);
+  }
+
+  /** Escaping in party mode opens a deeper, harder level instead of winning. */
+  private nextLevel() {
+    this.level = Math.min(MAX_LEVELS, this.level + 1);
+    this.homeLevel = this.level;   // a real level-up: this becomes your saved home
+    this.visiting = false;
+    this.relayoutForLevel(`🔒 Level ${this.level} unlocked! Find the keys again — the house is more dangerous now.`);
+  }
+
+  /** The co-op door: step into a higher-level friend's harder house to help them.
+   *  Your own saved level (homeLevel) does not change — you're just visiting. */
+  goDeeper() {
+    if (!this.party || this.visiting || this.status !== 'playing') return;
+    if (this.maxPeerLevel <= this.level) return;         // no friend is deeper than you
+    this.visiting = true;
+    this.level = this.maxPeerLevel;
+    this.relayoutForLevel(`🚪 Through the door into Level ${this.level} with your friend! Help them find the keys — you'll pop back to your own Level ${this.homeLevel} when you're done.`);
+  }
+
+  /** Come back out of the co-op door to your own level, exactly where you were. */
+  returnHome() {
+    if (!this.visiting) return;
+    this.visiting = false;
+    this.level = this.homeLevel;
+    this.relayoutForLevel(`🚪 Back home on your own Level ${this.level}.`);
   }
 
   /** Running is loud. Sneaking is not. (But invisible players make no noise she minds.) */
@@ -1363,6 +1409,9 @@ export class MansionEngine {
       nearKey: (() => { const c = this.nearestCabinet(); return !!c && c.distance < 1.9; })(),
       status: this.status,
       party: this.party, level: this.level,
+      homeLevel: this.homeLevel, visiting: this.visiting,
+      // A friend is deeper than you → their door is open for you to go through.
+      deeperLevel: this.party && !this.visiting && this.maxPeerLevel > this.level ? this.maxPeerLevel : 0,
       message: this.time < this.messageUntil ? this.message : '',
       invisReady: this.invisReady,
       invisLeft: this.invisible() ? Math.ceil(this.invisUntil - this.time) : 0,
