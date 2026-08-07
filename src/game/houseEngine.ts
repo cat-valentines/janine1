@@ -35,7 +35,7 @@ export function buildFurnitureMesh(kind: FurnitureKind, color: string): THREE.Gr
   }
   return g;
 }
-import { buildTerrain, isTerrainSolid, seasonStyles, terrainHeight, type Season } from './terrain';
+import { buildTerrainRegion, isTerrainSolid, seasonStyles, terrainHeight, type Season } from './terrain';
 
 export type Mode = 'build' | 'walk';
 export type View = 'first' | 'third';
@@ -46,6 +46,11 @@ const PLAYER_HEIGHT = 1.8;
 const GRAVITY = 22;
 const JUMP = 7.4;
 const SPEED = 4.6;
+/** How far around you the hills + trees are meshed, and how far you walk before
+ *  that patch re-centres on you — so the land streams on endlessly as you go.
+ *  The patch reaches past where the fog turns opaque, so its edge never shows. */
+const LAND_PATCH = 56;
+const LAND_STEP = 18;
 
 interface EngineOptions {
   world: string;
@@ -98,6 +103,12 @@ export class HouseEngine {
   private raycaster = new THREE.Raycaster();
   private blockGroup = new THREE.Group();
   private terrainGroup = new THREE.Group();
+  // The streamed hills/trees live in their own group so they can re-mesh around
+  // you without touching the endless ground plane below them.
+  private landGroup = new THREE.Group();
+  private landGeo = new THREE.BoxGeometry(1, 1, 1);
+  private ground: THREE.Mesh | null = null;
+  private terrainCenter = { x: Infinity, z: Infinity };
   private forageGroup = new THREE.Group();
   private apples: Apple[] = [];
   private forageTime = 0;
@@ -166,7 +177,7 @@ export class HouseEngine {
     sun.position.set(18, 30, 12);
     this.scene.add(sun);
 
-    this.scene.add(this.blockGroup, this.terrainGroup, this.forageGroup, this.furnitureGroup, this.livestockGroup, this.avatar);
+    this.scene.add(this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.furnitureGroup, this.livestockGroup, this.avatar);
 
     const edge = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
     this.highlight = new THREE.LineSegments(edge, new THREE.LineBasicMaterial({ color: '#20222a' }));
@@ -189,45 +200,53 @@ export class HouseEngine {
   private applySky() {
     const style = seasonStyles[this.season];
     this.scene.background = new THREE.Color(style.sky);
-    this.scene.fog = new THREE.Fog(style.fog, 46, 118);
+    // Dense by ~54 units — just inside the streamed patch (56) — so the land
+    // always fades into haze and you never see where the meshed hills stop.
+    this.scene.fog = new THREE.Fog(style.fog, 24, 60);
   }
 
-  /** One InstancedMesh per colour keeps the whole landscape to a few draw calls. */
   private rebuildTerrain() {
-    this.terrainGroup.clear();
-    // Endless land: a huge flat grass plane just under the ground, filling the
-    // world out to the fog so there's no visible edge — your land goes on forever.
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(320, 320),
-      new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].grass }),
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.set(SX / 2, 0.99, SZ / 2);
-    this.terrainGroup.add(ground);
+    // Endless land: a huge flat grass plane just under the hills. It follows you
+    // (see the loop) so there's never a visible edge — the land goes on forever.
+    if (!this.ground) {
+      this.ground = new THREE.Mesh(new THREE.PlaneGeometry(700, 700), new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].grass }));
+      this.ground.rotation.x = -Math.PI / 2;
+      this.terrainGroup.add(this.ground);
+    } else {
+      (this.ground.material as THREE.MeshLambertMaterial).color.set(seasonStyles[this.season].grass);
+    }
+    this.terrainCenter = { x: Infinity, z: Infinity };  // force a fresh stream for the new season
+    this.streamLand();
+    this.buildForage();
+  }
+
+  /** Re-mesh the hills + trees in a patch centred on the player, so as you walk
+   *  fresh land keeps appearing ahead of you and stale land drops behind. One
+   *  InstancedMesh per colour keeps the whole landscape to a few draw calls. */
+  private streamLand() {
+    const cx = Math.round(this.position.x), cz = Math.round(this.position.z);
+    this.terrainCenter = { x: cx, z: cz };
+    // Free the previous patch's materials (the box geometry is shared, so kept).
+    this.landGroup.children.forEach((child) => {
+      const mat = (child as THREE.Mesh).material;
+      if (Array.isArray(mat)) mat.forEach((m) => m.dispose()); else (mat as THREE.Material | undefined)?.dispose();
+    });
+    this.landGroup.clear();
     const byColour = new Map<string, Array<{ x: number; y: number; z: number }>>();
-    buildTerrain(this.season, this.seed).forEach((block) => {
+    buildTerrainRegion(this.season, this.seed, cx - LAND_PATCH, cx + LAND_PATCH, cz - LAND_PATCH, cz + LAND_PATCH).forEach((block) => {
       const list = byColour.get(block.colour) ?? [];
       list.push({ x: block.x, y: block.y, z: block.z });
       byColour.set(block.colour, list);
     });
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
     const matrix = new THREE.Matrix4();
     const water = seasonStyles[this.season].water;
     byColour.forEach((cells, colour) => {
-      const material = new THREE.MeshLambertMaterial({
-        color: colour,
-        transparent: colour === water,
-        opacity: colour === water ? 0.8 : 1,
-      });
-      const mesh = new THREE.InstancedMesh(geometry, material, cells.length);
-      cells.forEach((cell, index) => {
-        matrix.setPosition(cell.x + 0.5, cell.y + 0.5, cell.z + 0.5);
-        mesh.setMatrixAt(index, matrix);
-      });
+      const material = new THREE.MeshLambertMaterial({ color: colour, transparent: colour === water, opacity: colour === water ? 0.8 : 1 });
+      const mesh = new THREE.InstancedMesh(this.landGeo, material, cells.length);
+      cells.forEach((cell, index) => { matrix.setPosition(cell.x + 0.5, cell.y + 0.5, cell.z + 0.5); mesh.setMatrixAt(index, matrix); });
       mesh.instanceMatrix.needsUpdate = true;
-      this.terrainGroup.add(mesh);
+      this.landGroup.add(mesh);
     });
-    this.buildForage();
   }
 
   /** Scatter apple trees and bushes across the land, with apples you can forage. */
@@ -865,7 +884,10 @@ export class HouseEngine {
     if (this.wanderers.length) this.moveAnimals(dt);
     this.moveNeighbours(dt);
     if (this.mode === 'walk') { this.walk(dt); this.checkForage(dt); }
-    else {
+    // Keep the endless ground under you, and stream fresh hills as you roam.
+    if (this.ground) this.ground.position.set(this.position.x, 0.99, this.position.z);
+    if (Math.abs(this.position.x - this.terrainCenter.x) > LAND_STEP || Math.abs(this.position.z - this.terrainCenter.z) > LAND_STEP) this.streamLand();
+    if (this.mode === 'build') {
       this.hovered = this.pick();
       if (this.hovered) {
         this.highlight.visible = true;

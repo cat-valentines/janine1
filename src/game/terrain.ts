@@ -118,11 +118,21 @@ function treeAt(x: number, z: number, seed: number) {
  * be ~200k cubes, nearly all of them buried and invisible.
  */
 export function buildTerrain(season: Season, seed: number) {
+  return buildTerrainRegion(season, seed, TERRAIN_MIN, TERRAIN_MAX_X, TERRAIN_MIN, TERRAIN_MAX_Z);
+}
+
+/**
+ * Build the visible land over any rectangle of the world. terrainHeight/treeAt
+ * are pure functions of (x, z), so any region tiles seamlessly with its
+ * neighbours — which lets the house world stream endless terrain around you as
+ * you walk, instead of stopping at a fixed patch.
+ */
+export function buildTerrainRegion(season: Season, seed: number, minX: number, maxX: number, minZ: number, maxZ: number) {
   const style = seasonStyles[season];
   const blocks: TerrainBlock[] = [];
 
-  for (let z = TERRAIN_MIN; z < TERRAIN_MAX_Z; z += 1) {
-    for (let x = TERRAIN_MIN; x < TERRAIN_MAX_X; x += 1) {
+  for (let z = minZ; z < maxZ; z += 1) {
+    for (let x = minX; x < maxX; x += 1) {
       if (plotDistance(x, z) === 0) continue; // the plot draws itself
       const height = terrainHeight(x, z, seed);
       if (height === 0) {
