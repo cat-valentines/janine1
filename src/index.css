@@ -861,6 +861,24 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .world-name { min-width: 0; flex: 1; max-width: 260px; margin: 0 12px; padding: 9px; border: 3px solid #533928; background: var(--paper); font-family: "Courier New", monospace; font-weight: 800; }
 .world-modes { display: flex; gap: 7px; align-items: center; }
 .world-neighbours { align-self: center; padding: 6px 11px; border-radius: 999px; background: #2a5540; color: #d6ffe8; font-weight: 850; font-size: .82rem; white-space: nowrap; }
+.visiting-name { display: inline-flex; align-items: center; padding: 0 10px; font-weight: 850; color: #2a5540; }
+
+/* ---- House visiting: knock-to-enter prompt, visiting banner, neighbour list ---- */
+.house-toast { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 46; padding: 9px 16px; border-radius: 999px; background: #1c2a1ae8; color: #eaffdc; font-weight: 800; font-size: .9rem; box-shadow: 0 3px 12px #0006; }
+.knock-prompt { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 48; padding: 20px 24px; border-radius: 18px; background: #fffdf6; border: 4px solid #533928; box-shadow: 0 12px 40px #0007; text-align: center; max-width: 90%; }
+.knock-prompt p { margin: 0 0 14px; font-weight: 800; color: #3a2a1a; font-size: 1.05rem; }
+.knock-actions { display: flex; gap: 10px; justify-content: center; }
+.knock-actions button { padding: 11px 18px; border: 0; border-radius: 999px; font-weight: 850; cursor: pointer; }
+.knock-yes { background: #64a263; color: #fff; box-shadow: 0 3px 0 #3d6b3c; }
+.knock-no { background: #e0685f; color: #fff; box-shadow: 0 3px 0 #9a3f39; }
+.visiting-banner { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 46; padding: 9px 16px; border-radius: 999px; background: #2a5540ee; color: #eaffdc; font-weight: 800; font-size: .9rem; display: flex; align-items: center; gap: 10px; box-shadow: 0 3px 12px #0006; }
+.visiting-banner button { padding: 5px 12px; border: 0; border-radius: 999px; background: #eaffdc; color: #2a5540; font-weight: 850; cursor: pointer; }
+.neighbours-panel { position: absolute; right: 14px; top: 64px; z-index: 45; width: 208px; max-height: 46vh; overflow-y: auto; padding: 12px; border-radius: 14px; background: #12241cdd; color: #dff5e6; box-shadow: 0 6px 20px #0006; }
+.neighbours-panel > strong { display: block; margin-bottom: 8px; font-size: .92rem; }
+.neighbours-panel > small { display: block; margin-top: 8px; color: #a6c8b0; font-size: .72rem; line-height: 1.3; }
+.neighbour-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 0; border-top: 1px solid #ffffff1a; }
+.neighbour-row span { font-weight: 700; font-size: .84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.neighbour-row button { flex: none; padding: 6px 9px; border: 0; border-radius: 999px; background: #5aa06a; color: #fff; font-weight: 800; font-size: .74rem; cursor: pointer; }
 .world-modes button { padding: 9px 13px; border: 3px solid #533928; background: #f4c765; font-weight: 850; cursor: pointer; }
 .world-modes button.selected { background: #64a263; color: white; }
 .world-stage { position: relative; max-width: 1200px; margin: 0 auto; }

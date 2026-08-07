@@ -13,6 +13,16 @@ export interface LivePlayer {
   y?: number;
 }
 
+/** A house handed to a guest you've welcomed in: everything to render your build. */
+export interface HouseGift {
+  name: string;
+  world: string;
+  furniture: unknown;
+  season: string | null;
+  seed: number;
+  houseName: string;
+}
+
 export interface LiveGame {
   /** Shout my current position to everyone else in the game. */
   send: (state: Omit<LivePlayer, 'id'>) => void;
@@ -20,6 +30,12 @@ export interface LiveGame {
   hit: (targetId: string, name: string, at: { x: number; z: number }) => void;
   /** Host-only: broadcast the shared enemies (e.g. the housekeepers) so everyone sees the same ones. */
   sendKeepers: (data: unknown) => void;
+  /** Knock on a player's door to ask to come into their house. */
+  knock: (targetId: string, fromName: string) => void;
+  /** Welcome a guest in: hand them your house so they can walk around your build. */
+  welcome: (guestId: string, house: HouseGift) => void;
+  /** Turn a guest away politely. */
+  turnAway: (guestId: string, fromName: string) => void;
   /** Leave: tell others I'm gone and close the channel. */
   leave: () => void;
 }
@@ -41,6 +57,9 @@ export function joinLiveGame(
   onPeers: (peers: LivePlayer[]) => void,
   onHit?: (fromId: string, fromName: string, at: { x: number; z: number }) => void,
   onKeepers?: (data: unknown) => void,
+  onKnock?: (fromId: string, fromName: string) => void,
+  onWelcome?: (fromName: string, house: HouseGift) => void,
+  onTurnAway?: (fromName: string) => void,
 ): LiveGame {
   const channel: RealtimeChannel = supabase.channel(`live-${game}`, {
     config: { broadcast: { self: false } },
@@ -66,6 +85,18 @@ export function joinLiveGame(
     const p = payload as { from?: string; data?: unknown };
     if (p?.from !== selfId && onKeepers) onKeepers(p.data);
   });
+  channel.on('broadcast', { event: 'knock' }, ({ payload }) => {
+    const p = payload as { from?: string; name?: string; target?: string };
+    if (p?.target === selfId && p.from && onKnock) onKnock(p.from, p.name ?? 'someone');
+  });
+  channel.on('broadcast', { event: 'welcome' }, ({ payload }) => {
+    const p = payload as { from?: string; name?: string; target?: string; house?: HouseGift };
+    if (p?.target === selfId && p.house && onWelcome) onWelcome(p.name ?? 'a friend', p.house);
+  });
+  channel.on('broadcast', { event: 'turnaway' }, ({ payload }) => {
+    const p = payload as { from?: string; name?: string; target?: string };
+    if (p?.target === selfId && onTurnAway) onTurnAway(p.name ?? 'a friend');
+  });
   channel.subscribe();
 
   // Sweep out anyone who went quiet, so leaving clears them within a moment.
@@ -85,6 +116,15 @@ export function joinLiveGame(
     },
     sendKeepers: (data) => {
       channel.send({ type: 'broadcast', event: 'keepers', payload: { from: selfId, data } });
+    },
+    knock: (targetId, fromName) => {
+      channel.send({ type: 'broadcast', event: 'knock', payload: { from: selfId, name: fromName, target: targetId } });
+    },
+    welcome: (guestId, house) => {
+      channel.send({ type: 'broadcast', event: 'welcome', payload: { from: selfId, name: house.name, target: guestId, house } });
+    },
+    turnAway: (guestId, fromName) => {
+      channel.send({ type: 'broadcast', event: 'turnaway', payload: { from: selfId, name: fromName, target: guestId } });
     },
     leave: () => {
       clearInterval(sweep);

@@ -5,7 +5,7 @@ import { emptyWorld, normaliseWorld, type Furniture, type FurnitureKind } from '
 import { characterAssets } from '../game/characters';
 import { seasonOrder, seasonStyles, type Season } from '../game/terrain';
 import { itemById, shopItems } from '../shop/catalog';
-import { joinLiveGame } from '../lib/liveGame';
+import { joinLiveGame, type LivePlayer, type HouseGift, type LiveGame } from '../lib/liveGame';
 import { heartbeat, leaveGame } from '../lib/presence';
 import { supabase } from '../lib/supabase';
 import type { CharacterId } from '../game/types';
@@ -59,18 +59,29 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   const [furnKind, setFurnKind] = useState<FurnitureKind | ''>('');
   const [furnColor, setFurnColor] = useState('#ffffff');
   const [buyMsg, setBuyMsg] = useState('');
-  // Live neighbours walking the land right now.
-  const [neighbours, setNeighbours] = useState(0);
+  // Live neighbours walking the land right now, plus the whole invite-to-visit flow.
+  const [peers, setPeers] = useState<LivePlayer[]>([]);
   const [myName, setMyName] = useState('a friend');
   const [userId, setUserId] = useState('');
-  const world = normaliseWorld(houseWorld);
+  const [knock, setKnock] = useState<{ fromId: string; fromName: string } | null>(null);
+  const [visiting, setVisiting] = useState<HouseGift | null>(null);
+  const [toast, setToast] = useState('');
+  const liveRef = useRef<LiveGame | null>(null);
+  // While visiting someone's house we render THEIR build, not yours.
+  const world = normaliseWorld(visiting ? visiting.world : houseWorld);
+  const activeFurniture = (visiting ? (visiting.furniture as Furniture[]) : furniture);
   const myFurniture = shopItems.filter((item) => item.category === 'furniture' && ownedItems.includes(item.id));
+  // The current snapshot of MY house, handed to a guest when I welcome them in.
+  const houseGift = useRef<HouseGift>({ name: myName, world: houseWorld, furniture, season: season ?? null, seed, houseName });
+  houseGift.current = { name: myName, world: houseWorld, furniture, season: season ?? null, seed, houseName };
 
   // Callbacks live in refs so the engine is built once and never torn down mid-session.
   const changeWorld = useRef(onChangeWorld);
   const placeFurniture = useRef<(cell: { x: number; y: number; z: number }) => void>(() => undefined);
-  changeWorld.current = onChangeWorld;
+  // While you're a guest in someone else's house, you can't change it.
+  changeWorld.current = visiting ? () => undefined : onChangeWorld;
   placeFurniture.current = (cell) => {
+    if (visiting) return;
     if (furnKind) {
       if (coins < FURNITURE_COST) { setBuyMsg(`You need ${FURNITURE_COST} coins to place a ${furnKind}.`); return; }
       onSpendCoins(FURNITURE_COST);
@@ -114,26 +125,34 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
     });
   }, []);
 
-  // Live: shout my position several times a second, and draw every other real
-  // player walking the land with their @name floating above them.
+  // Live: shout my position several times a second, draw every other real player
+  // with their @name, and carry the knock → welcome invitation handshake.
   useEffect(() => {
     if (!userId) return;
-    const live = joinLiveGame('house', userId, (peers) => {
-      engine.current?.setLivePlayers(peers);
-      setNeighbours(peers.length);
-    });
+    const live = joinLiveGame('house', userId,
+      (list) => setPeers(list),
+      undefined,
+      undefined,
+      (fromId, fromName) => setKnock({ fromId, fromName }),                    // someone knocked
+      (fromName, house) => { setVisiting(house); setMode('walk'); setToast(`🏡 Come in! You're visiting @${fromName}'s house.`); }, // they welcomed you
+      (fromName) => setToast(`🚪 @${fromName} isn't ready for visitors right now.`),  // they turned you away
+    );
+    liveRef.current = live;
     heartbeat('house');
     const beat = setInterval(() => heartbeat('house'), 5000);
     const shout = setInterval(() => {
       const state = engine.current?.getSelfState();
       if (state) live.send({ name: myName, ...state });
     }, 140);
-    return () => { clearInterval(beat); clearInterval(shout); live.leave(); leaveGame(); setNeighbours(0); };
+    return () => { clearInterval(beat); clearInterval(shout); live.leave(); leaveGame(); liveRef.current = null; setPeers([]); };
   }, [userId, myName]);
 
+  // Show neighbours walking around — but hide them while you're inside a house.
+  useEffect(() => { engine.current?.setLivePlayers(visiting ? [] : peers); }, [peers, visiting]);
+
   useEffect(() => { engine.current?.setWorld(world); }, [world]);
-  useEffect(() => { engine.current?.setSeason(season); }, [season]);
-  useEffect(() => { engine.current?.setFurniture(furniture); }, [furniture]);
+  useEffect(() => { engine.current?.setSeason((visiting?.season as Season) ?? season); }, [season, visiting]);
+  useEffect(() => { engine.current?.setFurniture(activeFurniture); }, [activeFurniture]);
   useEffect(() => { engine.current?.setMode(mode); }, [mode]);
   useEffect(() => { engine.current?.setView(view); }, [view]);
   useEffect(() => {
@@ -142,20 +161,64 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
     else engine.current?.setPicked(picked);
   }, [picked, pickedItem, furnKind]);
   useEffect(() => { engine.current?.setErasing(erasing); }, [erasing]);
+  // Toasts fade on their own after a few seconds.
+  useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(''), 3500); return () => clearTimeout(id); }, [toast]);
+
+  // ---- the invite-to-visit handshake ----
+  const askToVisit = (peer: LivePlayer) => {
+    liveRef.current?.knock(peer.id, myName);
+    setToast(`🔔 Asked @${peer.name} if you can come in…`);
+  };
+  const acceptKnock = () => {
+    if (knock) { liveRef.current?.welcome(knock.fromId, houseGift.current); setToast(`🚪 You let @${knock.fromName} into your house!`); }
+    setKnock(null);
+  };
+  const declineKnock = () => {
+    if (knock) liveRef.current?.turnAway(knock.fromId, myName);
+    setKnock(null);
+  };
+  const leaveVisit = () => { setVisiting(null); setToast('🏡 Back to your own house.'); };
 
   return <main className="house-world-page">
     <div className="house-page-top">
-      <button onClick={onBack}>← Back</button>
-      <input className="world-name" value={houseName} onChange={(event) => onRename(event.target.value)} placeholder="My House" maxLength={24} aria-label="House name" />
+      <button onClick={visiting ? leaveVisit : onBack}>← {visiting ? 'Leave' : 'Back'}</button>
+      {visiting
+        ? <span className="world-name visiting-name">🏡 {visiting.houseName} · @{visiting.name}</span>
+        : <input className="world-name" value={houseName} onChange={(event) => onRename(event.target.value)} placeholder="My House" maxLength={24} aria-label="House name" />}
       <div className="world-modes">
-        {neighbours > 0 && <span className="world-neighbours" title="Other players walking the land right now">👥 {neighbours} nearby</span>}
-        <button className={mode === 'build' ? 'selected' : ''} onClick={() => setMode('build')}>🔨 Build</button>
+        {peers.length > 0 && <span className="world-neighbours" title="Other players walking the land right now">👥 {peers.length} nearby</span>}
+        <button className={mode === 'build' ? 'selected' : ''} disabled={!!visiting} onClick={() => setMode('build')}>🔨 Build</button>
         <button className={mode === 'walk' ? 'selected' : ''} onClick={() => setMode('walk')}>🚶 Go inside</button>
       </div>
     </div>
 
     <div className="world-stage">
       <div className="world-canvas" ref={mount} />
+
+      {toast && <div className="house-toast">{toast}</div>}
+
+      {/* Someone knocked to come into YOUR house — you decide. */}
+      {knock && <div className="knock-prompt">
+        <p>🚪 <strong>@{knock.fromName}</strong> wants to come into your house!</p>
+        <div className="knock-actions">
+          <button className="knock-yes" onClick={acceptKnock}>✅ Let them in</button>
+          <button className="knock-no" onClick={declineKnock}>🚫 Not now</button>
+        </div>
+      </div>}
+
+      {/* Visiting banner — you're a guest, so you can look but not build. */}
+      {visiting && <div className="visiting-banner">🏡 You're visiting <strong>@{visiting.name}</strong>'s house — have a look around! <button onClick={leaveVisit}>← Go home</button></div>}
+
+      {/* The players online now — ask any of them to let you into their house. */}
+      {!visiting && peers.length > 0 && <div className="neighbours-panel">
+        <strong>👥 Players here now</strong>
+        {peers.map((peer) => <div key={peer.id} className="neighbour-row">
+          <span>🧍 @{peer.name}</span>
+          <button onClick={() => askToVisit(peer)}>🔔 Ask to visit</button>
+        </div>)}
+        <small>Ask to come in — they have to say yes before you can walk into their house.</small>
+      </div>}
+
       {mode === 'walk' && <>
         <button className="world-view-toggle" onClick={() => setView(view === 'third' ? 'first' : 'third')}>
           {view === 'third' ? '👁️ First person' : '🧍 See my character'}
