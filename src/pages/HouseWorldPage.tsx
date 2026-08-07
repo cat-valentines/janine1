@@ -178,9 +178,11 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   const [nearSeat, setNearSeat] = useState(false);
   const [nearBed, setNearBed] = useState(false);
   const [sitting, setSitting] = useState(false);
+  const [liveSeason, setLiveSeason] = useState<Season>(season);
   useEffect(() => {
     const id = setInterval(() => {
       const e = engine.current;
+      if (e) setLiveSeason(e.getSeason());   // the world drifts through seasons on its own
       if (!e || mode !== 'walk') { setNearby(null); setNearSeat(false); setNearBed(false); setSitting(false); return; }
       setNearby(visiting ? null : (e.getNearbyVisit() ?? null));
       setSitting(e.isSitting());
@@ -292,7 +294,7 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
         : <>Click a face to place a block · <b>Shift+click</b> or the <b>🧽 Eraser</b> to rub out · <b>right-drag</b> to spin · <b>scroll</b> to zoom</>}</p>}
       <div className="season-switch">
         {seasonOrder.map((item) => <button
-          className={season === item ? 'selected' : ''}
+          className={liveSeason === item ? 'selected' : ''}
           key={item}
           onClick={() => onChangeSeason(item)}
           title={seasonStyles[item].name}

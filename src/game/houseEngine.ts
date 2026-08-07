@@ -35,7 +35,7 @@ export function buildFurnitureMesh(kind: FurnitureKind, color: string): THREE.Gr
   }
   return g;
 }
-import { buildTerrainRegion, isTerrainSolid, rand, seasonStyles, terrainHeight, type Season } from './terrain';
+import { buildTerrainRegion, isTerrainSolid, rand, seasonOrder, seasonStyles, terrainHeight, type Season } from './terrain';
 
 export type Mode = 'build' | 'walk';
 export type View = 'first' | 'third';
@@ -53,6 +53,8 @@ const LAND_PATCH = 56;
 const LAND_STEP = 18;
 /** Seconds for one full day → night → day. A gentle few-minute cycle. */
 const DAY_LENGTH = 220;
+/** Seconds each season lasts before the world drifts into the next one. */
+const SEASON_LENGTH = 200;
 const NIGHT_SKY = new THREE.Color('#0a1230');
 const DUSK_SKY = new THREE.Color('#e6884a');
 
@@ -132,6 +134,12 @@ export class HouseEngine {
   private dayTime = 0.32;   // 0 midnight · 0.25 sunrise · 0.5 noon · 0.75 sunset
   private daySky = new THREE.Color();
   private skyNow = new THREE.Color();
+  private seasonTimer = 0;   // the world drifts through the seasons on its own
+  // Waterfalls tumbling down the mountain cliffs — one scrolling texture, shared,
+  // in their own group so the forage sweep never disposes the shared resources.
+  private waterfallMat: THREE.MeshBasicMaterial | null = null;
+  private waterfallGeo = new THREE.PlaneGeometry(1, 1);
+  private waterfallGroup = new THREE.Group();
   private forageGroup = new THREE.Group();
   private apples: Apple[] = [];
   private gems: Gem[] = [];
@@ -207,7 +215,7 @@ export class HouseEngine {
     this.sun.position.set(18, 30, 12);
     this.scene.add(this.sun);
 
-    this.scene.add(this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup, this.avatar);
+    this.scene.add(this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup, this.avatar);
 
     const edge = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
     this.highlight = new THREE.LineSegments(edge, new THREE.LineBasicMaterial({ color: '#20222a' }));
@@ -316,6 +324,7 @@ export class HouseEngine {
       (Array.isArray(mat) ? mat : mat ? [mat] : []).forEach((mm) => { mm.map?.dispose?.(); mm.dispose(); });
     });
     this.forageGroup.clear();
+    this.waterfallGroup.clear();   // shared geo/mat, so just detach — never dispose
     this.apples = [];
     this.gems = [];
     const trunkMat = new THREE.MeshLambertMaterial({ color: '#7b5330' });
@@ -393,6 +402,25 @@ export class HouseEngine {
             this.forageGroup.add(gem);
             this.gems.push({ mesh: gem, x: px, z: pz, taken: false });
           };
+          // A waterfall down a steep mountain face — pointed down its steepest side.
+          if (h > 9) {
+            const rx = Math.round(x), rz = Math.round(z);
+            const dirs = [
+              { drop: h - terrainHeight(rx + 7, rz, this.seed), ox: 3.6, oz: 0, ry: Math.PI / 2 },
+              { drop: h - terrainHeight(rx - 7, rz, this.seed), ox: -3.6, oz: 0, ry: -Math.PI / 2 },
+              { drop: h - terrainHeight(rx, rz + 7, this.seed), ox: 0, oz: 3.6, ry: 0 },
+              { drop: h - terrainHeight(rx, rz - 7, this.seed), ox: 0, oz: -3.6, ry: Math.PI },
+            ];
+            const steep = dirs.reduce((a, b) => (b.drop > a.drop ? b : a));
+            if (steep.drop > 5 && rand(x, z, this.seed + 91) > 0.45) {
+              const drop = Math.min(18, steep.drop);
+              const wf = new THREE.Mesh(this.waterfallGeo, this.waterfallMaterial());
+              wf.scale.set(2.6, drop, 1);
+              wf.rotation.y = steep.ry;
+              wf.position.set(jx + steep.ox, this.groundY(jx, jz) - drop / 2 + 1, jz + steep.oz);
+              this.waterfallGroup.add(wf);
+            }
+          }
           if (gr > 0.94) {
             // A cave mouth set into the slope, with a little seam of jewels.
             const cave = new THREE.Mesh(caveGeo, caveMat);
@@ -442,6 +470,29 @@ export class HouseEngine {
         this.options.onGem?.();
       }
     }
+  }
+
+  /** One shared, downward-scrolling water texture for every waterfall. */
+  private waterfallMaterial() {
+    if (this.waterfallMat) return this.waterfallMat;
+    const canvas = document.createElement('canvas');
+    canvas.width = 32; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#bfe8ff'; ctx.fillRect(0, 0, 32, 64);
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.globalAlpha = 0.8;
+      for (let i = 0; i < 6; i += 1) {
+        ctx.beginPath();
+        const sx = (i * 6 + 2);
+        for (let y = 0; y <= 64; y += 8) ctx.lineTo(sx + Math.sin(y * 0.3 + i) * 2, y);
+        ctx.stroke();
+      }
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(1, 3);
+    this.waterfallMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.78, side: THREE.DoubleSide, depthWrite: false });
+    return this.waterfallMat;
   }
 
   /** Scatter wild animals to hunt and fish in the water, across the land around
@@ -500,10 +551,12 @@ export class HouseEngine {
   setSeason(season: Season) {
     if (season === this.season) return;
     this.season = season;
+    this.seasonTimer = 0;   // a fresh full season from here
     this.applySky();
     this.rebuildTerrain();
     this.rebuildBlocks();
   }
+  getSeason() { return this.season; }
 
   private emojiSprite(icon: string, size: number) {
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTexture(icon), transparent: true }));
@@ -1233,6 +1286,13 @@ export class HouseEngine {
     if (this.wanderers.length) this.moveAnimals(dt);
     this.moveNeighbours(dt);
     this.updateDayNight(dt);
+    if (this.waterfallMat?.map) this.waterfallMat.map.offset.y -= dt * 0.7;   // water flows down
+    // The world drifts through the seasons on its own.
+    this.seasonTimer += dt;
+    if (this.seasonTimer > SEASON_LENGTH) {
+      this.seasonTimer = 0;
+      this.setSeason(seasonOrder[(seasonOrder.indexOf(this.season) + 1) % seasonOrder.length]);
+    }
     if (this.mode === 'walk') { this.walk(dt); this.checkForage(dt); this.checkGems(dt); this.moveWild(dt); }
     // Keep the endless ground under you, and stream fresh hills as you roam.
     if (this.ground) this.ground.position.set(this.position.x, 0.99, this.position.z);
