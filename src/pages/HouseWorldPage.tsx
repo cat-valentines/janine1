@@ -140,15 +140,25 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
     liveRef.current = live;
     heartbeat('house');
     const beat = setInterval(() => heartbeat('house'), 5000);
+    let tick = 0;
     const shout = setInterval(() => {
       const state = engine.current?.getSelfState();
-      if (state) live.send({ name: myName, ...state });
+      // Send my house every ~2s so neighbours can pitch it on their land.
+      if (state) live.send({ name: myName, ...state, house: tick % 14 === 0 ? houseGift.current.world : undefined });
+      tick += 1;
     }, 140);
     return () => { clearInterval(beat); clearInterval(shout); live.leave(); leaveGame(); liveRef.current = null; setPeers([]); };
   }, [userId, myName]);
 
   // Show neighbours walking around — but hide them while you're inside a house.
   useEffect(() => { engine.current?.setLivePlayers(visiting ? [] : peers); }, [peers, visiting]);
+
+  // Once you walk up close to someone's house, offer to knock on their door.
+  const [nearby, setNearby] = useState<{ id: string; name: string } | null>(null);
+  useEffect(() => {
+    const id = setInterval(() => setNearby(visiting || mode !== 'walk' ? null : (engine.current?.getNearbyVisit() ?? null)), 300);
+    return () => clearInterval(id);
+  }, [visiting, mode]);
 
   useEffect(() => { engine.current?.setWorld(world); }, [world]);
   useEffect(() => { engine.current?.setSeason((visiting?.season as Season) ?? season); }, [season, visiting]);
@@ -165,7 +175,7 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(''), 3500); return () => clearTimeout(id); }, [toast]);
 
   // ---- the invite-to-visit handshake ----
-  const askToVisit = (peer: LivePlayer) => {
+  const askToVisit = (peer: { id: string; name: string }) => {
     liveRef.current?.knock(peer.id, myName);
     setToast(`🔔 Asked @${peer.name} if you can come in…`);
   };
@@ -209,15 +219,17 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       {/* Visiting banner — you're a guest, so you can look but not build. */}
       {visiting && <div className="visiting-banner">🏡 You're visiting <strong>@{visiting.name}</strong>'s house — have a look around! <button onClick={leaveVisit}>← Go home</button></div>}
 
-      {/* The players online now — ask any of them to let you into their house. */}
+      {/* The players online now — their houses are dotted across the land. */}
       {!visiting && peers.length > 0 && <div className="neighbours-panel">
         <strong>👥 Players here now</strong>
-        {peers.map((peer) => <div key={peer.id} className="neighbour-row">
-          <span>🧍 @{peer.name}</span>
-          <button onClick={() => askToVisit(peer)}>🔔 Ask to visit</button>
-        </div>)}
-        <small>Ask to come in — they have to say yes before you can walk into their house.</small>
+        {peers.map((peer) => <div key={peer.id} className="neighbour-row"><span>🏠 @{peer.name}</span></div>)}
+        <small>Their houses are out on the land — walk up to one and ask to visit. They have to say yes to let you in.</small>
       </div>}
+
+      {/* Standing by someone's house → offer to knock and ask to come in. */}
+      {!visiting && nearby && <button className="visit-prompt" onClick={() => askToVisit(nearby)}>
+        🏡 You're at <strong>@{nearby.name}</strong>'s house — 🔔 Ask to visit
+      </button>}
 
       {mode === 'walk' && <>
         <button className="world-view-toggle" onClick={() => setView(view === 'third' ? 'first' : 'third')}>

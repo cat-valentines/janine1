@@ -11,6 +11,9 @@ export interface LivePlayer {
   level: number;
   /** Depth, for games where players move up and down too (the Underwater Maze). */
   y?: number;
+  /** The player's saved house voxels (House world only) — sent now and then so
+   *  neighbours can pitch your house on their land. */
+  house?: string;
 }
 
 /** A house handed to a guest you've welcomed in: everything to render your build. */

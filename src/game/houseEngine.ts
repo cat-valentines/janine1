@@ -71,14 +71,21 @@ interface EngineOptions {
 
 interface Wanderer { sprite: THREE.Sprite; x: number; z: number; dir: number; speed: number; phase: number }
 interface Apple { mesh: THREE.Mesh; x: number; z: number; y: number; regrowAt: number }
-/** Another real player walking your land live, with their @name floating above. */
-interface Neighbour { group: THREE.Group; legL: THREE.Group; legR: THREE.Group; x: number; z: number; tx: number; tz: number; yaw: number; tyaw: number; phase: number }
-
-function hueFromId(id: string): number {
-  let h = 0;
-  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) % 360;
-  return h;
+/** Another real player walking your land live, with their @name floating above,
+ *  their house pitched at their own plot (dx,dz) out on the land. */
+interface Neighbour {
+  group: THREE.Group; legL: THREE.Group; legR: THREE.Group;
+  x: number; z: number; tx: number; tz: number; yaw: number; tyaw: number; phase: number;
+  name: string; dx: number; dz: number; baseY: number;
+  houseGroup: THREE.Group | null; houseStr: string;
 }
+
+function hashId(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i += 1) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function hueFromId(id: string): number { return hashId(id) % 360; }
 
 /** Emoji drawn to a texture, so shop furniture shows up in the 3D house. */
 function emojiTexture(emoji: string) {
@@ -457,6 +464,16 @@ export class HouseEngine {
     return sprite;
   }
 
+  /** Each player's house sits at their own scattered spot out on the land, so the
+   *  world reads as a little village. Stable per id, and kept clear of your plot. */
+  private plotCentre(id: string) {
+    const h = hashId(id);
+    const ring = 1 + (h % 3);
+    const angle = ((h >>> 4) % 16) * (Math.PI / 8);
+    const dist = 40 + ring * 22;
+    return { x: Math.round(Math.cos(angle) * dist), z: Math.round(Math.sin(angle) * dist) };
+  }
+
   /** A simple blocky person, colour-tinted by id, for another live player. */
   private buildNeighbour(id: string, name: string): Neighbour {
     const hue = hueFromId(id);
@@ -476,7 +493,42 @@ export class HouseEngine {
     const legL = limb(0.18, 0.62, legMat, -0.13, 0.63);
     const legR = limb(0.18, 0.62, legMat, 0.13, 0.63);
     group.add(head, body, armL, armR, legL, legR, this.neighbourName(`@${name}`));
-    return { group, legL, legR, x: 0, z: 0, tx: 0, tz: 0, yaw: 0, tyaw: 0, phase: 0 };
+    const c = this.plotCentre(id);
+    const baseY = Math.max(0, terrainHeight(c.x, c.z, this.seed) - 1);
+    // dx/dz translate the neighbour's own (SX/2,SZ/2)-centred coords out to their plot.
+    return { group, legL, legR, x: 0, z: 0, tx: 0, tz: 0, yaw: 0, tyaw: 0, phase: 0, name, dx: c.x - SX / 2, dz: c.z - SZ / 2, baseY, houseGroup: null, houseStr: '' };
+  }
+
+  /** Mesh a neighbour's saved house out at their plot, so you can see it on the land. */
+  private buildHouseMesh(worldStr: string, dx: number, dz: number, baseY: number) {
+    const group = new THREE.Group();
+    const byType = new Map<string, Array<{ x: number; y: number; z: number }>>();
+    for (let y = 0; y < SY; y += 1) for (let z = 0; z < SZ; z += 1) for (let x = 0; x < SX; x += 1) {
+      const id = voxelAt(worldStr, x, y, z);
+      if (id === EMPTY || !blockById(id)) continue;
+      const list = byType.get(id) ?? []; list.push({ x, y, z }); byType.set(id, list);
+    }
+    const matrix = new THREE.Matrix4();
+    byType.forEach((cells, id) => {
+      const block = blockById(id); if (!block) return;
+      const glass = id === 'G', water = id === '~';
+      const style = seasonStyles[this.season];
+      const colour = id === '#' ? style.grass : id === '~' ? style.water : block.colour;
+      const material = new THREE.MeshLambertMaterial({ color: colour, transparent: glass || water, opacity: glass ? 0.45 : water ? 0.75 : 1, emissive: id === 'A' ? new THREE.Color('#a9821f') : new THREE.Color('#000000') });
+      const mesh = new THREE.InstancedMesh(this.landGeo, material, cells.length);
+      cells.forEach((cell, i) => { matrix.setPosition(cell.x + dx + 0.5, cell.y + baseY + 0.5, cell.z + dz + 0.5); mesh.setMatrixAt(i, matrix); });
+      mesh.instanceMatrix.needsUpdate = true;
+      group.add(mesh);
+    });
+    return group;
+  }
+
+  /** Free a group's materials (and textures). Geometry may be shared, so keep it. */
+  private freeMaterials(group: THREE.Object3D) {
+    group.traverse((obj) => {
+      const mat = (obj as THREE.Mesh).material as (THREE.Material & { map?: THREE.Texture }) | (THREE.Material & { map?: THREE.Texture })[] | undefined;
+      (Array.isArray(mat) ? mat : mat ? [mat] : []).forEach((m) => { m.map?.dispose?.(); m.dispose?.(); });
+    });
   }
 
   /** Where I am, to shout to the other players walking the land. */
@@ -484,13 +536,24 @@ export class HouseEngine {
     return { x: this.position.x, z: this.position.z, yaw: this.yaw, level: 0 };
   }
 
+  /** The closest neighbour whose house you're standing near — for the "ask to
+   *  visit" prompt that only appears once you've walked up to someone's place. */
+  getNearbyVisit(): { id: string; name: string } | null {
+    let best: { id: string; name: string } | null = null;
+    let bestD = 15;
+    this.neighbours.forEach((n, id) => {
+      const d = Math.hypot(this.position.x - (n.dx + SX / 2), this.position.z - (n.dz + SZ / 2));
+      if (d < bestD) { bestD = d; best = { id, name: n.name }; }
+    });
+    return best;
+  }
+
   /**
-   * Draw the other real players where they said they are. Each stands on the
-   * ground you can see (their foot-height snapped to your terrain, so nobody
-   * floats or sinks) and wears their @name. They glide smoothly and swing their
-   * legs as they move. Anyone who left is cleared away.
+   * Draw the other real players out at their own plots — you see their house on
+   * the land and their character walking near it, wearing their @name. Driven
+   * entirely by the network, never AI. Anyone who left is cleared away.
    */
-  setLivePlayers(players: Array<{ id: string; name: string; x: number; z: number; yaw: number }>) {
+  setLivePlayers(players: Array<{ id: string; name: string; x: number; z: number; yaw: number; house?: string }>) {
     const here = new Set<string>();
     players.forEach((player) => {
       here.add(player.id);
@@ -502,6 +565,13 @@ export class HouseEngine {
         this.neighbours.set(player.id, n);
       }
       n.tx = player.x; n.tz = player.z; n.tyaw = player.yaw;
+      // Their house was (re)sent — pitch it (afresh) on their plot.
+      if (player.house && player.house !== n.houseStr) {
+        n.houseStr = player.house;
+        if (n.houseGroup) { this.scene.remove(n.houseGroup); this.freeMaterials(n.houseGroup); }
+        n.houseGroup = this.buildHouseMesh(player.house, n.dx, n.dz, n.baseY);
+        this.scene.add(n.houseGroup);
+      }
     });
     this.neighbours.forEach((n, id) => {
       if (here.has(id)) return;
@@ -512,11 +582,13 @@ export class HouseEngine {
         const mat = mesh.material as (THREE.Material & { map?: THREE.Texture }) | undefined;
         if (mat) { mat.map?.dispose?.(); mat.dispose?.(); }
       });
+      if (n.houseGroup) { this.scene.remove(n.houseGroup); this.freeMaterials(n.houseGroup); }
       this.neighbours.delete(id);
     });
   }
 
-  /** Glide every neighbour toward where they last said they are, legs swinging. */
+  /** Glide every neighbour toward where they last said they are, out at their
+   *  own plot (dx,dz), legs swinging as they walk. */
   private moveNeighbours(dt: number) {
     if (!this.neighbours.size) return;
     const ease = Math.min(1, dt * 10);
@@ -528,8 +600,9 @@ export class HouseEngine {
       while (dy > Math.PI) dy -= Math.PI * 2;
       while (dy < -Math.PI) dy += Math.PI * 2;
       n.yaw += dy * ease;
-      const foot = spawnHeight(this.world, Math.floor(n.x), Math.floor(n.z));
-      n.group.position.set(n.x, foot, n.z);
+      const wx = n.x + n.dx, wz = n.z + n.dz;
+      const foot = spawnHeight(this.world, Math.floor(wx), Math.floor(wz));
+      n.group.position.set(wx, foot, wz);
       n.group.rotation.y = n.yaw;
       n.phase += moving ? dt * 9 : 0;
       const swing = moving ? Math.sin(n.phase) * 0.6 : 0;
