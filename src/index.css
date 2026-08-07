@@ -900,6 +900,16 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .house-action-btn.bed { background: #3a6ea8; box-shadow: 0 4px 0 #234465; }
 .house-action-btn.cave { background: #5a4433; box-shadow: 0 4px 0 #33261b; }
 .sell-jewels-btn { position: absolute; top: 96px; right: 12px; padding: 9px 13px; border: 3px solid #2f5a8a; border-radius: 12px; background: #43b0ff; color: #06263f; font-size: .82rem; font-weight: 850; cursor: pointer; box-shadow: 0 3px 0 #2f6fa8; }
+.box-panel { position: absolute; right: 12px; top: 52px; z-index: 47; width: 232px; padding: 14px; border-radius: 14px; background: #fff8ec; border: 4px solid #6b4a2a; box-shadow: 0 10px 30px #0006; }
+.box-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.box-panel-head strong { font-size: 1rem; color: #4a3418; }
+.box-close { border: 0; background: #e2d5bf; color: #4a3418; border-radius: 8px; width: 26px; height: 26px; font-weight: 850; cursor: pointer; }
+.box-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 0; border-top: 1px solid #e5d8bf; }
+.box-row span { font-weight: 800; color: #4a3418; font-size: .9rem; }
+.box-row b { color: #a05a1e; }
+.box-row button { flex: none; padding: 7px 11px; border: 0; border-radius: 999px; background: #64a263; color: #fff; font-weight: 850; font-size: .76rem; cursor: pointer; }
+.box-row button:disabled { background: #c3b9a4; cursor: default; }
+.box-panel small { display: block; margin-top: 8px; color: #8a6f4a; font-size: .72rem; line-height: 1.35; }
 .world-palette { max-width: 1200px; margin: 0 auto 26px; padding: 14px; background: #fff6ddeb; border: 5px solid #745037; box-shadow: 8px 9px 0 #493327; }
 .furniture-palette { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 2px dashed #c2a986; }
 .furniture-palette strong { font-family: "Courier New", monospace; font-size: .85rem; }

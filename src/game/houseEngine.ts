@@ -794,6 +794,12 @@ export class HouseEngine {
   }
   isInCave() { return this.inCave; }
 
+  /** True if you're standing by your storage chest (to open your box). */
+  getNearbyChest(): boolean {
+    if (this.inCave || this.mode !== 'walk') return false;
+    return Math.hypot(this.position.x - (SX / 2 + 4), this.position.z - SZ / 2) < 3;
+  }
+
   /** Walk into the cave: build a dark underground cavern of rock and jewels, drop
    *  the player in with a torch, and hide the surface until they climb back out. */
   enterCave() {

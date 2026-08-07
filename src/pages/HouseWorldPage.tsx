@@ -178,6 +178,8 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   const [nearSeat, setNearSeat] = useState(false);
   const [nearBed, setNearBed] = useState(false);
   const [nearCave, setNearCave] = useState(false);
+  const [nearChest, setNearChest] = useState(false);
+  const [boxOpen, setBoxOpen] = useState(false);
   const [inCave, setInCave] = useState(false);
   const [sitting, setSitting] = useState(false);
   const [liveSeason, setLiveSeason] = useState<Season>(season);
@@ -187,15 +189,17 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       if (e) setLiveSeason(e.getSeason());   // the world drifts through seasons on its own
       const underground = !!e?.isInCave();
       setInCave(underground);
-      if (!e || mode !== 'walk' || underground) { setNearby(null); setNearSeat(false); setNearBed(false); setNearCave(false); if (!underground) setSitting(false); return; }
+      if (!e || mode !== 'walk' || underground) { setNearby(null); setNearSeat(false); setNearBed(false); setNearCave(false); setNearChest(false); if (!underground) setSitting(false); return; }
       setNearby(visiting ? null : (e.getNearbyVisit() ?? null));
       setSitting(e.isSitting());
       setNearSeat(!!e.getNearbySeat());
       setNearBed(!!e.getNearbyBed());
       setNearCave(e.getNearbyCave());
+      setNearChest(!visiting && e.getNearbyChest());
     }, 300);
     return () => clearInterval(id);
   }, [visiting, mode]);
+  useEffect(() => { if (!nearChest) setBoxOpen(false); }, [nearChest]);   // walk away → box shuts
 
   useEffect(() => { engine.current?.setWorld(world); }, [world]);
   useEffect(() => { engine.current?.setSeason((visiting?.season as Season) ?? season); }, [season, visiting]);
@@ -270,17 +274,20 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
         🏡 You're at <strong>@{nearby.name}</strong>'s house — 🔔 Ask to visit
       </button>}
 
-      {mode === 'walk' && !visiting && <button
-        className="eat-apple-btn"
-        disabled={applePantry <= 0}
-        onClick={() => { if (applePantry > 0) { onEatApple(); setToast('😋 Yum! You ate an apple. (+1 food)'); } }}
-      >🍎 Eat an apple <b>({applePantry})</b></button>}
-
-      {/* Your box of jewels — sell the lot for coins whenever you like. */}
-      {mode === 'walk' && !visiting && jewels > 0 && <button
-        className="sell-jewels-btn"
-        onClick={() => { const paid = jewels * 15; onSellJewels(); setToast(`💰 Sold ${jewels} jewel${jewels === 1 ? '' : 's'} for ${paid} coins!`); }}
-      >💎 Sell {jewels} for 🪙 {jewels * 15}</button>}
+      {/* Walk up to your chest to open your box and manage your food + jewels. */}
+      {mode === 'walk' && nearChest && !boxOpen && <button className="eat-apple-btn" onClick={() => setBoxOpen(true)}>📦 Open your box</button>}
+      {boxOpen && <div className="box-panel">
+        <div className="box-panel-head"><strong>📦 Your box</strong><button className="box-close" onClick={() => setBoxOpen(false)}>✕</button></div>
+        <div className="box-row">
+          <span>🍎 Food <b>{applePantry}</b></span>
+          <button disabled={applePantry <= 0} onClick={() => { if (applePantry > 0) { onEatApple(); setToast('😋 Yum! You ate some food. (+1)'); } }}>Eat one</button>
+        </div>
+        <div className="box-row">
+          <span>💎 Jewels <b>{jewels}</b></span>
+          <button disabled={jewels <= 0} onClick={() => { if (jewels > 0) { const paid = jewels * 15; onSellJewels(); setToast(`💰 Sold ${jewels} jewel${jewels === 1 ? '' : 's'} for ${paid} coins!`); } }}>Sell all 🪙 {jewels * 15}</button>
+        </div>
+        <small>Everything you forage, hunt, fish and mine drops into your box automatically. Come here to eat it or sell your jewels.</small>
+      </div>}
 
       {/* Context actions: sit, sleep, or head down into a cave. */}
       {mode === 'walk' && (sitting || nearSeat || nearBed || nearCave || inCave) && <div className="house-actions">
