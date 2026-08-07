@@ -51,6 +51,10 @@ const SPEED = 4.6;
  *  The patch reaches past where the fog turns opaque, so its edge never shows. */
 const LAND_PATCH = 56;
 const LAND_STEP = 18;
+/** Seconds for one full day → night → day. A gentle few-minute cycle. */
+const DAY_LENGTH = 220;
+const NIGHT_SKY = new THREE.Color('#0a1230');
+const DUSK_SKY = new THREE.Color('#e6884a');
 
 interface EngineOptions {
   world: string;
@@ -116,6 +120,12 @@ export class HouseEngine {
   private landGeo = new THREE.BoxGeometry(1, 1, 1);
   private ground: THREE.Mesh | null = null;
   private terrainCenter = { x: Infinity, z: Infinity };
+  // A gentle Minecraft-style day → night cycle.
+  private hemi!: THREE.HemisphereLight;
+  private sun!: THREE.DirectionalLight;
+  private dayTime = 0.32;   // 0 midnight · 0.25 sunrise · 0.5 noon · 0.75 sunset
+  private daySky = new THREE.Color();
+  private skyNow = new THREE.Color();
   private forageGroup = new THREE.Group();
   private apples: Apple[] = [];
   private forageTime = 0;
@@ -181,10 +191,11 @@ export class HouseEngine {
     this.camera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 260);
     this.applySky();
 
-    this.scene.add(new THREE.HemisphereLight('#ffffff', '#6f8f5f', 2.1));
-    const sun = new THREE.DirectionalLight('#fff4d8', 1.5);
-    sun.position.set(18, 30, 12);
-    this.scene.add(sun);
+    this.hemi = new THREE.HemisphereLight('#ffffff', '#6f8f5f', 2.1);
+    this.scene.add(this.hemi);
+    this.sun = new THREE.DirectionalLight('#fff4d8', 1.5);
+    this.sun.position.set(18, 30, 12);
+    this.scene.add(this.sun);
 
     this.scene.add(this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup, this.avatar);
 
@@ -212,6 +223,30 @@ export class HouseEngine {
     // Dense by ~54 units — just inside the streamed patch (56) — so the land
     // always fades into haze and you never see where the meshed hills stop.
     this.scene.fog = new THREE.Fog(style.fog, 24, 60);
+  }
+
+  /** Advance the sky and sun a little each frame so the world drifts from day to
+   *  dusk to night to dawn on its own — like Minecraft. Never fully dark, so you
+   *  can always keep building. */
+  private updateDayNight(dt: number) {
+    this.dayTime = (this.dayTime + dt / DAY_LENGTH) % 1;
+    const elevation = Math.sin((this.dayTime - 0.25) * Math.PI * 2);   // -1 midnight … +1 noon
+    const daylight = Math.max(0, elevation);
+    // Sky: night → day over the dawn/dusk band, with a warm glow when the sun is low.
+    this.daySky.set(seasonStyles[this.season].sky);
+    const t = Math.min(1, Math.max(0, (elevation + 0.25) / 0.5));
+    this.skyNow.copy(NIGHT_SKY).lerp(this.daySky, t);
+    const warm = Math.max(0, 1 - Math.abs(elevation) / 0.32) * (elevation > -0.28 ? 1 : 0);
+    this.skyNow.lerp(DUSK_SKY, warm * 0.45);
+    (this.scene.background as THREE.Color).copy(this.skyNow);
+    this.scene.fog?.color.copy(this.skyNow);
+    // Lights: bright noon, soft glow at night; sun warms and sinks at the edges.
+    this.hemi.intensity = 0.55 + daylight * 1.7;
+    this.sun.intensity = 0.15 + daylight * 1.35;
+    this.sun.color.setHSL(0.11, 0.5, 0.5 + warm * 0.12).lerp(new THREE.Color('#fff4d8'), 1 - warm);
+    // Move the sun across the sky, following you so its direction stays steady.
+    const ang = (this.dayTime - 0.25) * Math.PI * 2;
+    this.sun.position.set(this.position.x + Math.cos(ang) * 26, 8 + elevation * 34, this.position.z + 14);
   }
 
   private rebuildTerrain() {
@@ -984,6 +1019,7 @@ export class HouseEngine {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     if (this.wanderers.length) this.moveAnimals(dt);
     this.moveNeighbours(dt);
+    this.updateDayNight(dt);
     if (this.mode === 'walk') { this.walk(dt); this.checkForage(dt); }
     // Keep the endless ground under you, and stream fresh hills as you roam.
     if (this.ground) this.ground.position.set(this.position.x, 0.99, this.position.z);

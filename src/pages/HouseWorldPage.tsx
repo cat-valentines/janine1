@@ -8,6 +8,7 @@ import { itemById, shopItems } from '../shop/catalog';
 import { joinLiveGame, type LivePlayer, type HouseGift, type LiveGame } from '../lib/liveGame';
 import { heartbeat, leaveGame } from '../lib/presence';
 import { supabase } from '../lib/supabase';
+import { storage } from '../lib/storage';
 import type { CharacterId } from '../game/types';
 
 interface HouseWorldPageProps {
@@ -119,12 +120,19 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // who am I? — so my @name floats over my character for everyone else
+  // who am I? — so my @name floats over my character for everyone else. Guests
+  // (not signed in) still roam the public land, with a stable guest name.
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) return;
-      setUserId(data.user.id);
-      setMyName((data.user.user_metadata.display_name as string | undefined) ?? 'a friend');
+      if (data.user) {
+        setUserId(data.user.id);
+        setMyName((data.user.user_metadata.display_name as string | undefined) ?? 'a friend');
+      } else {
+        let gid = storage.get('guestId');
+        if (!gid) { gid = `guest-${Math.random().toString(36).slice(2, 9)}`; storage.set('guestId', gid); }
+        setUserId(gid);
+        setMyName(`Guest-${gid.slice(-4)}`);
+      }
     });
   }, []);
 
