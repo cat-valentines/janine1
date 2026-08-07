@@ -898,6 +898,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .house-actions { position: absolute; left: 50%; bottom: 140px; transform: translateX(-50%); z-index: 46; display: flex; gap: 8px; }
 .house-action-btn { padding: 11px 18px; border: 0; border-radius: 999px; background: #6a4f8a; color: #fff; font-weight: 850; font-size: .92rem; cursor: pointer; box-shadow: 0 4px 0 #402f57; }
 .house-action-btn.bed { background: #3a6ea8; box-shadow: 0 4px 0 #234465; }
+.sell-jewels-btn { position: absolute; top: 96px; right: 12px; padding: 9px 13px; border: 3px solid #2f5a8a; border-radius: 12px; background: #43b0ff; color: #06263f; font-size: .82rem; font-weight: 850; cursor: pointer; box-shadow: 0 3px 0 #2f6fa8; }
 .world-palette { max-width: 1200px; margin: 0 auto 26px; padding: 14px; background: #fff6ddeb; border: 5px solid #745037; box-shadow: 8px 9px 0 #493327; }
 .furniture-palette { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 2px dashed #c2a986; }
 .furniture-palette strong { font-family: "Courier New", monospace; font-size: .85rem; }

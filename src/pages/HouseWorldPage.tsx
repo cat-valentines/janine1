@@ -32,6 +32,10 @@ interface HouseWorldPageProps {
   /** Apples stashed in your house, and eating one (gives you food). */
   applePantry: number;
   onEatApple: () => void;
+  /** Jewels in your box, mining one, and selling them all for coins. */
+  jewels: number;
+  onGem: () => void;
+  onSellJewels: () => void;
   onChangeWorld: (update: (previous: string) => string) => void;
   onChangeFurniture: (furniture: Furniture[]) => void;
   onRename: (name: string) => void;
@@ -49,9 +53,11 @@ const FURNITURE_COLORS = ['#ffffff', '#e0685f', '#e8a04f', '#f2d05e', '#6fbf6a',
 const FURNITURE_COST = 20;
 
 export function HouseWorldPage(props: HouseWorldPageProps) {
-  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, applePantry, onSpendCoins, onFood, onEatApple, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
+  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, applePantry, jewels, onSpendCoins, onFood, onEatApple, onGem, onSellJewels, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
   const onFoodRef = useRef(onFood);
   onFoodRef.current = onFood;
+  const onGemRef = useRef(onGem);
+  onGemRef.current = onGem;
   const mount = useRef<HTMLDivElement>(null);
   const engine = useRef<HouseEngine | null>(null);
   const [mode, setMode] = useState<Mode>(initialMode ?? 'build');
@@ -112,6 +118,7 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       onChangeWorld: (update) => changeWorld.current(update),
       onPlaceFurniture: (cell) => placeFurniture.current(cell),
       onFood: () => { onFoodRef.current(); setToast('🍎 Apple picked — it\'s in your house basket! Eat it whenever you like.'); },
+      onGem: () => { onGemRef.current(); setToast('💎 You mined a jewel! It\'s stashed in your box.'); },
     });
     engine.current = created;
     const resize = () => created.resize();
@@ -193,7 +200,7 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   }, [picked, pickedItem, furnKind]);
   useEffect(() => { engine.current?.setErasing(erasing); }, [erasing]);
   // Show your storage chest by the house — hidden (-1) while visiting someone else.
-  useEffect(() => { engine.current?.setPantry(visiting ? -1 : applePantry); }, [applePantry, visiting]);
+  useEffect(() => { engine.current?.setPantry(visiting ? -1 : applePantry, visiting ? 0 : jewels); }, [applePantry, jewels, visiting]);
   // Toasts fade on their own after a few seconds.
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(''), 3500); return () => clearTimeout(id); }, [toast]);
 
@@ -259,6 +266,12 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
         disabled={applePantry <= 0}
         onClick={() => { if (applePantry > 0) { onEatApple(); setToast('😋 Yum! You ate an apple. (+1 food)'); } }}
       >🍎 Eat an apple <b>({applePantry})</b></button>}
+
+      {/* Your box of jewels — sell the lot for coins whenever you like. */}
+      {mode === 'walk' && !visiting && jewels > 0 && <button
+        className="sell-jewels-btn"
+        onClick={() => { const paid = jewels * 15; onSellJewels(); setToast(`💰 Sold ${jewels} jewel${jewels === 1 ? '' : 's'} for ${paid} coins!`); }}
+      >💎 Sell {jewels} for 🪙 {jewels * 15}</button>}
 
       {/* Context actions: sit on a chair, sleep in a bed, when you're next to one. */}
       {mode === 'walk' && (sitting || nearSeat || nearBed) && <div className="house-actions">

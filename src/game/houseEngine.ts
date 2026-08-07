@@ -71,10 +71,13 @@ interface EngineOptions {
   onPlaceFurniture: (cell: { x: number; y: number; z: number }) => void;
   /** Called when you walk into an apple to forage it — adds to your food. */
   onFood?: () => void;
+  /** Called when you mine a jewel from a crystal by a cave — adds to your box. */
+  onGem?: () => void;
 }
 
 interface Wanderer { sprite: THREE.Sprite; x: number; z: number; dir: number; speed: number; phase: number }
 interface Apple { mesh: THREE.Mesh; x: number; z: number; y: number; regrowAt: number }
+interface Gem { mesh: THREE.Object3D; x: number; z: number; taken: boolean }
 /** Another real player walking your land live, with their @name floating above,
  *  their house pitched at their own plot (dx,dz) out on the land. */
 interface Neighbour {
@@ -128,6 +131,7 @@ export class HouseEngine {
   private skyNow = new THREE.Color();
   private forageGroup = new THREE.Group();
   private apples: Apple[] = [];
+  private gems: Gem[] = [];
   private forageTime = 0;
   private furnitureGroup = new THREE.Group();
   private livestockGroup = new THREE.Group();
@@ -299,30 +303,45 @@ export class HouseEngine {
    *  so the same orchards always grow in the same spots. Re-run as the land
    *  streams (see streamLand), following you across the world. */
   private scatterForage(cx: number, cz: number) {
-    this.forageGroup.traverse((obj) => { (obj as THREE.Mesh).geometry?.dispose?.(); });
+    this.forageGroup.traverse((obj) => {
+      const m = obj as THREE.Mesh;
+      m.geometry?.dispose?.();
+      const mat = m.material as THREE.Material | THREE.Material[] | undefined;
+      (Array.isArray(mat) ? mat : mat ? [mat] : []).forEach((mm) => mm.dispose());
+    });
     this.forageGroup.clear();
     this.apples = [];
+    this.gems = [];
     const trunkMat = new THREE.MeshLambertMaterial({ color: '#7b5330' });
     const leafMat = new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].leaves });
     const bushMat = new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].leavesAlt });
-    const berryMat = new THREE.MeshLambertMaterial({ color: '#7d3cc4', emissive: '#2a1040' });
     const appleMat = new THREE.MeshLambertMaterial({ color: '#e0453a', emissive: '#4a1410' });
+    const rockMat = new THREE.MeshLambertMaterial({ color: '#5c5750' });
+    const caveMat = new THREE.MeshLambertMaterial({ color: '#15120f' });
     const trunkGeo = new THREE.CylinderGeometry(0.28, 0.4, 3, 6);
     const canopyGeo = new THREE.SphereGeometry(1.7, 8, 6);
     const bushGeo = new THREE.SphereGeometry(0.85, 7, 5);
     const fruitGeo = new THREE.SphereGeometry(0.22, 8, 6);
+    const gemGeo = new THREE.OctahedronGeometry(0.34);
+    const rockGeo = new THREE.DodecahedronGeometry(0.9);
+    const caveGeo = new THREE.SphereGeometry(1.5, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+    // Different wild berries — blueberry, strawberry, raspberry, blackberry, cranberry.
+    const BERRIES = ['#4a6fd0', '#e0455f', '#c22a55', '#2a2438', '#d0304a'];
+    // Gem colours — sapphire, amethyst, emerald, ruby, topaz.
+    const GEMS = ['#43b0ff', '#b264ff', '#3fd68a', '#ff5470', '#ffd24a'];
     const R = LAND_PATCH;
-    // Sample a coarse grid; each spot deterministically may grow a tree or bush.
+    // Sample a coarse grid; each spot deterministically may grow food, or — up on
+    // the rocky mountains — hide a cave mouth twinkling with jewels to mine.
     for (let z = cz - R; z < cz + R; z += 7) {
       for (let x = cx - R; x < cx + R; x += 7) {
         if (x > -3 && x < SX + 3 && z > -3 && z < SZ + 3) continue;   // leave the build plot clear
         const h = terrainHeight(Math.round(x), Math.round(z), this.seed);
-        if (h < 1 || h > 12) continue;                                 // not in water, not on high peaks
+        if (h < 1) continue;                                           // in the water
         const r = rand(x * 1.3, z * 1.3, this.seed + 31);
         const jx = x + (rand(x, z, this.seed + 5) - 0.5) * 3.5;
         const jz = z + (rand(z, x, this.seed + 7) - 0.5) * 3.5;
         const gy = this.groundY(jx, jz);
-        if (r > 0.9) {
+        if (h <= 12 && r > 0.9) {
           // A fruit tree, hung with apples you can walk into to forage.
           const tree = new THREE.Group();
           const trunk = new THREE.Mesh(trunkGeo, trunkMat); trunk.position.y = 1.5; tree.add(trunk);
@@ -340,17 +359,47 @@ export class HouseEngine {
             this.forageGroup.add(apple);
             this.apples.push({ mesh: apple, x: ax, z: az, y: ay, regrowAt: 0 });
           }
-        } else if (r > 0.74) {
-          // A berry bush — also foragable.
+        } else if (h <= 12 && r > 0.72) {
+          // A berry bush of some wild kind — also foragable.
           const bush = new THREE.Mesh(bushGeo, bushMat);
           bush.position.set(jx, gy + 0.5, jz);
           bush.scale.set(1 + rand(x, z, this.seed + 8) * 0.6, 0.8, 1 + rand(z, x, this.seed + 9) * 0.6);
           this.forageGroup.add(bush);
-          const berry = new THREE.Mesh(fruitGeo, berryMat);
+          const colour = BERRIES[Math.floor(rand(x, z, this.seed + 12) * BERRIES.length) % BERRIES.length];
+          const berryMat = new THREE.MeshLambertMaterial({ color: colour, emissive: colour, emissiveIntensity: 0.2 });
           const by = gy + 0.7;
-          berry.position.set(jx, by, jz);
-          this.forageGroup.add(berry);
-          this.apples.push({ mesh: berry, x: jx, z: jz, y: by, regrowAt: 0 });
+          for (let b = 0; b < 3; b += 1) {
+            const berry = new THREE.Mesh(fruitGeo, berryMat);
+            berry.position.set(jx + (b - 1) * 0.24, by + (b % 2) * 0.16, jz);
+            berry.scale.setScalar(0.7);
+            this.forageGroup.add(berry);
+          }
+          this.apples.push({ mesh: bush, x: jx, z: jz, y: by, regrowAt: 0 });
+        }
+        // Up in the rocky heights: cave mouths and lone crystals to mine.
+        if (h >= 7) {
+          const gr = rand(x * 2.1, z * 2.1, this.seed + 51);
+          const gemColour = GEMS[Math.floor(rand(x, z, this.seed + 61) * GEMS.length) % GEMS.length];
+          const gemMat = () => new THREE.MeshStandardMaterial({ color: gemColour, emissive: gemColour, emissiveIntensity: 0.6, roughness: 0.2, metalness: 0.3 });
+          const dropGem = (px: number, pz: number) => {
+            const gem = new THREE.Mesh(gemGeo, gemMat());
+            gem.position.set(px, this.groundY(px, pz) + 0.5, pz);
+            this.forageGroup.add(gem);
+            this.gems.push({ mesh: gem, x: px, z: pz, taken: false });
+          };
+          if (gr > 0.94) {
+            // A cave mouth set into the slope, with a little seam of jewels.
+            const cave = new THREE.Mesh(caveGeo, caveMat);
+            cave.position.set(jx, gy + 0.2, jz);
+            cave.rotation.x = Math.PI;
+            this.forageGroup.add(cave);
+            const rock = new THREE.Mesh(rockGeo, rockMat);
+            rock.position.set(jx + 1.4, gy + 0.2, jz + 0.4);
+            this.forageGroup.add(rock);
+            for (let g = 0; g < 3; g += 1) dropGem(jx + (rand(x + g, z, this.seed + g) - 0.5) * 2.4, jz + (rand(x, z + g, this.seed + g) - 0.5) * 2.4);
+          } else if (gr > 0.83) {
+            dropGem(jx, jz);
+          }
         }
       }
     }
@@ -369,6 +418,22 @@ export class HouseEngine {
         apple.mesh.visible = false;
         apple.regrowAt = this.forageTime + 18;   // grows back in 18s
         this.options.onFood?.();
+      }
+    }
+  }
+
+  /** Walk into a glowing crystal to mine a jewel for your box. Each gem spins so
+   *  you can spot it from afar. */
+  private checkGems(dt: number) {
+    for (const gem of this.gems) {
+      if (gem.taken) continue;
+      gem.mesh.rotation.y += dt * 1.6;
+      gem.mesh.position.y += Math.sin(this.forageTime * 2 + gem.x) * 0.002;
+      const dx = gem.x - this.position.x, dz = gem.z - this.position.z;
+      if (dx * dx + dz * dz < 1.7) {
+        gem.taken = true;
+        gem.mesh.visible = false;
+        this.options.onGem?.();
       }
     }
   }
@@ -631,7 +696,7 @@ export class HouseEngine {
   }
 
   /** Show the food + treasures stashed in your house as a chest by your door. */
-  setPantry(count: number) {
+  setPantry(count: number, jewels = 0) {
     this.pantryGroup.traverse((obj) => {
       const mesh = obj as THREE.Mesh;
       mesh.geometry?.dispose?.();
@@ -653,16 +718,25 @@ export class HouseEngine {
     const latch = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.22, 0.08), iron);
     latch.position.set(bx, by + 0.6, bz + 0.42);
     this.pantryGroup.add(base, lid, latch);
-    if (count <= 0) return;
-    // A few apples heaped on the lid so you can see it's stocked.
+    // A few apples heaped on the lid so you can see it's stocked with food.
     const appleGeo = new THREE.SphereGeometry(0.14, 8, 6);
     const appleMat = new THREE.MeshLambertMaterial({ color: '#e0453a', emissive: '#4a1410' });
-    const shown = Math.min(count, 8);
-    for (let i = 0; i < shown; i += 1) {
+    const shownA = Math.min(count, 6);
+    for (let i = 0; i < shownA; i += 1) {
       const apple = new THREE.Mesh(appleGeo, appleMat);
       const ang = i * 2.399, r = 0.08 + (i % 3) * 0.14;
-      apple.position.set(bx + Math.cos(ang) * r, by + 0.92 + Math.floor(i / 4) * 0.16, bz + Math.sin(ang) * r * 0.6);
+      apple.position.set(bx - 0.28 + Math.cos(ang) * r, by + 0.92 + Math.floor(i / 4) * 0.16, bz + Math.sin(ang) * r * 0.6);
       this.pantryGroup.add(apple);
+    }
+    // And a sparkle of jewels tucked in beside them.
+    const gemGeo = new THREE.OctahedronGeometry(0.13);
+    const gemMat = new THREE.MeshStandardMaterial({ color: '#43b0ff', emissive: '#43b0ff', emissiveIntensity: 0.6, roughness: 0.2 });
+    const shownG = Math.min(jewels, 6);
+    for (let i = 0; i < shownG; i += 1) {
+      const gem = new THREE.Mesh(gemGeo, gemMat);
+      const ang = i * 2.1;
+      gem.position.set(bx + 0.32 + Math.cos(ang) * 0.14, by + 0.94 + Math.floor(i / 3) * 0.16, bz + Math.sin(ang) * 0.1);
+      this.pantryGroup.add(gem);
     }
   }
 
@@ -1100,7 +1174,7 @@ export class HouseEngine {
     if (this.wanderers.length) this.moveAnimals(dt);
     this.moveNeighbours(dt);
     this.updateDayNight(dt);
-    if (this.mode === 'walk') { this.walk(dt); this.checkForage(dt); }
+    if (this.mode === 'walk') { this.walk(dt); this.checkForage(dt); this.checkGems(dt); }
     // Keep the endless ground under you, and stream fresh hills as you roam.
     if (this.ground) this.ground.position.set(this.position.x, 0.99, this.position.z);
     if (Math.abs(this.position.x - this.terrainCenter.x) > LAND_STEP || Math.abs(this.position.z - this.terrainCenter.z) > LAND_STEP) this.streamLand();
