@@ -153,7 +153,7 @@ export function EscapePage({ character, onEscape, onBack }: EscapePageProps) {
         </div>
 
         {mode === 'everybody' && <div className="escape-invite">
-          <p className="escape-invite-note">🌍 A house full of players! <strong>Two housekeepers</strong> patrol, and everyone races to find the keys without getting caught. Escape and you unlock a deeper, harder level. You'll see <strong>other real players live</strong> — wearing their @name, exactly where they really are — and 🤖 bots fill out the house.</p>
+          <p className="escape-invite-note">🌍 A house full of players! <strong>Two housekeepers</strong> patrol, and everyone races to find the keys without getting caught. Escape and you unlock a deeper, harder level. You'll see <strong>other real players live</strong> — wearing their @name, exactly where they really are — even friends who've raced ahead to a deeper level (their tag shows <strong>·L3</strong>), because the house is the same halls on every level. 🤖 bots fill out the house.</p>
         </div>}
 
         {mode === 'friends' && <div className="escape-invite">

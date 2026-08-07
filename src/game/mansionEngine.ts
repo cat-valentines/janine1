@@ -804,20 +804,24 @@ export class MansionEngine {
   }
 
   /**
-   * Draw the *real* players at the positions they just sent us. Only players on
-   * my level show (a deeper level is its own separate house). Each wears their
-   * @name and a soft blue glow, and is driven entirely by the network — never
+   * Draw the *real* players at the positions they just sent us. EVERYONE shows,
+   * whatever level they're on: the house walls are identical on every level, so
+   * your friend on a deeper level still walks the same halls you do — you see
+   * each other in this shared house. Their name-tag shows their level (·L3) so
+   * you know who's raced ahead. Each is driven entirely by the network — never
    * AI — so what you see is genuinely where they are. Anyone who left is removed.
    */
   setLivePlayers(players: Array<{ id: string; name: string; x: number; z: number; yaw: number; level: number }>) {
     const here = new Set<string>();
     players.forEach((player) => {
-      if (player.level !== this.level) return;
       here.add(player.id);
       let live = this.livePlayers.get(player.id);
+      // Rebuild the figure if their level changed, so the ·L tag stays right.
+      if (live && live.level !== player.level) { this.scene.remove(live.group); this.livePlayers.delete(player.id); live = undefined; }
       if (!live) {
         const hue = hashHue(player.id);
-        const group = this.buildFigure(`hsl(${hue}, 62%, 56%)`, `@${player.name}`, '#d6ecff', '#2f6fb0', false);
+        const tag = `@${player.name}${player.level > 1 ? ` ·L${player.level}` : ''}`;
+        const group = this.buildFigure(`hsl(${hue}, 62%, 56%)`, tag, '#d6ecff', '#2f6fb0', false);
         const bodyMat = group.userData.bodyMat as THREE.MeshLambertMaterial | undefined;
         bodyMat?.emissive.set('#14385c'); // a friendly glow so you spot them in the dark
         live = {
