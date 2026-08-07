@@ -73,6 +73,9 @@ interface EngineOptions {
   onFood?: () => void;
   /** Called when you mine a jewel from a crystal by a cave — adds to your box. */
   onGem?: () => void;
+  /** Called when you hunt a wild animal, or catch a fish — both give you food. */
+  onHunt?: () => void;
+  onFish?: () => void;
 }
 
 interface Wanderer { sprite: THREE.Sprite; x: number; z: number; dir: number; speed: number; phase: number }
@@ -132,6 +135,8 @@ export class HouseEngine {
   private forageGroup = new THREE.Group();
   private apples: Apple[] = [];
   private gems: Gem[] = [];
+  private wild: Wanderer[] = [];   // deer/rabbits/boar you can hunt for food
+  private fishList: Array<{ sprite: THREE.Sprite; x: number; z: number }> = [];
   private forageTime = 0;
   private furnitureGroup = new THREE.Group();
   private livestockGroup = new THREE.Group();
@@ -295,7 +300,8 @@ export class HouseEngine {
       mesh.instanceMatrix.needsUpdate = true;
       this.landGroup.add(mesh);
     });
-    this.scatterForage(cx, cz);   // food follows you across the endless land
+    this.scatterForage(cx, cz);      // food follows you across the endless land
+    this.scatterCreatures(cx, cz);   // animals to hunt + fish to catch, too
   }
 
   /** Scatter fruit trees + berry bushes across the patch of land around you, so
@@ -306,8 +312,8 @@ export class HouseEngine {
     this.forageGroup.traverse((obj) => {
       const m = obj as THREE.Mesh;
       m.geometry?.dispose?.();
-      const mat = m.material as THREE.Material | THREE.Material[] | undefined;
-      (Array.isArray(mat) ? mat : mat ? [mat] : []).forEach((mm) => mm.dispose());
+      const mat = m.material as (THREE.Material & { map?: THREE.Texture }) | (THREE.Material & { map?: THREE.Texture })[] | undefined;
+      (Array.isArray(mat) ? mat : mat ? [mat] : []).forEach((mm) => { mm.map?.dispose?.(); mm.dispose(); });
     });
     this.forageGroup.clear();
     this.apples = [];
@@ -435,6 +441,59 @@ export class HouseEngine {
         gem.mesh.visible = false;
         this.options.onGem?.();
       }
+    }
+  }
+
+  /** Scatter wild animals to hunt and fish in the water, across the land around
+   *  you. Deterministic by cell, re-run as the land streams (see streamLand). */
+  private scatterCreatures(cx: number, cz: number) {
+    this.wild = [];
+    this.fishList = [];
+    const WILD = ['🦌', '🐇', '🐗', '🦃', '🦫'];
+    const R = LAND_PATCH;
+    for (let z = cz - R; z < cz + R; z += 11) {
+      for (let x = cx - R; x < cx + R; x += 11) {
+        if (x > -4 && x < SX + 4 && z > -4 && z < SZ + 4) continue;   // not right on your plot
+        const h = terrainHeight(Math.round(x), Math.round(z), this.seed);
+        const r = rand(x * 0.7, z * 0.7, this.seed + 71);
+        if (h >= 1 && h <= 10 && r > 0.82) {
+          // A wild animal, wandering — walk into it to hunt it for food.
+          const icon = WILD[Math.floor(rand(x, z, this.seed + 73) * WILD.length) % WILD.length];
+          const jx = x + (rand(x, z, this.seed + 5) - 0.5) * 4, jz = z + (rand(z, x, this.seed + 7) - 0.5) * 4;
+          const sprite = this.emojiSprite(icon, 1.2);
+          sprite.position.set(jx, this.groundY(jx, jz) + 0.6, jz);
+          this.forageGroup.add(sprite);
+          this.wild.push({ sprite, x: jx, z: jz, dir: rand(x, z, this.seed + 3) * Math.PI * 2, speed: 0.5 + rand(z, x, this.seed + 2) * 0.7, phase: (x + z) * 0.3 });
+        } else if (h === 0 && r > 0.68) {
+          // A fish on the water — walk to the shore by it to catch it.
+          const fish = this.emojiSprite('🐟', 0.9);
+          fish.position.set(x + 0.5, 1.1, z + 0.5);
+          this.forageGroup.add(fish);
+          this.fishList.push({ sprite: fish, x: x + 0.5, z: z + 0.5 });
+        }
+      }
+    }
+  }
+
+  /** Wild animals roam; walk into one to hunt it (food for your box). Fish bob on
+   *  the water; get close to catch one. Both restock as you move on. */
+  private moveWild(dt: number) {
+    for (const w of this.wild) {
+      if (!w.sprite.visible) continue;
+      w.phase += dt;
+      w.dir += Math.sin(w.phase * 0.7) * dt;
+      w.x += Math.cos(w.dir) * w.speed * dt;
+      w.z += Math.sin(w.dir) * w.speed * dt;
+      const bob = Math.abs(Math.sin(w.phase * 5)) * 0.08;
+      w.sprite.position.set(w.x, this.groundY(w.x, w.z) + 0.6 + bob, w.z);
+      const dx = w.x - this.position.x, dz = w.z - this.position.z;
+      if (dx * dx + dz * dz < 1.8) { w.sprite.visible = false; this.options.onHunt?.(); }
+    }
+    for (const f of this.fishList) {
+      if (!f.sprite.visible) continue;
+      f.sprite.position.y = 1.05 + Math.sin(this.forageTime * 3 + f.x) * 0.12;
+      const dx = f.x - this.position.x, dz = f.z - this.position.z;
+      if (dx * dx + dz * dz < 3.2) { f.sprite.visible = false; this.options.onFish?.(); }
     }
   }
 
@@ -1174,7 +1233,7 @@ export class HouseEngine {
     if (this.wanderers.length) this.moveAnimals(dt);
     this.moveNeighbours(dt);
     this.updateDayNight(dt);
-    if (this.mode === 'walk') { this.walk(dt); this.checkForage(dt); this.checkGems(dt); }
+    if (this.mode === 'walk') { this.walk(dt); this.checkForage(dt); this.checkGems(dt); this.moveWild(dt); }
     // Keep the endless ground under you, and stream fresh hills as you roam.
     if (this.ground) this.ground.position.set(this.position.x, 0.99, this.position.z);
     if (Math.abs(this.position.x - this.terrainCenter.x) > LAND_STEP || Math.abs(this.position.z - this.terrainCenter.z) > LAND_STEP) this.streamLand();

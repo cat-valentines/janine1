@@ -119,6 +119,8 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       onPlaceFurniture: (cell) => placeFurniture.current(cell),
       onFood: () => { onFoodRef.current(); setToast('🍎 Apple picked — it\'s in your house basket! Eat it whenever you like.'); },
       onGem: () => { onGemRef.current(); setToast('💎 You mined a jewel! It\'s stashed in your box.'); },
+      onHunt: () => { onFoodRef.current(); setToast('🍖 You hunted a wild animal — food for your box!'); },
+      onFish: () => { onFoodRef.current(); setToast('🎣 You caught a fish — food for your box!'); },
     });
     engine.current = created;
     const resize = () => created.resize();

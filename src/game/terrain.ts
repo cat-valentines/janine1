@@ -101,8 +101,10 @@ export function terrainHeight(x: number, z: number, seed: number) {
   const peaks = valueNoise(x / 40, z / 40, seed + 21);                          // rugged detail
   const far = Math.min(1, distance / 55);                                       // ramp up with distance
   const mountains = mask * mask * peaks * 30 * far;                             // up to ~30 blocks tall
+  // Broad low regions sink into lakes and oceans (height 0 = water).
+  const sea = Math.max(0, 0.34 - valueNoise(x / 120, z / 120, seed + 40)) * 34;
   const blend = fade(Math.min(1, distance / 11));
-  return Math.max(0, Math.round(1 + (rolling - 1.4 + mountains) * blend));
+  return Math.max(0, Math.round(1 + (rolling - 1.4 + mountains - sea) * blend));
 }
 
 export const isTerrainSolid = (x: number, y: number, z: number, seed: number) => y >= 0 && y < terrainHeight(x, z, seed);
