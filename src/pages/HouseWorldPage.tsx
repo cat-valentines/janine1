@@ -7,6 +7,7 @@ import { seasonOrder, seasonStyles, type Season } from '../game/terrain';
 import { itemById, shopItems } from '../shop/catalog';
 import { joinLiveGame, type LivePlayer, type HouseGift, type LiveGame } from '../lib/liveGame';
 import { heartbeat, leaveGame } from '../lib/presence';
+import { loadNeighbourHouses } from '../lib/houses';
 import { supabase } from '../lib/supabase';
 import { storage } from '../lib/storage';
 import type { CharacterId } from '../game/types';
@@ -183,6 +184,24 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
 
   // Show neighbours walking around — but hide them while you're inside a house.
   useEffect(() => { engine.current?.setLivePlayers(visiting ? [] : peers); }, [peers, visiting]);
+
+  // The persistent neighbourhood: pull every other player's saved house and pitch
+  // them on the land, so you always see other players' houses — even solo.
+  useEffect(() => {
+    if (!userId) return;
+    let stop = false;
+    const load = () => loadNeighbourHouses(userId).then((rows) => {
+      if (stop) return;
+      const apply = () => {
+        if (!engine.current) { setTimeout(apply, 400); return; }
+        engine.current.setNeighbourHouses(rows.map((r) => ({ id: r.user_id, name: r.house_name || 'a builder', house: r.house_world })));
+      };
+      apply();
+    }).catch(() => undefined);
+    load();
+    const iv = setInterval(load, 25000);
+    return () => { stop = true; clearInterval(iv); };
+  }, [userId]);
 
   // Poll what you're standing near: a neighbour's door, a chair, a bed.
   const [nearby, setNearby] = useState<{ id: string; name: string } | null>(null);

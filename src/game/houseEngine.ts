@@ -177,6 +177,9 @@ export class HouseEngine {
   private sitting = false;   // relaxing on a chair/sofa — frozen until you stand
   /** Other real players on the land right now, keyed by their user id. */
   private neighbours = new Map<string, Neighbour>();
+  /** Other players' saved houses on the land — a persistent neighbourhood, shown
+   *  even when their owner isn't online (keyed by user id). */
+  private houseOnly = new Map<string, THREE.Group>();
   private highlight: THREE.LineSegments;
 
   private world: string;
@@ -737,11 +740,16 @@ export class HouseEngine {
   /** Each player's house sits at their own scattered spot out on the land, so the
    *  world reads as a little village. Stable per id, and kept clear of your plot. */
   private plotCentre(id: string) {
+    // Keep houses close enough to actually SEE (within the ~56-unit view), spread
+    // on two rings so they don't overlap: 6 nearby, then 12 a little further out.
     const h = hashId(id);
-    const ring = 1 + (h % 3);
-    const angle = ((h >>> 4) % 16) * (Math.PI / 8);
-    const dist = 40 + ring * 22;
-    return { x: Math.round(Math.cos(angle) * dist), z: Math.round(Math.sin(angle) * dist) };
+    const slot = h % 18;
+    const inner = slot < 6;
+    const idx = inner ? slot : slot - 6;
+    const count = inner ? 6 : 12;
+    const r = inner ? 26 : 42;
+    const angle = (idx / count) * Math.PI * 2 + (inner ? 0 : 0.26);
+    return { x: Math.round(Math.cos(angle) * r), z: Math.round(Math.sin(angle) * r) };
   }
 
   /** A simple blocky person, colour-tinted by id, for another live player. */
@@ -833,6 +841,7 @@ export class HouseEngine {
     // Hide the whole surface world while you're down below.
     for (const g of [this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup]) g.visible = false;
     this.neighbours.forEach((n) => { n.group.visible = false; if (n.houseGroup) n.houseGroup.visible = false; });
+    this.houseOnly.forEach((g) => { g.visible = false; });
     this.caveGroup.visible = true;
     // Deep, dark cavern light + a torch that follows you.
     this.hemi.intensity = 0.25; this.hemi.color.set('#6a6f8a'); this.sun.intensity = 0;
@@ -865,6 +874,7 @@ export class HouseEngine {
     if (this.torch) this.torch.visible = false;
     for (const g of [this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup]) g.visible = true;
     this.neighbours.forEach((n) => { n.group.visible = true; if (n.houseGroup) n.houseGroup.visible = true; });
+    this.houseOnly.forEach((g) => { g.visible = true; });
     this.applySky();   // day/night resumes and re-tints the sky next frame
     this.position.copy(this.caveReturn);
     this.velocity.set(0, 0, 0);
@@ -1011,6 +1021,31 @@ export class HouseEngine {
       if (d < bestD) { bestD = d; best = { id, name: n.name }; }
     });
     return best;
+  }
+
+  /**
+   * The persistent neighbourhood: draw every other player's SAVED house on the
+   * land at their own plot, so you see houses even when nobody's online. A player
+   * who's live right now is drawn by setLivePlayers instead (skipped here).
+   */
+  setNeighbourHouses(list: Array<{ id: string; name: string; house: string }>) {
+    const here = new Set(list.map((h) => h.id));
+    this.houseOnly.forEach((group, id) => {
+      if (here.has(id) && !this.neighbours.has(id)) return;
+      this.scene.remove(group); this.freeMaterials(group); this.houseOnly.delete(id);
+    });
+    list.forEach((h) => {
+      if (this.neighbours.has(h.id) || this.houseOnly.has(h.id)) return;   // live wins / already built
+      const c = this.plotCentre(h.id);
+      const baseY = Math.max(0, terrainHeight(c.x, c.z, this.seed) - 1);
+      const group = this.buildHouseMesh(h.house, c.x - SX / 2, c.z - SZ / 2, baseY);
+      const sign = this.neighbourName(`🏠 ${h.name}`);
+      sign.position.set(c.x, baseY + 5.2, c.z);
+      group.add(sign);
+      group.visible = !this.inCave;
+      this.scene.add(group);
+      this.houseOnly.set(h.id, group);
+    });
   }
 
   /**
