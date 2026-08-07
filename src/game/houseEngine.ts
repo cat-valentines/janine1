@@ -66,6 +66,14 @@ interface EngineOptions {
 
 interface Wanderer { sprite: THREE.Sprite; x: number; z: number; dir: number; speed: number; phase: number }
 interface Apple { mesh: THREE.Mesh; x: number; z: number; y: number; regrowAt: number }
+/** Another real player walking your land live, with their @name floating above. */
+interface Neighbour { group: THREE.Group; legL: THREE.Group; legR: THREE.Group; x: number; z: number; tx: number; tz: number; yaw: number; tyaw: number; phase: number }
+
+function hueFromId(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) % 360;
+  return h;
+}
 
 /** Emoji drawn to a texture, so shop furniture shows up in the 3D house. */
 function emojiTexture(emoji: string) {
@@ -103,6 +111,8 @@ export class HouseEngine {
   private armL: THREE.Group | null = null;
   private armR: THREE.Group | null = null;
   private walkPhase = 0;
+  /** Other real players on the land right now, keyed by their user id. */
+  private neighbours = new Map<string, Neighbour>();
   private highlight: THREE.LineSegments;
 
   private world: string;
@@ -403,6 +413,110 @@ export class HouseEngine {
     const z = Math.floor(SZ / 2);
     this.position.set(x + 0.5, spawnHeight(this.world, x, z), z + 0.5);
     this.velocity.set(0, 0, 0);
+  }
+
+  /** A little name-tag drawn on a canvas that hangs over a neighbour. */
+  private neighbourName(text: string) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#1c2a1ad8';
+      ctx.fillRect(0, 0, 256, 64);
+      ctx.strokeStyle = '#a6e08f';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(2, 2, 252, 60);
+      ctx.font = 'bold 24px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#e6ffd8';
+      ctx.fillText(text.slice(0, 16), 128, 34);
+    }
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false, transparent: true }));
+    sprite.scale.set(2.4, 0.6, 1);
+    sprite.position.y = 2.5;
+    return sprite;
+  }
+
+  /** A simple blocky person, colour-tinted by id, for another live player. */
+  private buildNeighbour(id: string, name: string): Neighbour {
+    const hue = hueFromId(id);
+    const shirt = new THREE.MeshLambertMaterial({ color: `hsl(${hue}, 60%, 55%)`, emissive: `hsl(${hue}, 60%, 18%)` });
+    const skin = new THREE.MeshLambertMaterial({ color: '#f2d0b4' });
+    const legMat = new THREE.MeshLambertMaterial({ color: '#3c4a63' });
+    const group = new THREE.Group();
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.55), skin); head.position.y = 1.5;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.28), shirt); body.position.y = 0.95;
+    const limb = (w: number, h: number, mat: THREE.Material, px: number, pivotY: number) => {
+      const g = new THREE.Group(); g.position.set(px, pivotY, 0);
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), mat); mesh.position.y = -h / 2; g.add(mesh);
+      return g;
+    };
+    const armL = limb(0.16, 0.58, skin, -0.34, 1.24);
+    const armR = limb(0.16, 0.58, skin, 0.34, 1.24);
+    const legL = limb(0.18, 0.62, legMat, -0.13, 0.63);
+    const legR = limb(0.18, 0.62, legMat, 0.13, 0.63);
+    group.add(head, body, armL, armR, legL, legR, this.neighbourName(`@${name}`));
+    return { group, legL, legR, x: 0, z: 0, tx: 0, tz: 0, yaw: 0, tyaw: 0, phase: 0 };
+  }
+
+  /** Where I am, to shout to the other players walking the land. */
+  getSelfState() {
+    return { x: this.position.x, z: this.position.z, yaw: this.yaw, level: 0 };
+  }
+
+  /**
+   * Draw the other real players where they said they are. Each stands on the
+   * ground you can see (their foot-height snapped to your terrain, so nobody
+   * floats or sinks) and wears their @name. They glide smoothly and swing their
+   * legs as they move. Anyone who left is cleared away.
+   */
+  setLivePlayers(players: Array<{ id: string; name: string; x: number; z: number; yaw: number }>) {
+    const here = new Set<string>();
+    players.forEach((player) => {
+      here.add(player.id);
+      let n = this.neighbours.get(player.id);
+      if (!n) {
+        n = this.buildNeighbour(player.id, player.name);
+        n.x = player.x; n.z = player.z; n.yaw = player.yaw;
+        this.scene.add(n.group);
+        this.neighbours.set(player.id, n);
+      }
+      n.tx = player.x; n.tz = player.z; n.tyaw = player.yaw;
+    });
+    this.neighbours.forEach((n, id) => {
+      if (here.has(id)) return;
+      this.scene.remove(n.group);
+      n.group.traverse((obj) => {
+        const mesh = obj as THREE.Mesh & { material?: THREE.Material & { map?: THREE.Texture } };
+        mesh.geometry?.dispose?.();
+        const mat = mesh.material as (THREE.Material & { map?: THREE.Texture }) | undefined;
+        if (mat) { mat.map?.dispose?.(); mat.dispose?.(); }
+      });
+      this.neighbours.delete(id);
+    });
+  }
+
+  /** Glide every neighbour toward where they last said they are, legs swinging. */
+  private moveNeighbours(dt: number) {
+    if (!this.neighbours.size) return;
+    const ease = Math.min(1, dt * 10);
+    this.neighbours.forEach((n) => {
+      const moving = Math.hypot(n.tx - n.x, n.tz - n.z) > 0.02;
+      n.x += (n.tx - n.x) * ease;
+      n.z += (n.tz - n.z) * ease;
+      let dy = n.tyaw - n.yaw;
+      while (dy > Math.PI) dy -= Math.PI * 2;
+      while (dy < -Math.PI) dy += Math.PI * 2;
+      n.yaw += dy * ease;
+      const foot = spawnHeight(this.world, Math.floor(n.x), Math.floor(n.z));
+      n.group.position.set(n.x, foot, n.z);
+      n.group.rotation.y = n.yaw;
+      n.phase += moving ? dt * 9 : 0;
+      const swing = moving ? Math.sin(n.phase) * 0.6 : 0;
+      n.legL.rotation.x = swing;
+      n.legR.rotation.x = -swing;
+    });
   }
 
   // ---- voxel meshes ------------------------------------------------------
@@ -749,6 +863,7 @@ export class HouseEngine {
     if (!this.running) return;
     const dt = Math.min(this.clock.getDelta(), 0.05);
     if (this.wanderers.length) this.moveAnimals(dt);
+    this.moveNeighbours(dt);
     if (this.mode === 'walk') { this.walk(dt); this.checkForage(dt); }
     else {
       this.hovered = this.pick();

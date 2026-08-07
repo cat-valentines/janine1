@@ -5,6 +5,9 @@ import { emptyWorld, normaliseWorld, type Furniture, type FurnitureKind } from '
 import { characterAssets } from '../game/characters';
 import { seasonOrder, seasonStyles, type Season } from '../game/terrain';
 import { itemById, shopItems } from '../shop/catalog';
+import { joinLiveGame } from '../lib/liveGame';
+import { heartbeat, leaveGame } from '../lib/presence';
+import { supabase } from '../lib/supabase';
 import type { CharacterId } from '../game/types';
 
 interface HouseWorldPageProps {
@@ -56,6 +59,10 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   const [furnKind, setFurnKind] = useState<FurnitureKind | ''>('');
   const [furnColor, setFurnColor] = useState('#ffffff');
   const [buyMsg, setBuyMsg] = useState('');
+  // Live neighbours walking the land right now.
+  const [neighbours, setNeighbours] = useState(0);
+  const [myName, setMyName] = useState('a friend');
+  const [userId, setUserId] = useState('');
   const world = normaliseWorld(houseWorld);
   const myFurniture = shopItems.filter((item) => item.category === 'furniture' && ownedItems.includes(item.id));
 
@@ -98,6 +105,32 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // who am I? — so my @name floats over my character for everyone else
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return;
+      setUserId(data.user.id);
+      setMyName((data.user.user_metadata.display_name as string | undefined) ?? 'a friend');
+    });
+  }, []);
+
+  // Live: shout my position several times a second, and draw every other real
+  // player walking the land with their @name floating above them.
+  useEffect(() => {
+    if (!userId) return;
+    const live = joinLiveGame('house', userId, (peers) => {
+      engine.current?.setLivePlayers(peers);
+      setNeighbours(peers.length);
+    });
+    heartbeat('house');
+    const beat = setInterval(() => heartbeat('house'), 5000);
+    const shout = setInterval(() => {
+      const state = engine.current?.getSelfState();
+      if (state) live.send({ name: myName, ...state });
+    }, 140);
+    return () => { clearInterval(beat); clearInterval(shout); live.leave(); leaveGame(); setNeighbours(0); };
+  }, [userId, myName]);
+
   useEffect(() => { engine.current?.setWorld(world); }, [world]);
   useEffect(() => { engine.current?.setSeason(season); }, [season]);
   useEffect(() => { engine.current?.setFurniture(furniture); }, [furniture]);
@@ -115,6 +148,7 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       <button onClick={onBack}>← Back</button>
       <input className="world-name" value={houseName} onChange={(event) => onRename(event.target.value)} placeholder="My House" maxLength={24} aria-label="House name" />
       <div className="world-modes">
+        {neighbours > 0 && <span className="world-neighbours" title="Other players walking the land right now">👥 {neighbours} nearby</span>}
         <button className={mode === 'build' ? 'selected' : ''} onClick={() => setMode('build')}>🔨 Build</button>
         <button className={mode === 'walk' ? 'selected' : ''} onClick={() => setMode('walk')}>🚶 Go inside</button>
       </div>
