@@ -177,17 +177,22 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   const [nearby, setNearby] = useState<{ id: string; name: string } | null>(null);
   const [nearSeat, setNearSeat] = useState(false);
   const [nearBed, setNearBed] = useState(false);
+  const [nearCave, setNearCave] = useState(false);
+  const [inCave, setInCave] = useState(false);
   const [sitting, setSitting] = useState(false);
   const [liveSeason, setLiveSeason] = useState<Season>(season);
   useEffect(() => {
     const id = setInterval(() => {
       const e = engine.current;
       if (e) setLiveSeason(e.getSeason());   // the world drifts through seasons on its own
-      if (!e || mode !== 'walk') { setNearby(null); setNearSeat(false); setNearBed(false); setSitting(false); return; }
+      const underground = !!e?.isInCave();
+      setInCave(underground);
+      if (!e || mode !== 'walk' || underground) { setNearby(null); setNearSeat(false); setNearBed(false); setNearCave(false); if (!underground) setSitting(false); return; }
       setNearby(visiting ? null : (e.getNearbyVisit() ?? null));
       setSitting(e.isSitting());
       setNearSeat(!!e.getNearbySeat());
       setNearBed(!!e.getNearbyBed());
+      setNearCave(e.getNearbyCave());
     }, 300);
     return () => clearInterval(id);
   }, [visiting, mode]);
@@ -277,11 +282,13 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
         onClick={() => { const paid = jewels * 15; onSellJewels(); setToast(`💰 Sold ${jewels} jewel${jewels === 1 ? '' : 's'} for ${paid} coins!`); }}
       >💎 Sell {jewels} for 🪙 {jewels * 15}</button>}
 
-      {/* Context actions: sit on a chair, sleep in a bed, when you're next to one. */}
-      {mode === 'walk' && (sitting || nearSeat || nearBed) && <div className="house-actions">
-        {sitting && <button className="house-action-btn" onClick={() => { engine.current?.standUp(); setToast('🧍 You stood up.'); }}>🧍 Stand up</button>}
-        {!sitting && nearSeat && <button className="house-action-btn" onClick={() => { if (engine.current?.sit()) setToast('🪑 You sat down. Ahh, comfy!'); }}>🪑 Sit down</button>}
-        {!sitting && nearBed && <button className="house-action-btn bed" onClick={() => { if (engine.current?.sleep()) setToast('🛏️ You slept! Good morning ☀️'); }}>🛏️ Sleep till morning</button>}
+      {/* Context actions: sit, sleep, or head down into a cave. */}
+      {mode === 'walk' && (sitting || nearSeat || nearBed || nearCave || inCave) && <div className="house-actions">
+        {inCave && <button className="house-action-btn cave" onClick={() => { engine.current?.leaveCave(); setToast('🪜 You climbed back out into the daylight.'); }}>🪜 Leave the cave</button>}
+        {!inCave && nearCave && <button className="house-action-btn cave" onClick={() => { if (engine.current?.enterCave()) setToast('⛏️ Into the cave! Mine the glowing jewels — leave whenever you like.'); }}>⛏️ Go into the cave</button>}
+        {!inCave && sitting && <button className="house-action-btn" onClick={() => { engine.current?.standUp(); setToast('🧍 You stood up.'); }}>🧍 Stand up</button>}
+        {!inCave && !sitting && nearSeat && <button className="house-action-btn" onClick={() => { if (engine.current?.sit()) setToast('🪑 You sat down. Ahh, comfy!'); }}>🪑 Sit down</button>}
+        {!inCave && !sitting && nearBed && <button className="house-action-btn bed" onClick={() => { if (engine.current?.sleep()) setToast('🛏️ You slept! Good morning ☀️'); }}>🛏️ Sleep till morning</button>}
       </div>}
       {mode === 'walk' && <>
         <button className="world-view-toggle" onClick={() => setView(view === 'third' ? 'first' : 'third')}>

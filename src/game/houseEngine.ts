@@ -55,6 +55,8 @@ const LAND_STEP = 18;
 const DAY_LENGTH = 220;
 /** Seconds each season lasts before the world drifts into the next one. */
 const SEASON_LENGTH = 200;
+/** The underground cave you can walk into: a bounded cavern of rock + jewels. */
+const CAVE_W = 34, CAVE_H = 34, CAVE_CEIL = 6;
 const NIGHT_SKY = new THREE.Color('#0a1230');
 const DUSK_SKY = new THREE.Color('#e6884a');
 
@@ -145,7 +147,15 @@ export class HouseEngine {
   private gems: Gem[] = [];
   private wild: Wanderer[] = [];   // deer/rabbits/boar you can hunt for food
   private fishList: Array<{ sprite: THREE.Sprite; x: number; z: number }> = [];
+  private caveMouths: Array<{ x: number; z: number }> = [];
   private forageTime = 0;
+  // Underground: swapped in when you walk into a cave mouth.
+  private inCave = false;
+  private caveGroup = new THREE.Group();
+  private caveWalls = new Set<string>();
+  private caveGems: Gem[] = [];
+  private torch: THREE.PointLight | null = null;
+  private caveReturn = new THREE.Vector3();
   private furnitureGroup = new THREE.Group();
   private livestockGroup = new THREE.Group();
   // A basket by your house holding the apples you've foraged and stashed.
@@ -215,7 +225,8 @@ export class HouseEngine {
     this.sun.position.set(18, 30, 12);
     this.scene.add(this.sun);
 
-    this.scene.add(this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup, this.avatar);
+    this.scene.add(this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup, this.caveGroup, this.avatar);
+    this.caveGroup.visible = false;
 
     const edge = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
     this.highlight = new THREE.LineSegments(edge, new THREE.LineBasicMaterial({ color: '#20222a' }));
@@ -327,6 +338,7 @@ export class HouseEngine {
     this.waterfallGroup.clear();   // shared geo/mat, so just detach — never dispose
     this.apples = [];
     this.gems = [];
+    this.caveMouths = [];
     const trunkMat = new THREE.MeshLambertMaterial({ color: '#7b5330' });
     const leafMat = new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].leaves });
     const bushMat = new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].leavesAlt });
@@ -422,11 +434,12 @@ export class HouseEngine {
             }
           }
           if (gr > 0.94) {
-            // A cave mouth set into the slope, with a little seam of jewels.
+            // A cave mouth set into the slope — walk up to it to head underground.
             const cave = new THREE.Mesh(caveGeo, caveMat);
             cave.position.set(jx, gy + 0.2, jz);
             cave.rotation.x = Math.PI;
             this.forageGroup.add(cave);
+            this.caveMouths.push({ x: jx, z: jz });
             const rock = new THREE.Mesh(rockGeo, rockMat);
             rock.position.set(jx + 1.4, gy + 0.2, jz + 0.4);
             this.forageGroup.add(rock);
@@ -773,6 +786,112 @@ export class HouseEngine {
   getNearbySeat() { return this.nearestFurniture(['chair', 'sofa'], 1.8); }
   /** The nearest bed you're standing by (to sleep in), or null. */
   getNearbyBed() { return this.nearestFurniture(['bed'], 2.2); }
+
+  /** True if you're standing right by a cave mouth (to head underground). */
+  getNearbyCave(): boolean {
+    if (this.inCave || this.mode !== 'walk') return false;
+    return this.caveMouths.some((c) => Math.hypot(this.position.x - c.x, this.position.z - c.z) < 3.5);
+  }
+  isInCave() { return this.inCave; }
+
+  /** Walk into the cave: build a dark underground cavern of rock and jewels, drop
+   *  the player in with a torch, and hide the surface until they climb back out. */
+  enterCave() {
+    if (this.inCave || this.mode !== 'walk' || !this.getNearbyCave()) return false;
+    this.caveReturn.copy(this.position);
+    this.buildCave();
+    // Hide the whole surface world while you're down below.
+    for (const g of [this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup]) g.visible = false;
+    this.neighbours.forEach((n) => { n.group.visible = false; if (n.houseGroup) n.houseGroup.visible = false; });
+    this.caveGroup.visible = true;
+    // Deep, dark cavern light + a torch that follows you.
+    this.hemi.intensity = 0.25; this.hemi.color.set('#6a6f8a'); this.sun.intensity = 0;
+    this.scene.background = new THREE.Color('#05060a');
+    this.scene.fog = new THREE.Fog('#05060a', 4, 22);
+    if (!this.torch) { this.torch = new THREE.PointLight('#ffcf8a', 2.4, 16, 1.5); this.scene.add(this.torch); }
+    this.torch.visible = true;
+    // Drop in at the open entrance, on the floor.
+    this.position.set(CAVE_W / 2, 1.1, 3);
+    this.velocity.set(0, 0, 0);
+    this.yaw = 0; this.sitting = false;
+    this.inCave = true;
+    return true;
+  }
+
+  /** Climb back out of the cave to exactly where you went in. */
+  leaveCave() {
+    if (!this.inCave) return;
+    this.inCave = false;
+    this.caveGroup.traverse((obj) => {
+      const m = obj as THREE.Mesh;
+      m.geometry?.dispose?.();
+      const mat = m.material as THREE.Material | THREE.Material[] | undefined;
+      (Array.isArray(mat) ? mat : mat ? [mat] : []).forEach((mm) => mm.dispose());
+    });
+    this.caveGroup.clear();
+    this.caveGems = [];
+    this.caveWalls.clear();
+    this.caveGroup.visible = false;
+    if (this.torch) this.torch.visible = false;
+    for (const g of [this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup]) g.visible = true;
+    this.neighbours.forEach((n) => { n.group.visible = true; if (n.houseGroup) n.houseGroup.visible = true; });
+    this.applySky();   // day/night resumes and re-tints the sky next frame
+    this.position.copy(this.caveReturn);
+    this.velocity.set(0, 0, 0);
+  }
+
+  /** Carve a bounded cavern: rock border + scattered pillars leaving winding
+   *  tunnels, a floor and ceiling, and jewels glinting in the dark to mine. */
+  private buildCave() {
+    this.caveWalls.clear();
+    this.caveGems = [];
+    const seed = Math.round(this.caveReturn.x * 13 + this.caveReturn.z * 7) + 1;
+    const solid: Array<{ x: number; z: number }> = [];
+    for (let r = 0; r < CAVE_H; r += 1) {
+      for (let c = 0; c < CAVE_W; c += 1) {
+        const border = c === 0 || r === 0 || c === CAVE_W - 1 || r === CAVE_H - 1;
+        // Keep a clear 3-wide entrance area near the drop-in point.
+        const nearEntrance = Math.abs(c - CAVE_W / 2) < 3 && r < 6;
+        const pillar = rand(c * 1.7, r * 1.9, seed) > 0.82;
+        if ((border || pillar) && !nearEntrance) { this.caveWalls.add(`${c},${r}`); solid.push({ x: c, z: r }); }
+      }
+    }
+    // Floor + ceiling planes.
+    const rockMat = new THREE.MeshLambertMaterial({ color: '#3a352f' });
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(CAVE_W, CAVE_H), new THREE.MeshLambertMaterial({ color: '#2a2620' }));
+    floor.rotation.x = -Math.PI / 2; floor.position.set(CAVE_W / 2, 0.95, CAVE_H / 2);
+    this.caveGroup.add(floor);
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(CAVE_W, CAVE_H), new THREE.MeshLambertMaterial({ color: '#17140f' }));
+    ceil.rotation.x = Math.PI / 2; ceil.position.set(CAVE_W / 2, CAVE_CEIL, CAVE_H / 2);
+    this.caveGroup.add(ceil);
+    // Rock walls/pillars as one instanced mesh (each column CAVE_CEIL tall).
+    const geo = new THREE.BoxGeometry(1, CAVE_CEIL - 1, 1);
+    const walls = new THREE.InstancedMesh(geo, rockMat, solid.length);
+    const m = new THREE.Matrix4();
+    solid.forEach((cell, i) => { m.setPosition(cell.x + 0.5, 1 + (CAVE_CEIL - 1) / 2, cell.z + 0.5); walls.setMatrixAt(i, m); });
+    walls.instanceMatrix.needsUpdate = true;
+    this.caveGroup.add(walls);
+    // Jewels scattered on the open floor.
+    const gemGeo = new THREE.OctahedronGeometry(0.34);
+    const GEMS = ['#43b0ff', '#b264ff', '#3fd68a', '#ff5470', '#ffd24a'];
+    for (let i = 0; i < 26; i += 1) {
+      const c = 2 + Math.floor(rand(i, i * 3, seed + 5) * (CAVE_W - 4));
+      const r = 4 + Math.floor(rand(i * 2, i, seed + 9) * (CAVE_H - 6));
+      if (this.caveWalls.has(`${c},${r}`)) continue;
+      const colour = GEMS[i % GEMS.length];
+      const gem = new THREE.Mesh(gemGeo, new THREE.MeshStandardMaterial({ color: colour, emissive: colour, emissiveIntensity: 0.7, roughness: 0.2 }));
+      gem.position.set(c + 0.5, 1.35, r + 0.5);
+      this.caveGroup.add(gem);
+      this.caveGems.push({ mesh: gem, x: c + 0.5, z: r + 0.5, taken: false });
+    }
+  }
+
+  private caveSolidAt(x: number, y: number, z: number) {
+    if (y < 0.9 || y >= CAVE_CEIL) return true;               // floor + ceiling
+    const c = Math.floor(x), r = Math.floor(z);
+    if (c < 0 || r < 0 || c >= CAVE_W || r >= CAVE_H) return true;  // outer rock
+    return this.caveWalls.has(`${c},${r}`);
+  }
 
   private nearestFurniture(kinds: FurnitureKind[], range: number): { x: number; z: number } | null {
     let best: { x: number; z: number } | null = null;
@@ -1149,6 +1268,7 @@ export class HouseEngine {
 
   /** Plot blocks come from the saved house; everything else is generated land. */
   private solidAt(x: number, y: number, z: number) {
+    if (this.inCave) return this.caveSolidAt(x, y, z);
     if (inside(x, y, z)) return blocksMovement(voxelAt(this.world, x, y, z));
     if (x >= 0 && x < SX && z >= 0 && z < SZ) return false; // above the plot = sky
     return isTerrainSolid(x, y, z, this.seed);
@@ -1283,6 +1403,20 @@ export class HouseEngine {
   private loop = () => {
     if (!this.running) return;
     const dt = Math.min(this.clock.getDelta(), 0.05);
+    // ---- underground: just the player, the torch, and jewels to mine ----
+    if (this.inCave) {
+      this.walk(dt);
+      if (this.torch) this.torch.position.set(this.position.x, 2.4, this.position.z);
+      for (const gem of this.caveGems) {
+        if (gem.taken) continue;
+        gem.mesh.rotation.y += dt * 1.6;
+        if (Math.hypot(gem.x - this.position.x, gem.z - this.position.z) < 1.4) { gem.taken = true; gem.mesh.visible = false; this.options.onGem?.(); }
+      }
+      this.updateCamera();
+      this.renderer.render(this.scene, this.camera);
+      requestAnimationFrame(this.loop);
+      return;
+    }
     if (this.wanderers.length) this.moveAnimals(dt);
     this.moveNeighbours(dt);
     this.updateDayNight(dt);
