@@ -125,6 +125,8 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const [groupLatest, setGroupLatest] = useState<Record<string, string>>({});
   const [worldMode, setWorldMode] = useState<'build' | 'walk'>('build');
   const [foodBalance, setFoodBalance] = useState(savedProfile.foodBalance);
+  // Apples you've foraged and stashed in your house, to eat whenever you like.
+  const [applePantry, setApplePantry] = useState(savedProfile.applePantry ?? 0);
   const [shopCoins, setShopCoins] = useState(savedProfile.shopCoins);
   /** Every game's reward: spend it in the shop AND collect it on the leaderboard. */
   // A streak is only earned by ACTUALLY PLAYING a game — never by just opening
@@ -166,9 +168,9 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const selection = { character, setting, equippedItem };
   const collectible = characterCollectibles[character];
   useEffect(() => {
-    saveLocalProfile({ character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, completedQuests, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals, streak, daysPlayed, lastPlayed });
+    saveLocalProfile({ character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, completedQuests, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals, streak, daysPlayed, lastPlayed, applePantry });
     supabase.auth.getUser().then(({ data }) => { if (data.user) updateProfileSelection(data.user.id, selection).catch(() => undefined); });
-  }, [character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, completedQuests, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals, streak, daysPlayed, lastPlayed]);
+  }, [character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, completedQuests, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals, streak, daysPlayed, lastPlayed, applePantry]);
   // The house lives on the account: pull it in on login so it is never lost by
   // logging out or switching device, and fall back to this device when offline.
   useEffect(() => {
@@ -387,7 +389,10 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   if (medicineIsland) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the herb forest…</p></main>}><MedicineMissionPage islandName={medicineIsland} onWin={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
   if (hungerOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading the forest…</p></main>}><HungerQuestPage character={character} onWin={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
   if (worldOpen) return <Suspense fallback={<main className="house-world-page"><p className="world-loading">Loading your 3D house…</p></main>}><HouseWorldPage character={character} initialMode={worldMode} season={houseSeason || currentSeason()} seed={houseSeed} onChangeSeason={setHouseSeason} houseName={houseName} houseWorld={houseWorld} furniture={houseFurniture} ownedItems={ownedItems} animals={animals} garden={garden}
-    coins={shopCoins} onSpendCoins={(amount) => setShopCoins((c) => Math.max(0, c - amount))} onFood={() => setFoodBalance((f) => f + 1)}
+    coins={shopCoins} onSpendCoins={(amount) => setShopCoins((c) => Math.max(0, c - amount))}
+    onFood={() => setApplePantry((n) => n + 1)}
+    applePantry={applePantry}
+    onEatApple={() => { setApplePantry((n) => Math.max(0, n - 1)); setFoodBalance((f) => f + 1); }}
     onChangeWorld={(update) => { setHouseWorld((previous) => update(previous || emptyWorld())); setOwnsHouse(true); if (!houseSource) setHouseSource('built'); }}
     onChangeFurniture={setHouseFurniture}
     onRename={setHouseName}

@@ -35,9 +35,11 @@ export interface LocalProfile {
   houseName: string;
   garden: Array<Plot | null>;
   animals: Animal[];
+  /** Apples foraged and stored in your house, to eat later. */
+  applePantry: number;
 }
 
-const fallback: LocalProfile = { character: 'cottontail', setting: 'haunted', foodBalance: 24, shopCoins: 24, ownedItems: [], equippedItem: '', ownsHouse: false, placedFurniture: [], accessory: '', completedQuests: 0, isMember: false, realName: '', birthday: '', country: '', houseWorld: '', houseFurniture: [], houseSeason: '', houseSeed: 0, characterChosen: false, supplies: {}, riddleLevel: 1, streak: 0, daysPlayed: 0, lastPlayed: '', houseSource: '', houseName: '', garden: [], animals: [] };
+const fallback: LocalProfile = { character: 'cottontail', setting: 'haunted', foodBalance: 24, shopCoins: 24, ownedItems: [], equippedItem: '', ownsHouse: false, placedFurniture: [], accessory: '', completedQuests: 0, isMember: false, realName: '', birthday: '', country: '', houseWorld: '', houseFurniture: [], houseSeason: '', houseSeed: 0, characterChosen: false, supplies: {}, riddleLevel: 1, streak: 0, daysPlayed: 0, lastPlayed: '', houseSource: '', houseName: '', garden: [], animals: [], applePantry: 0 };
 
 export function loadLocalProfile(): LocalProfile {
   try {

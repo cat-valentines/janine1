@@ -892,6 +892,9 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .season-switch button small { font-size: .58rem; font-weight: 800; }
 .season-switch button.selected { background: #64a263; color: white; box-shadow: 3px 3px 0 #33512f; }
 .world-view-toggle { position: absolute; top: 12px; right: 12px; padding: 9px 12px; border: 3px solid #533928; background: #fff3cd; font-size: .78rem; font-weight: 850; cursor: pointer; }
+.eat-apple-btn { position: absolute; top: 52px; right: 12px; padding: 9px 13px; border: 3px solid #6b3b2a; border-radius: 12px; background: #e0453a; color: #fff; font-size: .82rem; font-weight: 850; cursor: pointer; box-shadow: 0 3px 0 #8a2b23; }
+.eat-apple-btn b { font-weight: 900; }
+.eat-apple-btn:disabled { background: #b98b86; border-color: #7a5c58; box-shadow: none; cursor: default; }
 .world-palette { max-width: 1200px; margin: 0 auto 26px; padding: 14px; background: #fff6ddeb; border: 5px solid #745037; box-shadow: 8px 9px 0 #493327; }
 .furniture-palette { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 2px dashed #c2a986; }
 .furniture-palette strong { font-family: "Courier New", monospace; font-size: .85rem; }

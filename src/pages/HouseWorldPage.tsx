@@ -28,6 +28,9 @@ interface HouseWorldPageProps {
   coins: number;
   onSpendCoins: (amount: number) => void;
   onFood: () => void;
+  /** Apples stashed in your house, and eating one (gives you food). */
+  applePantry: number;
+  onEatApple: () => void;
   onChangeWorld: (update: (previous: string) => string) => void;
   onChangeFurniture: (furniture: Furniture[]) => void;
   onRename: (name: string) => void;
@@ -45,7 +48,7 @@ const FURNITURE_COLORS = ['#ffffff', '#e0685f', '#e8a04f', '#f2d05e', '#6fbf6a',
 const FURNITURE_COST = 20;
 
 export function HouseWorldPage(props: HouseWorldPageProps) {
-  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, onSpendCoins, onFood, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
+  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, applePantry, onSpendCoins, onFood, onEatApple, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
   const onFoodRef = useRef(onFood);
   onFoodRef.current = onFood;
   const mount = useRef<HTMLDivElement>(null);
@@ -107,7 +110,7 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       garden,
       onChangeWorld: (update) => changeWorld.current(update),
       onPlaceFurniture: (cell) => placeFurniture.current(cell),
-      onFood: () => onFoodRef.current(),
+      onFood: () => { onFoodRef.current(); setToast('🍎 Apple picked — it\'s in your house basket! Eat it whenever you like.'); },
     });
     engine.current = created;
     const resize = () => created.resize();
@@ -171,6 +174,8 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
     else engine.current?.setPicked(picked);
   }, [picked, pickedItem, furnKind]);
   useEffect(() => { engine.current?.setErasing(erasing); }, [erasing]);
+  // Show your stashed apples as a basket by the house (hidden while visiting).
+  useEffect(() => { engine.current?.setPantry(visiting ? 0 : applePantry); }, [applePantry, visiting]);
   // Toasts fade on their own after a few seconds.
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(''), 3500); return () => clearTimeout(id); }, [toast]);
 
@@ -231,6 +236,11 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
         🏡 You're at <strong>@{nearby.name}</strong>'s house — 🔔 Ask to visit
       </button>}
 
+      {mode === 'walk' && !visiting && <button
+        className="eat-apple-btn"
+        disabled={applePantry <= 0}
+        onClick={() => { if (applePantry > 0) { onEatApple(); setToast('😋 Yum! You ate an apple. (+1 food)'); } }}
+      >🍎 Eat an apple <b>({applePantry})</b></button>}
       {mode === 'walk' && <>
         <button className="world-view-toggle" onClick={() => setView(view === 'third' ? 'first' : 'third')}>
           {view === 'third' ? '👁️ First person' : '🧍 See my character'}

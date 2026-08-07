@@ -121,6 +121,8 @@ export class HouseEngine {
   private forageTime = 0;
   private furnitureGroup = new THREE.Group();
   private livestockGroup = new THREE.Group();
+  // A basket by your house holding the apples you've foraged and stashed.
+  private pantryGroup = new THREE.Group();
   private wanderers: Wanderer[] = [];
   private avatar = new THREE.Group();
   // Limb pivots so the arms and legs swing from the shoulder/hip when walking.
@@ -184,7 +186,7 @@ export class HouseEngine {
     sun.position.set(18, 30, 12);
     this.scene.add(sun);
 
-    this.scene.add(this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.furnitureGroup, this.livestockGroup, this.avatar);
+    this.scene.add(this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup, this.avatar);
 
     const edge = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
     this.highlight = new THREE.LineSegments(edge, new THREE.LineBasicMaterial({ color: '#20222a' }));
@@ -534,6 +536,32 @@ export class HouseEngine {
   /** Where I am, to shout to the other players walking the land. */
   getSelfState() {
     return { x: this.position.x, z: this.position.z, yaw: this.yaw, level: 0 };
+  }
+
+  /** Show the apples stashed in your house as a little basket by your door. */
+  setPantry(count: number) {
+    this.pantryGroup.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      mesh.geometry?.dispose?.();
+      const mat = mesh.material as THREE.Material | THREE.Material[] | undefined;
+      (Array.isArray(mat) ? mat : mat ? [mat] : []).forEach((m) => m.dispose());
+    });
+    this.pantryGroup.clear();
+    if (count <= 0) return;
+    const bx = SX / 2 + 4, bz = SZ / 2;
+    const by = this.groundY(bx, bz);
+    const basket = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.56, 0.5, 12), new THREE.MeshLambertMaterial({ color: '#8a5a2f' }));
+    basket.position.set(bx, by + 0.25, bz);
+    this.pantryGroup.add(basket);
+    const appleGeo = new THREE.SphereGeometry(0.16, 8, 6);
+    const appleMat = new THREE.MeshLambertMaterial({ color: '#e0453a', emissive: '#4a1410' });
+    const shown = Math.min(count, 16);
+    for (let i = 0; i < shown; i += 1) {
+      const apple = new THREE.Mesh(appleGeo, appleMat);
+      const ang = i * 2.399, r = 0.1 + (i % 3) * 0.16;
+      apple.position.set(bx + Math.cos(ang) * r, by + 0.5 + Math.floor(i / 6) * 0.2, bz + Math.sin(ang) * r);
+      this.pantryGroup.add(apple);
+    }
   }
 
   /** The closest neighbour whose house you're standing near — for the "ask to
