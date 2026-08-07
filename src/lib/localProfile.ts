@@ -39,9 +39,11 @@ export interface LocalProfile {
   applePantry: number;
   /** Jewels mined from the caves, kept in your box until you sell them. */
   jewels: number;
+  /** Wood chopped from trees, spent building wooden blocks. */
+  wood: number;
 }
 
-const fallback: LocalProfile = { character: 'cottontail', setting: 'haunted', foodBalance: 24, shopCoins: 24, ownedItems: [], equippedItem: '', ownsHouse: false, placedFurniture: [], accessory: '', completedQuests: 0, isMember: false, realName: '', birthday: '', country: '', houseWorld: '', houseFurniture: [], houseSeason: '', houseSeed: 0, characterChosen: false, supplies: {}, riddleLevel: 1, streak: 0, daysPlayed: 0, lastPlayed: '', houseSource: '', houseName: '', garden: [], animals: [], applePantry: 0, jewels: 0 };
+const fallback: LocalProfile = { character: 'cottontail', setting: 'haunted', foodBalance: 24, shopCoins: 24, ownedItems: [], equippedItem: '', ownsHouse: false, placedFurniture: [], accessory: '', completedQuests: 0, isMember: false, realName: '', birthday: '', country: '', houseWorld: '', houseFurniture: [], houseSeason: '', houseSeed: 0, characterChosen: false, supplies: {}, riddleLevel: 1, streak: 0, daysPlayed: 0, lastPlayed: '', houseSource: '', houseName: '', garden: [], animals: [], applePantry: 0, jewels: 0, wood: 0 };
 
 export function loadLocalProfile(): LocalProfile {
   try {

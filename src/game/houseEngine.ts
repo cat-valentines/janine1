@@ -80,6 +80,10 @@ interface EngineOptions {
   /** Called when you hunt a wild animal, or catch a fish — both give you food. */
   onHunt?: () => void;
   onFish?: () => void;
+  /** Chopping a tree gives wood; placing a wood block spends it; out of wood warns. */
+  onWood?: () => void;
+  onUseWood?: () => void;
+  onNeedWood?: () => void;
 }
 
 interface Wanderer { sprite: THREE.Sprite; x: number; z: number; dir: number; speed: number; phase: number }
@@ -148,6 +152,8 @@ export class HouseEngine {
   private wild: Wanderer[] = [];   // deer/rabbits/boar you can hunt for food
   private fishList: Array<{ sprite: THREE.Sprite; x: number; z: number }> = [];
   private caveMouths: Array<{ x: number; z: number }> = [];
+  private choppable: Array<{ group: THREE.Object3D; x: number; z: number; chopped: boolean }> = [];
+  private wood = 0;   // a mirror of your wood store, so we can gate wood blocks
   private forageTime = 0;
   // Underground: swapped in when you walk into a cave mouth.
   private inCave = false;
@@ -339,6 +345,7 @@ export class HouseEngine {
     this.apples = [];
     this.gems = [];
     this.caveMouths = [];
+    this.choppable = [];
     const trunkMat = new THREE.MeshLambertMaterial({ color: '#7b5330' });
     const leafMat = new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].leaves });
     const bushMat = new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].leavesAlt });
@@ -376,6 +383,7 @@ export class HouseEngine {
           tree.position.set(jx, gy, jz);
           tree.scale.setScalar(0.85 + rand(x + 1, z, this.seed + 2) * 0.5);
           this.forageGroup.add(tree);
+          this.choppable.push({ group: tree, x: jx, z: jz, chopped: false });   // walk into the trunk to chop it for wood
           const n = 1 + Math.floor(rand(x, z + 1, this.seed + 4) * 2);
           for (let j = 0; j < n; j += 1) {
             const ax = jx + (rand(x + j, z, this.seed + j) - 0.5) * 2.6;
@@ -506,6 +514,22 @@ export class HouseEngine {
     tex.repeat.set(1, 3);
     this.waterfallMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.78, side: THREE.DoubleSide, depthWrite: false });
     return this.waterfallMat;
+  }
+
+  /** Your current wood store, mirrored from the page so we can gate wood blocks. */
+  setWood(n: number) { this.wood = n; }
+
+  /** Walk into a tree trunk to chop it for wood. It grows back as you move on. */
+  private checkChop(dt: number) {
+    void dt;
+    for (const tree of this.choppable) {
+      if (tree.chopped) continue;
+      if (Math.hypot(tree.x - this.position.x, tree.z - this.position.z) < 1.5) {
+        tree.chopped = true;
+        tree.group.visible = false;
+        this.options.onWood?.();
+      }
+    }
   }
 
   /** Scatter wild animals to hunt and fish in the water, across the land around
@@ -1267,6 +1291,12 @@ export class HouseEngine {
       : { x: hit.x + hit.nx, y: hit.y + hit.ny, z: hit.z + hit.nz };
     // Never dig away the last ground layer, or the player falls out of the world.
     if (remove && target.y === 0) return;
+    // Building with wood spends the wood you chopped from trees.
+    if (!remove && this.picked === 'W') {
+      if (this.wood <= 0) { this.options.onNeedWood?.(); return; }
+      this.wood -= 1;
+      this.options.onUseWood?.();
+    }
     this.options.onChangeWorld((previous) => withVoxel(previous, target.x, target.y, target.z, remove ? EMPTY : this.picked));
   }
 
@@ -1433,7 +1463,7 @@ export class HouseEngine {
       this.seasonTimer = 0;
       this.setSeason(seasonOrder[(seasonOrder.indexOf(this.season) + 1) % seasonOrder.length]);
     }
-    if (this.mode === 'walk') { this.walk(dt); this.checkForage(dt); this.checkGems(dt); this.moveWild(dt); }
+    if (this.mode === 'walk') { this.walk(dt); this.checkForage(dt); this.checkGems(dt); this.moveWild(dt); this.checkChop(dt); }
     // Keep the endless ground under you, and stream fresh hills as you roam.
     if (this.ground) this.ground.position.set(this.position.x, 0.99, this.position.z);
     if (Math.abs(this.position.x - this.terrainCenter.x) > LAND_STEP || Math.abs(this.position.z - this.terrainCenter.z) > LAND_STEP) this.streamLand();

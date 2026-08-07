@@ -910,6 +910,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .box-row button { flex: none; padding: 7px 11px; border: 0; border-radius: 999px; background: #64a263; color: #fff; font-weight: 850; font-size: .76rem; cursor: pointer; }
 .box-row button:disabled { background: #c3b9a4; cursor: default; }
 .box-panel small { display: block; margin-top: 8px; color: #8a6f4a; font-size: .72rem; line-height: 1.35; }
+.wood-note { margin: 0 0 8px; padding: 7px 10px; border-radius: 8px; background: #efe0c8; color: #5a3f22; font-size: .8rem; }
 .world-palette { max-width: 1200px; margin: 0 auto 26px; padding: 14px; background: #fff6ddeb; border: 5px solid #745037; box-shadow: 8px 9px 0 #493327; }
 .furniture-palette { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 2px dashed #c2a986; }
 .furniture-palette strong { font-family: "Courier New", monospace; font-size: .85rem; }

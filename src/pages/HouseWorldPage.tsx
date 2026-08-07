@@ -36,6 +36,10 @@ interface HouseWorldPageProps {
   jewels: number;
   onGem: () => void;
   onSellJewels: () => void;
+  /** Wood chopped from trees, gaining it, and spending it on a wood block. */
+  wood: number;
+  onWood: () => void;
+  onUseWood: () => void;
   onChangeWorld: (update: (previous: string) => string) => void;
   onChangeFurniture: (furniture: Furniture[]) => void;
   onRename: (name: string) => void;
@@ -53,11 +57,15 @@ const FURNITURE_COLORS = ['#ffffff', '#e0685f', '#e8a04f', '#f2d05e', '#6fbf6a',
 const FURNITURE_COST = 20;
 
 export function HouseWorldPage(props: HouseWorldPageProps) {
-  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, applePantry, jewels, onSpendCoins, onFood, onEatApple, onGem, onSellJewels, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
+  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, applePantry, jewels, wood, onSpendCoins, onFood, onEatApple, onGem, onSellJewels, onWood, onUseWood, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
   const onFoodRef = useRef(onFood);
   onFoodRef.current = onFood;
   const onGemRef = useRef(onGem);
   onGemRef.current = onGem;
+  const onWoodRef = useRef(onWood);
+  onWoodRef.current = onWood;
+  const onUseWoodRef = useRef(onUseWood);
+  onUseWoodRef.current = onUseWood;
   const mount = useRef<HTMLDivElement>(null);
   const engine = useRef<HouseEngine | null>(null);
   const [mode, setMode] = useState<Mode>(initialMode ?? 'build');
@@ -121,6 +129,9 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       onGem: () => { onGemRef.current(); setToast('💎 You mined a jewel! It\'s stashed in your box.'); },
       onHunt: () => { onFoodRef.current(); setToast('🍖 You hunted a wild animal — food for your box!'); },
       onFish: () => { onFoodRef.current(); setToast('🎣 You caught a fish — food for your box!'); },
+      onWood: () => { onWoodRef.current(); setToast('🪵 You chopped a tree — +4 wood to build with!'); },
+      onUseWood: () => onUseWoodRef.current(),
+      onNeedWood: () => setToast('🪵 Out of wood! Go inside and chop a tree first.'),
     });
     engine.current = created;
     const resize = () => created.resize();
@@ -214,6 +225,8 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   useEffect(() => { engine.current?.setErasing(erasing); }, [erasing]);
   // Show your storage chest by the house — hidden (-1) while visiting someone else.
   useEffect(() => { engine.current?.setPantry(visiting ? -1 : applePantry, visiting ? 0 : jewels); }, [applePantry, jewels, visiting]);
+  // Keep the engine's wood mirror in step, so it can gate wooden blocks.
+  useEffect(() => { engine.current?.setWood(wood); }, [wood]);
   // Toasts fade on their own after a few seconds.
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(''), 3500); return () => clearTimeout(id); }, [toast]);
 
@@ -301,7 +314,7 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
         <button className="world-view-toggle" onClick={() => setView(view === 'third' ? 'first' : 'third')}>
           {view === 'third' ? '👁️ First person' : '🧍 See my character'}
         </button>
-        <p className="world-help">Use the <b>arrow keys</b> — <b>↑↓</b> walk, <b>←→</b> turn (no mouse needed!) · <b>Space</b> jump · walk into the 🍎 <b>apples</b> on the trees to collect food.</p>
+        <p className="world-help">Use the <b>arrow keys</b> — <b>↑↓</b> walk, <b>←→</b> turn · <b>Space</b> jump · walk into 🍎 <b>apples</b> for food, a 🌳 <b>tree trunk</b> to chop <b>wood</b> 🪵, or 💎 <b>crystals</b> to mine jewels.</p>
       </>}
       {mode === 'build' && <p className="world-help">{erasing
         ? <>🧽 <b>Eraser on</b> — click any block to rub it out. Pick a block to build again.</>
@@ -317,12 +330,13 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
     </div>
 
     {mode === 'build' && <section className="world-palette">
+      <p className="wood-note">🪵 <b>Wood: {wood}</b> — go inside and walk into a 🌳 tree to chop more. Placing a <b>Wood</b> block uses 1 wood.</p>
       <div className="block-palette">
         {blocks.map((block) => <button
           className={!pickedItem && !erasing && !furnKind && picked === block.id ? 'selected' : ''}
           key={block.id}
           onClick={() => { setPicked(block.id); setPickedItem(''); setFurnKind(''); setErasing(false); }}
-        ><i style={{ background: block.colour }} />{block.name}</button>)}
+        ><i style={{ background: block.colour }} />{block.name}{block.id === 'W' ? ` (${wood})` : ''}</button>)}
         <button className={`eraser ${erasing ? 'selected' : ''}`} onClick={() => { setErasing(!erasing); setFurnKind(''); }}>🧽 Eraser</button>
       </div>
 
