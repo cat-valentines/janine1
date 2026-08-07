@@ -35,7 +35,7 @@ export function buildFurnitureMesh(kind: FurnitureKind, color: string): THREE.Gr
   }
   return g;
 }
-import { buildTerrainRegion, isTerrainSolid, seasonStyles, terrainHeight, type Season } from './terrain';
+import { buildTerrainRegion, isTerrainSolid, rand, seasonStyles, terrainHeight, type Season } from './terrain';
 
 export type Mode = 'build' | 'walk';
 export type View = 'first' | 'third';
@@ -260,8 +260,7 @@ export class HouseEngine {
       (this.ground.material as THREE.MeshLambertMaterial).color.set(seasonStyles[this.season].grass);
     }
     this.terrainCenter = { x: Infinity, z: Infinity };  // force a fresh stream for the new season
-    this.streamLand();
-    this.buildForage();
+    this.streamLand();   // (also re-scatters the forage around you)
   }
 
   /** Re-mesh the hills + trees in a patch centred on the player, so as you walk
@@ -291,49 +290,68 @@ export class HouseEngine {
       mesh.instanceMatrix.needsUpdate = true;
       this.landGroup.add(mesh);
     });
+    this.scatterForage(cx, cz);   // food follows you across the endless land
   }
 
-  /** Scatter apple trees and bushes across the land, with apples you can forage. */
-  private buildForage() {
+  /** Scatter fruit trees + berry bushes across the patch of land around you, so
+   *  the endless world is full of food wherever you roam. Deterministic by cell,
+   *  so the same orchards always grow in the same spots. Re-run as the land
+   *  streams (see streamLand), following you across the world. */
+  private scatterForage(cx: number, cz: number) {
+    this.forageGroup.traverse((obj) => { (obj as THREE.Mesh).geometry?.dispose?.(); });
     this.forageGroup.clear();
     this.apples = [];
-    let s = ((this.seed || 1) * 2654435761) >>> 0;
-    const rng = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
     const trunkMat = new THREE.MeshLambertMaterial({ color: '#7b5330' });
     const leafMat = new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].leaves });
     const bushMat = new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].leavesAlt });
+    const berryMat = new THREE.MeshLambertMaterial({ color: '#7d3cc4', emissive: '#2a1040' });
     const appleMat = new THREE.MeshLambertMaterial({ color: '#e0453a', emissive: '#4a1410' });
     const trunkGeo = new THREE.CylinderGeometry(0.28, 0.4, 3, 6);
     const canopyGeo = new THREE.SphereGeometry(1.7, 8, 6);
     const bushGeo = new THREE.SphereGeometry(0.85, 7, 5);
-    const appleGeo = new THREE.SphereGeometry(0.22, 8, 6);
-    // A ring around your plot so the endless land is dotted with orchards.
-    const spot = () => { const a = rng() * Math.PI * 2, r = SX * 0.65 + rng() * 34; return { x: SX / 2 + Math.cos(a) * r, z: SZ / 2 + Math.sin(a) * r }; };
-    for (let i = 0; i < 16; i += 1) {
-      const { x, z } = spot();
-      const y = this.groundY(x, z);
-      const tree = new THREE.Group();
-      const trunk = new THREE.Mesh(trunkGeo, trunkMat); trunk.position.y = 1.5; tree.add(trunk);
-      const canopy = new THREE.Mesh(canopyGeo, leafMat); canopy.position.y = 3.4; tree.add(canopy);
-      tree.position.set(x, y, z);
-      tree.scale.setScalar(0.8 + rng() * 0.5);
-      this.forageGroup.add(tree);
-      const n = 2 + Math.floor(rng() * 3);
-      for (let j = 0; j < n; j += 1) {
-        const ax = x + (rng() - 0.5) * 2.6, az = z + (rng() - 0.5) * 2.6;
-        const ay = this.groundY(ax, az) + 0.35;
-        const apple = new THREE.Mesh(appleGeo, appleMat);
-        apple.position.set(ax, ay, az);
-        this.forageGroup.add(apple);
-        this.apples.push({ mesh: apple, x: ax, z: az, y: ay, regrowAt: 0 });
+    const fruitGeo = new THREE.SphereGeometry(0.22, 8, 6);
+    const R = LAND_PATCH;
+    // Sample a coarse grid; each spot deterministically may grow a tree or bush.
+    for (let z = cz - R; z < cz + R; z += 7) {
+      for (let x = cx - R; x < cx + R; x += 7) {
+        if (x > -3 && x < SX + 3 && z > -3 && z < SZ + 3) continue;   // leave the build plot clear
+        const h = terrainHeight(Math.round(x), Math.round(z), this.seed);
+        if (h < 1 || h > 12) continue;                                 // not in water, not on high peaks
+        const r = rand(x * 1.3, z * 1.3, this.seed + 31);
+        const jx = x + (rand(x, z, this.seed + 5) - 0.5) * 3.5;
+        const jz = z + (rand(z, x, this.seed + 7) - 0.5) * 3.5;
+        const gy = this.groundY(jx, jz);
+        if (r > 0.9) {
+          // A fruit tree, hung with apples you can walk into to forage.
+          const tree = new THREE.Group();
+          const trunk = new THREE.Mesh(trunkGeo, trunkMat); trunk.position.y = 1.5; tree.add(trunk);
+          const canopy = new THREE.Mesh(canopyGeo, leafMat); canopy.position.y = 3.4; tree.add(canopy);
+          tree.position.set(jx, gy, jz);
+          tree.scale.setScalar(0.85 + rand(x + 1, z, this.seed + 2) * 0.5);
+          this.forageGroup.add(tree);
+          const n = 1 + Math.floor(rand(x, z + 1, this.seed + 4) * 2);
+          for (let j = 0; j < n; j += 1) {
+            const ax = jx + (rand(x + j, z, this.seed + j) - 0.5) * 2.6;
+            const az = jz + (rand(x, z + j, this.seed + j) - 0.5) * 2.6;
+            const ay = this.groundY(ax, az) + 0.35;
+            const apple = new THREE.Mesh(fruitGeo, appleMat);
+            apple.position.set(ax, ay, az);
+            this.forageGroup.add(apple);
+            this.apples.push({ mesh: apple, x: ax, z: az, y: ay, regrowAt: 0 });
+          }
+        } else if (r > 0.74) {
+          // A berry bush — also foragable.
+          const bush = new THREE.Mesh(bushGeo, bushMat);
+          bush.position.set(jx, gy + 0.5, jz);
+          bush.scale.set(1 + rand(x, z, this.seed + 8) * 0.6, 0.8, 1 + rand(z, x, this.seed + 9) * 0.6);
+          this.forageGroup.add(bush);
+          const berry = new THREE.Mesh(fruitGeo, berryMat);
+          const by = gy + 0.7;
+          berry.position.set(jx, by, jz);
+          this.forageGroup.add(berry);
+          this.apples.push({ mesh: berry, x: jx, z: jz, y: by, regrowAt: 0 });
+        }
       }
-    }
-    for (let i = 0; i < 22; i += 1) {
-      const { x, z } = spot();
-      const bush = new THREE.Mesh(bushGeo, bushMat);
-      bush.position.set(x, this.groundY(x, z) + 0.5, z);
-      bush.scale.set(1 + rng() * 0.6, 0.8 + rng() * 0.4, 1 + rng() * 0.6);
-      this.forageGroup.add(bush);
     }
   }
 

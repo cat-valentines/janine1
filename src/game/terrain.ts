@@ -95,8 +95,14 @@ export function terrainHeight(x: number, z: number, seed: number) {
   const distance = plotDistance(x, z);
   if (distance === 0) return 1;
   const rolling = valueNoise(x / 19, z / 19, seed) * 7 + valueNoise(x / 6.5, z / 6.5, seed + 3) * 1.8;
+  // Big, slow biome mask: whole regions far from home swell into mountains, so
+  // there are peaks in the distance you can hike to and build a house on.
+  const mask = Math.max(0, valueNoise(x / 150, z / 150, seed + 9) - 0.5) * 2;   // 0..1, mountain regions
+  const peaks = valueNoise(x / 40, z / 40, seed + 21);                          // rugged detail
+  const far = Math.min(1, distance / 55);                                       // ramp up with distance
+  const mountains = mask * mask * peaks * 30 * far;                             // up to ~30 blocks tall
   const blend = fade(Math.min(1, distance / 11));
-  return Math.max(0, Math.round(1 + (rolling - 1.2) * blend));
+  return Math.max(0, Math.round(1 + (rolling - 1.4 + mountains) * blend));
 }
 
 export const isTerrainSolid = (x: number, y: number, z: number, seed: number) => y >= 0 && y < terrainHeight(x, z, seed);
@@ -144,8 +150,9 @@ export function buildTerrainRegion(season: Season, seed: number, minX: number, m
       const lowest = Math.min(...neighbours);
       const beach = lowest === 0 && height <= 2;
       blocks.push({ x, y: top, z, colour: beach ? style.sand : height >= 6 ? style.stone : style.grass });
-      // Fill only as far down as a neighbouring column exposes.
-      for (let y = top - 1; y >= Math.max(0, lowest - 1); y -= 1) {
+      // Fill only as far down as a neighbouring column exposes — but cap the
+      // depth so tall mountain cliffs don't emit thousands of buried cubes.
+      for (let y = top - 1; y >= Math.max(0, lowest - 1, top - 4); y -= 1) {
         blocks.push({ x, y, z, colour: y === top - 1 ? style.grassDeep : style.dirt });
       }
 
