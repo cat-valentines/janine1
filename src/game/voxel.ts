@@ -19,8 +19,11 @@ export function voxelAt(world: string, x: number, y: number, z: number) {
 
 export function withVoxel(world: string, x: number, y: number, z: number, id: string) {
   if (!inside(x, y, z)) return world;
+  // Always edit a full-size world, so building high (e.g. onto an old, shorter
+  // save) can never produce a malformed length that would wipe the house.
+  const base = world.length === VOXELS ? world : normaliseWorld(world);
   const at = voxelIndex(x, y, z);
-  return world.slice(0, at) + id + world.slice(at + 1);
+  return base.slice(0, at) + id + base.slice(at + 1);
 }
 
 /** A bare plot: one layer of grass, open sky above. */

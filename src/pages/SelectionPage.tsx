@@ -28,7 +28,7 @@ import { markPlayedToday } from '../lib/streak';
 import { HouseBuilderPage } from './HouseBuilderPage';
 // three.js is ~500KB — load it only when a player actually opens their house.
 const HouseWorldPage = lazy(() => import('./HouseWorldPage').then((m) => ({ default: m.HouseWorldPage })));
-import { emptyWorld } from '../game/voxel';
+import { emptyWorld, normaliseWorld } from '../game/voxel';
 import { currentSeason } from '../game/terrain';
 import { islands } from '../game/islands';
 import { getStars } from '../lib/escapeStars';
@@ -158,7 +158,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const [realName, setRealName] = useState(savedProfile.realName);
   const [birthday, setBirthday] = useState(savedProfile.birthday);
   const [country, setCountry] = useState(savedProfile.country);
-  const [houseWorld, setHouseWorld] = useState(savedProfile.houseWorld);
+  const [houseWorld, setHouseWorld] = useState(() => savedProfile.houseWorld ? normaliseWorld(savedProfile.houseWorld) : savedProfile.houseWorld);
   const [houseFurniture, setHouseFurniture] = useState(savedProfile.houseFurniture);
   const [houseSeason, setHouseSeason] = useState(savedProfile.houseSeason);
   const [houseSeed] = useState(savedProfile.houseSeed);
@@ -182,7 +182,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       if (!id) return;
       loadMyHouse(id).then((saved) => {
         if (!saved) return;
-        if (saved.house_world) setHouseWorld(saved.house_world);
+        if (saved.house_world) setHouseWorld(normaliseWorld(saved.house_world));
         if (Array.isArray(saved.house_furniture) && saved.house_furniture.length) setHouseFurniture(saved.house_furniture);
         if (saved.house_name) setHouseName(saved.house_name);
         if (saved.house_season) setHouseSeason(saved.house_season);
