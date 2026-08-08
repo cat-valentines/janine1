@@ -57,6 +57,8 @@ const DAY_LENGTH = 220;
 const SEASON_LENGTH = 200;
 /** The underground cave you can walk into: a bounded cavern of rock + jewels. */
 const CAVE_W = 34, CAVE_H = 34, CAVE_CEIL = 6;
+/** The single shared landscape seed — the same public land for every player. */
+const SHARED_LAND_SEED = 71077345;
 const NIGHT_SKY = new THREE.Color('#0a1230');
 const DUSK_SKY = new THREE.Color('#e6884a');
 
@@ -218,7 +220,10 @@ export class HouseEngine {
     this.world = options.world;
     this.furniture = options.furniture;
     this.season = options.season;
-    this.seed = options.seed;
+    // ONE shared world for everybody — the same hills, water, mountains, forage,
+    // caves and jewels for every player, so it's a truly public land you can all
+    // explore together (your own house is still your own private build).
+    this.seed = SHARED_LAND_SEED;
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
