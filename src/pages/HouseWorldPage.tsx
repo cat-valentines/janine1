@@ -205,6 +205,7 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
 
   // Poll what you're standing near: a neighbour's door, a chair, a bed.
   const [nearby, setNearby] = useState<{ id: string; name: string } | null>(null);
+  const [awayHouse, setAwayHouse] = useState<string | null>(null);
   const [nearSeat, setNearSeat] = useState(false);
   const [nearBed, setNearBed] = useState(false);
   const [nearCave, setNearCave] = useState(false);
@@ -219,8 +220,10 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       if (e) setLiveSeason(e.getSeason());   // the world drifts through seasons on its own
       const underground = !!e?.isInCave();
       setInCave(underground);
-      if (!e || mode !== 'walk' || underground) { setNearby(null); setNearSeat(false); setNearBed(false); setNearCave(false); setNearChest(false); if (!underground) setSitting(false); return; }
-      setNearby(visiting ? null : (e.getNearbyVisit() ?? null));
+      if (!e || mode !== 'walk' || underground) { setNearby(null); setAwayHouse(null); setNearSeat(false); setNearBed(false); setNearCave(false); setNearChest(false); if (!underground) setSitting(false); return; }
+      const live = visiting ? null : (e.getNearbyVisit() ?? null);
+      setNearby(live);
+      setAwayHouse(!live && !visiting ? e.getNearbyOfflineHouse() : null);   // owner not online → "come later"
       setSitting(e.isSitting());
       setNearSeat(!!e.getNearbySeat());
       setNearBed(!!e.getNearbyBed());
@@ -242,6 +245,12 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
     else engine.current?.setPicked(picked);
   }, [picked, pickedItem, furnKind]);
   useEffect(() => { engine.current?.setErasing(erasing); }, [erasing]);
+  // Resize the 3D view when you go in/out of full screen.
+  useEffect(() => {
+    const onFs = () => setTimeout(() => engine.current?.resize(), 80);
+    document.addEventListener('fullscreenchange', onFs);
+    return () => document.removeEventListener('fullscreenchange', onFs);
+  }, []);
   // Show your storage chest by the house — hidden (-1) while visiting someone else.
   useEffect(() => { engine.current?.setPantry(visiting ? -1 : applePantry, visiting ? 0 : jewels); }, [applePantry, jewels, visiting]);
   // Keep the engine's wood mirror in step, so it can gate wooden blocks.
@@ -263,6 +272,12 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
     setKnock(null);
   };
   const leaveVisit = () => { setVisiting(null); setToast('🏡 Back to your own house.'); };
+  const goFullscreen = () => {
+    const node = mount.current?.parentElement;   // the world stage
+    if (!node) return;
+    if (document.fullscreenElement) document.exitFullscreen();
+    else node.requestFullscreen?.();
+  };
 
   return <main className="house-world-page">
     <div className="house-page-top">
@@ -280,6 +295,7 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
     <div className="world-stage">
       <div className="world-canvas" ref={mount} />
 
+      <button className="world-full" onClick={goFullscreen}>⛶ Full screen</button>
       {toast && <div className="house-toast">{toast}</div>}
 
       {/* Someone knocked to come into YOUR house — you decide. */}
@@ -305,6 +321,11 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       {!visiting && nearby && <button className="visit-prompt" onClick={() => askToVisit(nearby)}>
         🏡 You're at <strong>@{nearby.name}</strong>'s house — 🔔 Ask to visit
       </button>}
+
+      {/* Their owner isn't playing right now — a friendly "come back later". */}
+      {!visiting && !nearby && awayHouse && <div className="visit-prompt away">
+        🏠 <strong>{awayHouse}</strong> — nobody's home right now. Come back later to be let in!
+      </div>}
 
       {/* Walk up to your chest to open your box and manage your food + jewels. */}
       {mode === 'walk' && nearChest && !boxOpen && <button className="eat-apple-btn" onClick={() => setBoxOpen(true)}>📦 Open your box</button>}

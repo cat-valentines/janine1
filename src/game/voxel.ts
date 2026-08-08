@@ -1,8 +1,9 @@
 import { EMPTY, blockById } from './building';
 
-/** The house plot: 16x16 of ground, 10 blocks of headroom. */
+/** The house plot: 16x16 of ground, with lots of headroom so you can build tall
+ *  Minecraft-style towers. (Raised from 10 → 40; old saves migrate up, see below.) */
 export const SX = 16;
-export const SY = 10;
+export const SY = 40;
 export const SZ = 16;
 export const VOXELS = SX * SY * SZ;
 
@@ -41,10 +42,17 @@ export function validWorld(world: string) {
   return typeof world === 'string' && world.length === VOXELS;
 }
 
-/** Fixes up anything saved by an older/mismatched version rather than crashing. */
+/** Fixes up anything saved by an older/mismatched version rather than crashing.
+ *  A shorter world from the old lower-ceiling days is migrated up in place — its
+ *  blocks stay put on the bottom layers, with fresh open sky added above — so no
+ *  one ever loses the house they built. */
 export function normaliseWorld(world: string | undefined) {
-  if (!world || !validWorld(world)) return emptyWorld();
-  return world;
+  if (!world) return emptyWorld();
+  if (world.length === VOXELS) return world;
+  if (world.length > 0 && world.length < VOXELS && world.length % (SX * SZ) === 0) {
+    return world + EMPTY.repeat(VOXELS - world.length);
+  }
+  return emptyWorld();
 }
 
 export type FurnitureKind = 'table' | 'chair' | 'sofa' | 'bed' | 'lamp';

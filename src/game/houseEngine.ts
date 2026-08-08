@@ -832,6 +832,20 @@ export class HouseEngine {
     return Math.hypot(this.position.x - (SX / 2 + 4), this.position.z - SZ / 2) < 3;
   }
 
+  /** If you're standing by a house whose owner is NOT online, its name — so we
+   *  can show a friendly "they're not home, come back later" sign. */
+  getNearbyOfflineHouse(): string | null {
+    if (this.inCave || this.mode !== 'walk') return null;
+    let best: string | null = null;
+    let bestD = 14;
+    this.houseOnly.forEach((group, id) => {
+      const c = this.plotCentre(id);
+      const d = Math.hypot(this.position.x - c.x, this.position.z - c.z);
+      if (d < bestD) { bestD = d; best = (group.userData.houseName as string) ?? 'a builder'; }
+    });
+    return best;
+  }
+
   /** Walk into the cave: build a dark underground cavern of rock and jewels, drop
    *  the player in with a torch, and hide the surface until they climb back out. */
   enterCave() {
@@ -1043,6 +1057,7 @@ export class HouseEngine {
       sign.position.set(c.x, baseY + 5.2, c.z);
       group.add(sign);
       group.visible = !this.inCave;
+      group.userData.houseName = h.name;
       this.scene.add(group);
       this.houseOnly.set(h.id, group);
     });
@@ -1266,7 +1281,7 @@ export class HouseEngine {
   private onWheel = (event: WheelEvent) => {
     if (this.mode !== 'build') return;
     event.preventDefault();
-    this.orbit.radius = THREE.MathUtils.clamp(this.orbit.radius + event.deltaY * 0.02, 8, 48);
+    this.orbit.radius = THREE.MathUtils.clamp(this.orbit.radius + event.deltaY * 0.02, 8, 120);
   };
 
   private onContext = (event: Event) => event.preventDefault();
