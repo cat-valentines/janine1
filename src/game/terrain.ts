@@ -112,7 +112,7 @@ export const isTerrainSolid = (x: number, y: number, z: number, seed: number) =>
 export interface TerrainBlock { x: number; y: number; z: number; colour: string }
 
 /** A tree, if this column should have one. Deterministic, so it never moves. */
-function treeAt(x: number, z: number, seed: number) {
+export function treeAt(x: number, z: number, seed: number) {
   if (plotDistance(x, z) < 4) return 0;
   const height = terrainHeight(x, z, seed);
   if (height < 2) return 0;
@@ -135,7 +135,7 @@ export function buildTerrain(season: Season, seed: number) {
  * neighbours — which lets the house world stream endless terrain around you as
  * you walk, instead of stopping at a fixed patch.
  */
-export function buildTerrainRegion(season: Season, seed: number, minX: number, maxX: number, minZ: number, maxZ: number) {
+export function buildTerrainRegion(season: Season, seed: number, minX: number, maxX: number, minZ: number, maxZ: number, isChopped?: (x: number, z: number) => boolean) {
   const style = seasonStyles[season];
   const blocks: TerrainBlock[] = [];
 
@@ -159,7 +159,7 @@ export function buildTerrainRegion(season: Season, seed: number, minX: number, m
       }
 
       const trunk = treeAt(x, z, seed);
-      if (!trunk) continue;
+      if (!trunk || isChopped?.(x, z)) continue;   // a chopped tree leaves no wood behind
       for (let y = 1; y <= trunk; y += 1) blocks.push({ x, y: top + y, z, colour: style.trunk });
       const crown = top + trunk;
       for (let ly = 0; ly <= 2; ly += 1) {

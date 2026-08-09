@@ -35,7 +35,7 @@ export function buildFurnitureMesh(kind: FurnitureKind, color: string): THREE.Gr
   }
   return g;
 }
-import { buildTerrainRegion, isTerrainSolid, rand, seasonOrder, seasonStyles, terrainHeight, type Season } from './terrain';
+import { buildTerrainRegion, isTerrainSolid, rand, seasonOrder, seasonStyles, terrainHeight, treeAt, type Season } from './terrain';
 
 export type Mode = 'build' | 'walk';
 export type View = 'first' | 'third';
@@ -155,6 +155,9 @@ export class HouseEngine {
   private fishList: Array<{ sprite: THREE.Sprite; x: number; z: number }> = [];
   private caveMouths: Array<{ x: number; z: number }> = [];
   private choppable: Array<{ group: THREE.Object3D; x: number; z: number; chopped: boolean }> = [];
+  /** Terrain (background) trees you've chopped, so they stay gone (keyed "x,z"). */
+  private choppedTrees = new Set<string>();
+  private chopCool = 0;   // brief pause between chopping terrain trees
   private wood = 0;   // a mirror of your wood store, so we can gate wood blocks
   private forageTime = 0;
   // Underground: swapped in when you walk into a cave mouth.
@@ -319,7 +322,7 @@ export class HouseEngine {
     });
     this.landGroup.clear();
     const byColour = new Map<string, Array<{ x: number; y: number; z: number }>>();
-    buildTerrainRegion(this.season, this.seed, cx - LAND_PATCH, cx + LAND_PATCH, cz - LAND_PATCH, cz + LAND_PATCH).forEach((block) => {
+    buildTerrainRegion(this.season, this.seed, cx - LAND_PATCH, cx + LAND_PATCH, cz - LAND_PATCH, cz + LAND_PATCH, (tx, tz) => this.choppedTrees.has(`${tx},${tz}`)).forEach((block) => {
       const list = byColour.get(block.colour) ?? [];
       list.push({ x: block.x, y: block.y, z: block.z });
       byColour.set(block.colour, list);
@@ -527,15 +530,31 @@ export class HouseEngine {
   /** Your current wood store, mirrored from the page so we can gate wood blocks. */
   setWood(n: number) { this.wood = n; }
 
-  /** Walk into a tree trunk to chop it for wood. It grows back as you move on. */
+  /** Walk into ANY tree to chop it for wood — the fruit trees you forage from,
+   *  and the wild background trees dotted across the land. */
   private checkChop(dt: number) {
-    void dt;
+    // Fruit trees (their own objects) — hide instantly.
     for (const tree of this.choppable) {
       if (tree.chopped) continue;
-      if (Math.hypot(tree.x - this.position.x, tree.z - this.position.z) < 1.5) {
+      if (Math.hypot(tree.x - this.position.x, tree.z - this.position.z) < 1.6) {
         tree.chopped = true;
         tree.group.visible = false;
         this.options.onWood?.();
+      }
+    }
+    // Wild terrain trees — mark the trunk chopped and re-stream so it falls.
+    this.chopCool = Math.max(0, this.chopCool - dt);
+    if (this.chopCool > 0) return;
+    const cx = Math.floor(this.position.x), cz = Math.floor(this.position.z);
+    for (let dz = -1; dz <= 1; dz += 1) for (let dx = -1; dx <= 1; dx += 1) {
+      const tx = cx + dx, tz = cz + dz, key = `${tx},${tz}`;
+      if (this.choppedTrees.has(key) || treeAt(tx, tz, this.seed) === 0) continue;
+      if (Math.hypot(tx + 0.5 - this.position.x, tz + 0.5 - this.position.z) < 1.7) {
+        this.choppedTrees.add(key);
+        this.chopCool = 0.7;
+        this.options.onWood?.();
+        this.streamLand();   // rebuild the patch so the felled tree disappears
+        return;
       }
     }
   }
@@ -777,7 +796,7 @@ export class HouseEngine {
     const legR = limb(0.18, 0.62, legMat, 0.13, 0.63);
     group.add(head, body, armL, armR, legL, legR, this.neighbourName(`@${name}`));
     const c = this.plotCentre(id);
-    const baseY = Math.max(0, terrainHeight(c.x, c.z, this.seed) - 1);
+    const baseY = Math.max(1, terrainHeight(c.x, c.z, this.seed));   // sit on the ground, never underwater
     // dx/dz translate the neighbour's own (SX/2,SZ/2)-centred coords out to their plot.
     return { group, legL, legR, x: 0, z: 0, tx: 0, tz: 0, yaw: 0, tyaw: 0, phase: 0, name, dx: c.x - SX / 2, dz: c.z - SZ / 2, baseY, houseGroup: null, houseStr: '' };
   }
@@ -1056,7 +1075,7 @@ export class HouseEngine {
     list.forEach((h) => {
       if (this.neighbours.has(h.id) || this.houseOnly.has(h.id)) return;   // live wins / already built
       const c = this.plotCentre(h.id);
-      const baseY = Math.max(0, terrainHeight(c.x, c.z, this.seed) - 1);
+      const baseY = Math.max(1, terrainHeight(c.x, c.z, this.seed));   // sit on the ground, never underwater
       const group = this.buildHouseMesh(h.house, c.x - SX / 2, c.z - SZ / 2, baseY);
       const sign = this.neighbourName(`🏠 ${h.name}`);
       sign.position.set(c.x, baseY + 5.2, c.z);
@@ -1121,7 +1140,9 @@ export class HouseEngine {
       while (dy < -Math.PI) dy += Math.PI * 2;
       n.yaw += dy * ease;
       const wx = n.x + n.dx, wz = n.z + n.dz;
-      const foot = spawnHeight(this.world, Math.floor(wx), Math.floor(wz));
+      // Stand them on the ground SURFACE (terrain), not the plot floor at 0 — else
+      // they sink into rolling hills up to the waist and look like half a player.
+      const foot = this.groundY(wx, wz);
       n.group.position.set(wx, foot, wz);
       n.group.rotation.y = n.yaw;
       n.phase += moving ? dt * 9 : 0;
