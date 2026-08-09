@@ -19,6 +19,7 @@ const ORDER: ConsumableKind[] = ['streakHolder'];
 export function RewardsPanel() {
   const [state, setState] = useState(loadRewards);
   const toggleHolder = () => setState(setStreakHolderArmed(!state.streakHolderArmed));
+  const hasSpringTrophy = state.cups.some((cup) => cup.season === 'spring');
   const hasSummerTrophy = state.cups.some((cup) => cup.season === 'summer');
   const hasAutumnTrophy = state.cups.some((cup) => cup.season === 'autumn');
   const hasWinterTrophy = state.cups.some((cup) => cup.season === 'winter');
@@ -26,8 +27,13 @@ export function RewardsPanel() {
   return <>
     <section className="rewards-section">
       <h2>🏆 Trophy shelf <small>({state.totalWon} won)</small></h2>
-      {state.cups.length === 0 && <p className="rewards-empty">No cups earned yet. Finish the season in the <b>top 3 of the leaderboard</b> to win the Summer Champion Cup. Prizes are <b>earned over time</b>, never given for free.</p>}
+      {state.cups.length === 0 && <p className="rewards-empty">No cups earned yet. Finish a season in the <b>top 3 of the leaderboard</b> to win that season's Champion Cup. Prizes are <b>earned over time</b>, never given for free.</p>}
       <div className="rewards-cups">
+        {!hasSpringTrophy && <div className="reward-cup spring locked-trophy">
+          <div className="reward-cup-art"><img src="/assets/pixel-spring-trophy.png" alt="Dimmed Spring Champion Cup" /></div>
+          <strong>Spring Champion Cup</strong>
+          <small>🔒 Not earned yet · Finish top 3</small>
+        </div>}
         {!hasSummerTrophy && <div className="reward-cup summer locked-trophy">
           <div className="reward-cup-art"><img src="/assets/pixel-summer-trophy.png" alt="Dimmed Summer Champion Cup" /></div>
           <strong>Summer Champion Cup</strong>
