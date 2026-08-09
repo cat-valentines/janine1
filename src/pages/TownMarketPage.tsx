@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { TownEngine, type TownSnapshot } from '../game/townEngine';
 import { forageById, forageKinds, sellPrice, shopById, townHouses, townShops } from '../game/town';
 import { characterAssets } from '../game/characters';
+import { activePet } from '../lib/pets';
 import { KeyPad } from '../components/KeyPad';
 import { Joystick } from '../components/Joystick';
 import { heartbeat, leaveGame, playersInGame } from '../lib/presence';
@@ -66,6 +67,7 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
       characterAsset: characterAssets[character],
       supplies: suppliesRef.current,
       selling: sellMode,
+      petSpecies: activePet()?.species ?? null,   // your pet comes to the market too
       onUpdate: setSnapshot,
       onGather: (next) => gatherRef.current(next),
     });
