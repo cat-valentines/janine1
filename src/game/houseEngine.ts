@@ -37,6 +37,7 @@ export function buildFurnitureMesh(kind: FurnitureKind, color: string): THREE.Gr
 }
 import { buildTerrainRegion, isTerrainSolid, rand, seasonOrder, seasonStyles, terrainHeight, treeAt, type Season } from './terrain';
 import { buildPetMesh, type PetMesh } from './petMesh';
+import { buildAnimalMesh, wildKindFor } from './animalMesh';
 import type { PetSpecies } from '../lib/pets';
 
 export type Mode = 'build' | 'walk';
@@ -92,7 +93,7 @@ interface EngineOptions {
   petSpecies?: PetSpecies | null;
 }
 
-interface Wanderer { sprite: THREE.Sprite; x: number; z: number; dir: number; speed: number; phase: number }
+interface Wanderer { group: THREE.Object3D; legs: THREE.Object3D[]; x: number; z: number; dir: number; speed: number; phase: number; kind?: string }
 interface Apple { mesh: THREE.Mesh; x: number; z: number; y: number; regrowAt: number }
 interface Gem { mesh: THREE.Object3D; x: number; z: number; taken: boolean }
 /** Another real player walking your land live, with their @name floating above,
@@ -571,7 +572,6 @@ export class HouseEngine {
   private scatterCreatures(cx: number, cz: number) {
     this.wild = [];
     this.fishList = [];
-    const WILD = ['🦌', '🐇', '🐗', '🦃', '🦫'];
     const R = LAND_PATCH;
     for (let z = cz - R; z < cz + R; z += 11) {
       for (let x = cx - R; x < cx + R; x += 11) {
@@ -579,13 +579,13 @@ export class HouseEngine {
         const h = terrainHeight(Math.round(x), Math.round(z), this.seed);
         const r = rand(x * 0.7, z * 0.7, this.seed + 71);
         if (h >= 1 && h <= 10 && r > 0.82) {
-          // A wild animal, wandering — walk into it to hunt it for food.
-          const icon = WILD[Math.floor(rand(x, z, this.seed + 73) * WILD.length) % WILD.length];
+          // A wild animal, wandering — walk into it to catch/hunt it.
+          const kind = wildKindFor(Math.floor(rand(x, z, this.seed + 73) * 5));
           const jx = x + (rand(x, z, this.seed + 5) - 0.5) * 4, jz = z + (rand(z, x, this.seed + 7) - 0.5) * 4;
-          const sprite = this.emojiSprite(icon, 1.2);
-          sprite.position.set(jx, this.groundY(jx, jz) + 0.6, jz);
-          this.forageGroup.add(sprite);
-          this.wild.push({ sprite, x: jx, z: jz, dir: rand(x, z, this.seed + 3) * Math.PI * 2, speed: 0.5 + rand(z, x, this.seed + 2) * 0.7, phase: (x + z) * 0.3 });
+          const built = buildAnimalMesh(kind);
+          built.group.position.set(jx, this.groundY(jx, jz), jz);
+          this.forageGroup.add(built.group);
+          this.wild.push({ group: built.group, legs: built.legs, kind, x: jx, z: jz, dir: rand(x, z, this.seed + 3) * Math.PI * 2, speed: 0.5 + rand(z, x, this.seed + 2) * 0.7, phase: (x + z) * 0.3 });
         } else if (h === 0 && r > 0.68) {
           // A fish on the water — walk to the shore by it to catch it.
           const fish = this.emojiSprite('🐟', 0.9);
@@ -597,19 +597,23 @@ export class HouseEngine {
     }
   }
 
-  /** Wild animals roam; walk into one to hunt it (food for your box). Fish bob on
-   *  the water; get close to catch one. Both restock as you move on. */
+  /** Wild animals roam (never into the water), legs trotting; walk into one to
+   *  catch it for your farm. Fish bob on the water; get close to catch one. */
   private moveWild(dt: number) {
     for (const w of this.wild) {
-      if (!w.sprite.visible) continue;
+      if (!w.group.visible) continue;
       w.phase += dt;
       w.dir += Math.sin(w.phase * 0.7) * dt;
-      w.x += Math.cos(w.dir) * w.speed * dt;
-      w.z += Math.sin(w.dir) * w.speed * dt;
-      const bob = Math.abs(Math.sin(w.phase * 5)) * 0.08;
-      w.sprite.position.set(w.x, this.groundY(w.x, w.z) + 0.6 + bob, w.z);
+      const nx = w.x + Math.cos(w.dir) * w.speed * dt, nz = w.z + Math.sin(w.dir) * w.speed * dt;
+      // Stay out of the water — turn back at the shoreline.
+      if (terrainHeight(Math.round(nx), Math.round(nz), this.seed) <= 0) { w.dir += Math.PI; }
+      else { w.x = nx; w.z = nz; }
+      w.group.position.set(w.x, this.groundY(w.x, w.z), w.z);
+      w.group.rotation.y = Math.atan2(Math.cos(w.dir), Math.sin(w.dir));
+      const sw = Math.sin(w.phase * 8) * 0.5;
+      w.legs.forEach((leg, i) => { leg.rotation.x = ((i % 2) === (Math.floor(i / 2) % 2) ? sw : -sw); });
       const dx = w.x - this.position.x, dz = w.z - this.position.z;
-      if (dx * dx + dz * dz < 1.8) { w.sprite.visible = false; this.options.onHunt?.(); }
+      if (dx * dx + dz * dz < 1.8) { w.group.visible = false; this.options.onHunt?.(); }
     }
     for (const f of this.fishList) {
       if (!f.sprite.visible) continue;
@@ -659,32 +663,47 @@ export class HouseEngine {
       sprite.position.set(cx, ready ? 1.65 : 1.4, cz);
       this.livestockGroup.add(sprite);
     });
-    // Animals: roam the pasture behind the garden.
+    // Animals: blocky critters that roam the pasture behind the garden.
     this.options.animals.slice(0, 24).forEach((animal, i) => {
       const type = animalById(animal.type);
       if (!type) return;
-      const x = -1 + Math.random() * (SX + 2), z = SZ + 5 + Math.random() * 8;
-      const sprite = this.emojiSprite(type.icon, 1.35);
-      sprite.position.set(x, this.groundY(x, z) + 0.6, z);
-      this.livestockGroup.add(sprite);
-      this.wanderers.push({ sprite, x, z, dir: Math.random() * Math.PI * 2, speed: 0.5 + Math.random() * 0.6, phase: i * 1.7 });
+      const x = 1 + Math.random() * (SX - 2), z = SZ + 5 + Math.random() * 8;
+      const built = buildAnimalMesh(animal.type);
+      built.group.position.set(x, this.groundY(x, z), z);
+      this.livestockGroup.add(built.group);
+      this.wanderers.push({ group: built.group, legs: built.legs, kind: animal.type, x, z, dir: Math.random() * Math.PI * 2, speed: 0.5 + Math.random() * 0.6, phase: i * 1.7 });
     });
+    // A wooden fence around the pasture so your animals never run off.
+    if (this.wanderers.length) {
+      const fenceMat = new THREE.MeshLambertMaterial({ color: '#8a5a2f' });
+      const postGeo = new THREE.BoxGeometry(0.14, 1, 0.14);
+      const railGeo = new THREE.BoxGeometry(2, 0.1, 0.08);
+      const post = (px: number, pz: number) => { const m = new THREE.Mesh(postGeo, fenceMat); m.position.set(px, this.groundY(px, pz) + 0.5, pz); this.livestockGroup.add(m); };
+      const rail = (px: number, pz: number, along: 'x' | 'z') => { const m = new THREE.Mesh(railGeo, fenceMat); m.position.set(px, this.groundY(px, pz) + 0.62, pz); if (along === 'z') m.rotation.y = Math.PI / 2; this.livestockGroup.add(m); };
+      const X0 = 0, X1 = SX, Z0 = SZ + 4, Z1 = SZ + 14;
+      for (let x = X0; x <= X1; x += 2) { post(x, Z0); post(x, Z1); if (x < X1) { rail(x + 1, Z0, 'x'); rail(x + 1, Z1, 'x'); } }
+      for (let z = Z0; z <= Z1; z += 2) { post(X0, z); post(X1, z); if (z < Z1) { rail(X0, z + 1, 'z'); rail(X1, z + 1, 'z'); } }
+    }
   }
 
-  /** Amble the animals gently around their pasture. */
+  /** Amble the animals gently around their pasture, legs trotting, kept in by the
+   *  pasture edge (their fence) and never wandering into water. */
   private moveAnimals(dt: number) {
-    const XMIN = -1, XMAX = SX + 1, ZMIN = SZ + 4, ZMAX = SZ + 14;
+    const XMIN = 0, XMAX = SX, ZMIN = SZ + 4, ZMAX = SZ + 14;
     for (const w of this.wanderers) {
       w.phase += dt;
       w.dir += Math.sin(w.phase * 0.6) * dt * 0.9;
-      w.x += Math.cos(w.dir) * w.speed * dt;
-      w.z += Math.sin(w.dir) * w.speed * dt;
+      const nx = w.x + Math.cos(w.dir) * w.speed * dt, nz = w.z + Math.sin(w.dir) * w.speed * dt;
+      if (terrainHeight(Math.round(nx), Math.round(nz), this.seed) <= 0) { w.dir += Math.PI; }  // no paddling in the pond
+      else { w.x = nx; w.z = nz; }
       if (w.x < XMIN) { w.x = XMIN; w.dir = Math.PI - w.dir; }
       if (w.x > XMAX) { w.x = XMAX; w.dir = Math.PI - w.dir; }
       if (w.z < ZMIN) { w.z = ZMIN; w.dir = -w.dir; }
       if (w.z > ZMAX) { w.z = ZMAX; w.dir = -w.dir; }
-      const bob = Math.abs(Math.sin(w.phase * 5)) * 0.06;
-      w.sprite.position.set(w.x, this.groundY(w.x, w.z) + 0.6 + bob, w.z);
+      w.group.position.set(w.x, this.groundY(w.x, w.z), w.z);
+      w.group.rotation.y = Math.atan2(Math.cos(w.dir), Math.sin(w.dir));
+      const sw = Math.sin(w.phase * 7) * 0.5;
+      w.legs.forEach((leg, i) => { leg.rotation.x = ((i % 2) === (Math.floor(i / 2) % 2) ? sw : -sw); });
     }
   }
 
