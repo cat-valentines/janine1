@@ -28,15 +28,12 @@ export async function saveMyHouse(userId: string, house: Partial<SavedHouse>) {
 export interface NeighbourHouse { user_id: string; house_world: string; house_name: string | null; }
 
 /** Every other player's built house, so the public land is a real neighbourhood
- *  you can see even when nobody else happens to be online right now. */
-export async function loadNeighbourHouses(myId: string, limit = 24): Promise<NeighbourHouse[]> {
-  const { data, error } = await supabase.from('player_profiles')
-    .select('user_id, house_world, house_name')
-    .not('house_world', 'is', null)
-    .neq('user_id', myId)
-    .limit(limit);
+ *  you can see even when nobody else happens to be online right now. Uses a
+ *  security-definer RPC (row-level rules otherwise hide other players' rows). */
+export async function loadNeighbourHouses(_myId: string, limit = 24): Promise<NeighbourHouse[]> {
+  const { data, error } = await supabase.rpc('neighbour_houses');
   if (error) throw error;
-  return (data ?? []).filter((h) => (h as NeighbourHouse).house_world) as NeighbourHouse[];
+  return ((data ?? []) as NeighbourHouse[]).filter((h) => h.house_world).slice(0, limit);
 }
 
 export interface MarketHouse {
