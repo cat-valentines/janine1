@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { EMPTY, animalById, blockById, cropById, cropReady, type Animal, type Plot } from './building';
+import { EMPTY, blockById, cropById, cropReady, type Animal, type Plot } from './building';
 import { SX, SY, SZ, blocksMovement, inside, isSolid, spawnHeight, voxelAt, withVoxel, type Furniture, type FurnitureKind } from './voxel';
 
 /** Build a solid-colour 3-D furniture piece (table/chair/sofa/bed/lamp). */
@@ -91,6 +91,10 @@ interface EngineOptions {
   onNeedWood?: () => void;
   /** The pet you've set walking, to trot along beside you (or null for none). */
   petSpecies?: PetSpecies | null;
+  /** Walk into a wild animal to catch it into your fenced pasture. */
+  onCollectAnimal?: (kind: string) => void;
+  /** Jump on a ripe crop in the garden to harvest it (food for your box). */
+  onHarvest?: () => void;
 }
 
 interface Wanderer { group: THREE.Object3D; legs: THREE.Object3D[]; x: number; z: number; dir: number; speed: number; phase: number; kind?: string }
@@ -179,6 +183,8 @@ export class HouseEngine {
   // A basket by your house holding the apples you've foraged and stashed.
   private pantryGroup = new THREE.Group();
   private wanderers: Wanderer[] = [];
+  /** Ripe crops in the garden — jump on one to harvest it. */
+  private gardenCrops: Array<{ sprite: THREE.Object3D; x: number; z: number }> = [];
   private avatar = new THREE.Group();
   // Limb pivots so the arms and legs swing from the shoulder/hip when walking.
   private legL: THREE.Group | null = null;
@@ -613,7 +619,12 @@ export class HouseEngine {
       const sw = Math.sin(w.phase * 8) * 0.5;
       w.legs.forEach((leg, i) => { leg.rotation.x = ((i % 2) === (Math.floor(i / 2) % 2) ? sw : -sw); });
       const dx = w.x - this.position.x, dz = w.z - this.position.z;
-      if (dx * dx + dz * dz < 1.8) { w.group.visible = false; this.options.onHunt?.(); }
+      if (dx * dx + dz * dz < 1.8) {
+        // Caught! It hops into your pasture and joins your farm.
+        w.group.visible = false;
+        this.penAnimal(w.kind ?? 'rabbit');
+        this.options.onCollectAnimal?.(w.kind ?? 'rabbit');
+      }
     }
     for (const f of this.fishList) {
       if (!f.sprite.visible) continue;
@@ -648,6 +659,7 @@ export class HouseEngine {
   private buildLivestock() {
     this.livestockGroup.clear();
     this.wanderers = [];
+    this.gardenCrops = [];
     // Crops: a tidy patch in the yard just south of the house.
     const patchX = 2, patchZ = SZ + 1.5;
     this.options.garden.forEach((plot, i) => {
@@ -662,19 +674,13 @@ export class HouseEngine {
       const sprite = this.emojiSprite(ready ? crop.icon : crop.seedIcon, ready ? 1.0 : 0.6);
       sprite.position.set(cx, ready ? 1.65 : 1.4, cz);
       this.livestockGroup.add(sprite);
+      if (ready) this.gardenCrops.push({ sprite, x: cx, z: cz });
     });
     // Animals: blocky critters that roam the pasture behind the garden.
-    this.options.animals.slice(0, 24).forEach((animal, i) => {
-      const type = animalById(animal.type);
-      if (!type) return;
-      const x = 1 + Math.random() * (SX - 2), z = SZ + 5 + Math.random() * 8;
-      const built = buildAnimalMesh(animal.type);
-      built.group.position.set(x, this.groundY(x, z), z);
-      this.livestockGroup.add(built.group);
-      this.wanderers.push({ group: built.group, legs: built.legs, kind: animal.type, x, z, dir: Math.random() * Math.PI * 2, speed: 0.5 + Math.random() * 0.6, phase: i * 1.7 });
-    });
-    // A wooden fence around the pasture so your animals never run off.
-    if (this.wanderers.length) {
+    this.options.animals.slice(0, 24).forEach((animal) => this.penAnimal(animal.type));
+    // A wooden fence around the pasture — your pen, so animals never run off, and
+    // where the wild ones you catch come to live.
+    {
       const fenceMat = new THREE.MeshLambertMaterial({ color: '#8a5a2f' });
       const postGeo = new THREE.BoxGeometry(0.14, 1, 0.14);
       const railGeo = new THREE.BoxGeometry(2, 0.1, 0.08);
@@ -684,6 +690,16 @@ export class HouseEngine {
       for (let x = X0; x <= X1; x += 2) { post(x, Z0); post(x, Z1); if (x < X1) { rail(x + 1, Z0, 'x'); rail(x + 1, Z1, 'x'); } }
       for (let z = Z0; z <= Z1; z += 2) { post(X0, z); post(X1, z); if (z < Z1) { rail(X0, z + 1, 'z'); rail(X1, z + 1, 'z'); } }
     }
+  }
+
+  /** Drop an animal of this kind into the fenced pasture (a starting farm animal,
+   *  or a wild one you just caught). */
+  private penAnimal(kind: string) {
+    const x = 1 + Math.random() * (SX - 2), z = SZ + 5 + Math.random() * 8;
+    const built = buildAnimalMesh(kind);
+    built.group.position.set(x, this.groundY(x, z), z);
+    this.livestockGroup.add(built.group);
+    this.wanderers.push({ group: built.group, legs: built.legs, kind, x, z, dir: Math.random() * Math.PI * 2, speed: 0.5 + Math.random() * 0.6, phase: Math.random() * 6 });
   }
 
   /** Amble the animals gently around their pasture, legs trotting, kept in by the
@@ -1512,7 +1528,19 @@ export class HouseEngine {
       this.armR.rotation.x += (swing - this.armR.rotation.x) * ease;
     }
 
-    if (this.grounded && this.keys.has('Space')) this.velocity.y = JUMP;
+    if (this.grounded && this.keys.has('Space')) {
+      this.velocity.y = JUMP;
+      // Jumping on a ripe crop in the garden harvests it for food.
+      for (let i = this.gardenCrops.length - 1; i >= 0; i -= 1) {
+        const c = this.gardenCrops[i];
+        if (Math.hypot(c.x - this.position.x, c.z - this.position.z) < 1.6) {
+          c.sprite.visible = false;
+          this.gardenCrops.splice(i, 1);
+          this.options.onHarvest?.();
+          break;
+        }
+      }
+    }
     this.velocity.y -= GRAVITY * dt;
 
     // Axis at a time, so sliding along a wall works instead of sticking.

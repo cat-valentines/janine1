@@ -405,6 +405,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     onWood={() => setWood((n) => n + 4)}
     onUseWood={() => setWood((n) => Math.max(0, n - 1))}
     petSpecies={activePet()?.species ?? null}
+    onCollectAnimal={(kind) => setAnimals((list) => [...list, { id: `w-${Date.now()}`, type: kind, fedAt: Date.now() }])}
     onChangeWorld={(update) => { setHouseWorld((previous) => update(previous || emptyWorld())); setOwnsHouse(true); if (!houseSource) setHouseSource('built'); }}
     onChangeFurniture={setHouseFurniture}
     onRename={setHouseName}

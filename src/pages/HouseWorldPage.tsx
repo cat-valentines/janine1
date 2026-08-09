@@ -44,6 +44,8 @@ interface HouseWorldPageProps {
   onUseWood: () => void;
   /** The pet set walking, to trot along with you (or null). */
   petSpecies: PetSpecies | null;
+  /** Catch a wild animal into your pasture (adds it to your farm). */
+  onCollectAnimal: (kind: string) => void;
   onChangeWorld: (update: (previous: string) => string) => void;
   onChangeFurniture: (furniture: Furniture[]) => void;
   onRename: (name: string) => void;
@@ -61,7 +63,9 @@ const FURNITURE_COLORS = ['#ffffff', '#e0685f', '#e8a04f', '#f2d05e', '#6fbf6a',
 const FURNITURE_COST = 20;
 
 export function HouseWorldPage(props: HouseWorldPageProps) {
-  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, applePantry, jewels, wood, petSpecies, onSpendCoins, onFood, onEatApple, onGem, onSellJewels, onWood, onUseWood, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
+  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, applePantry, jewels, wood, petSpecies, onCollectAnimal, onSpendCoins, onFood, onEatApple, onGem, onSellJewels, onWood, onUseWood, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
+  const onCollectAnimalRef = useRef(onCollectAnimal);
+  onCollectAnimalRef.current = onCollectAnimal;
   const onFoodRef = useRef(onFood);
   onFoodRef.current = onFood;
   const onGemRef = useRef(onGem);
@@ -137,6 +141,8 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       onWood: () => { onWoodRef.current(); setToast('🪵 You chopped a tree — +4 wood to build with!'); },
       onUseWood: () => onUseWoodRef.current(),
       onNeedWood: () => setToast('🪵 Out of wood! Go inside and chop a tree first.'),
+      onCollectAnimal: (kind) => { onCollectAnimalRef.current(kind); setToast(`🐾 You caught a ${kind}! It joined your fenced pasture.`); },
+      onHarvest: () => { onFoodRef.current(); setToast('🌾 Harvested a ripe crop — food for your box!'); },
     });
     engine.current = created;
     const resize = () => created.resize();
