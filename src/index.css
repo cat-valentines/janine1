@@ -2141,6 +2141,10 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .reward-cup-art { position: relative; height: 78px; display: grid; place-items: center; }
 .reward-cup-art .cup-icon { font-size: 3.4rem; filter: drop-shadow(0 3px 2px #0002); }
 .reward-cup-art .cup-vines { position: absolute; bottom: 2px; font-size: 1.15rem; letter-spacing: 2px; }
+.reward-cup-art img { width: 92px; height: 92px; object-fit: contain; image-rendering: pixelated; }
+.locked-trophy { border-style: dashed; background: #f2f0e9; }
+.locked-trophy .reward-cup-art img { opacity: .42; filter: grayscale(.72); }
+.locked-trophy strong, .locked-trophy small { color: #777481; }
 .reward-cup strong { display: block; font-size: .92rem; margin-top: 6px; }
 .reward-cup small { color: #7a749a; }
 
