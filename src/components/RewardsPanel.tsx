@@ -20,6 +20,7 @@ export function RewardsPanel() {
   const [state, setState] = useState(loadRewards);
   const toggleHolder = () => setState(setStreakHolderArmed(!state.streakHolderArmed));
   const hasSummerTrophy = state.cups.some((cup) => cup.season === 'summer');
+  const hasAutumnTrophy = state.cups.some((cup) => cup.season === 'autumn');
 
   return <>
     <section className="rewards-section">
@@ -29,6 +30,11 @@ export function RewardsPanel() {
         {!hasSummerTrophy && <div className="reward-cup summer locked-trophy">
           <div className="reward-cup-art"><img src="/assets/pixel-summer-trophy.png" alt="Dimmed Summer Champion Cup" /></div>
           <strong>Summer Champion Cup</strong>
+          <small>🔒 Not earned yet · Finish top 3</small>
+        </div>}
+        {!hasAutumnTrophy && <div className="reward-cup autumn locked-trophy">
+          <div className="reward-cup-art"><img src="/assets/pixel-autumn-trophy.png" alt="Dimmed Autumn Champion Cup" /></div>
+          <strong>Autumn Champion Cup</strong>
           <small>🔒 Not earned yet · Finish top 3</small>
         </div>}
           {state.cups.map((cup) => <div className={`reward-cup ${cup.season}`} key={cup.id}>
