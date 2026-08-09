@@ -4,23 +4,20 @@
  * Players win prizes by finishing the season at the top of the leaderboard,
  * and everyone gets a welcome kit to start. Prizes come in two shapes:
  *  - Trophies (seasonal cups) — kept forever, shown off in the profile.
- *  - Consumables (streak-holder, hint potion, bubble potion, weapon) — each has
- *    a limited number of uses; used up, they retire into your reward history.
+ *  - The Streak Holder — a consumable with limited uses; used up, it retires
+ *    into your reward history.
  *
  * Everything lives on-device (like coins and stars) so it works signed-out too.
  * A queue of "notices" feeds the notification bell whenever a prize lands.
  */
 import { storage } from './storage';
 
-export type ConsumableKind = 'streakHolder' | 'hint' | 'bubble' | 'weapon';
+export type ConsumableKind = 'streakHolder';
 
 export interface ConsumableInfo { kind: ConsumableKind; icon: string; name: string; desc: string; usesPerGrant: number }
 
 export const CONSUMABLES: Record<ConsumableKind, ConsumableInfo> = {
   streakHolder: { kind: 'streakHolder', icon: '🧊', name: 'Streak Holder', desc: 'Holds your streak for up to 2 days if you forget to play. Activate it, then it saves you automatically.', usesPerGrant: 5 },
-  hint: { kind: 'hint', icon: '🔮', name: 'Magic Hint Potion', desc: 'On a quest, points you straight to the nearest star. Activate it when you are stuck.', usesPerGrant: 5 },
-  bubble: { kind: 'bubble', icon: '🫧', name: 'Bubble Potion', desc: 'A protective bubble for 20 seconds — pop it on when you need to battle other players on a quest.', usesPerGrant: 5 },
-  weapon: { kind: 'weapon', icon: '⚔️', name: 'Star Sword', desc: 'Arm yourself on a quest — a glowing blade that helps you fight and move faster for 20 seconds.', usesPerGrant: 5 },
 };
 
 /** Seasonal cups — the trophy you win for topping the leaderboard that season. */
@@ -65,7 +62,7 @@ let counter = 0;
 const uid = (p: string) => `${p}-${Date.now().toString(36)}-${(counter += 1)}`;
 
 const empty = (): RewardsState => ({
-  cups: [], uses: { streakHolder: 0, hint: 0, bubble: 0, weapon: 0 },
+  cups: [], uses: { streakHolder: 0 },
   streakHolderArmed: false, history: [], earnedSeasons: [], welcomed: false, notices: [], totalWon: 0,
   lastRewardMonth: '', migrated: false,
 });
@@ -144,11 +141,8 @@ export function checkSeasonalReward(rank: number | null, year: number, month: nu
   state.cups.unshift(cup);
   state.totalWon += 1;
   logHistory(state, '🏆', `Won the ${cup.name} (leaderboard #${rank})`);
-  notice(state, '🏆', `🏆 You won the ${cup.name} for finishing #${rank} on the leaderboard! Plus a bundle of potions.`);
-  // A champion's bundle — the ONLY way potions are handed out.
-  grantConsumable(state, 'bubble', true);
-  grantConsumable(state, 'weapon', true);
-  grantConsumable(state, 'hint', true);
+  notice(state, '🏆', `🏆 You won the ${cup.name} for finishing #${rank} on the leaderboard! Plus a Streak Holder.`);
+  // A champion's Streak Holder — the ONLY way it's handed out.
   grantConsumable(state, 'streakHolder', true);
   save(state);
   return cup;

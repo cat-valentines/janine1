@@ -3,7 +3,6 @@ import { IslandWorldEngine, type WorldSnapshot } from '../game/islandWorldEngine
 import { islands } from '../game/islands';
 import { THEME_BY_BIOME, questsForBiome, islandFromStars, starsToNextIsland, STARS_PER_ISLAND, type QuestDef } from '../game/islandWorld';
 import { addStars, getStars } from '../lib/escapeStars';
-import { loadRewards, useConsumable, CONSUMABLES } from '../lib/rewards';
 import { characterAssets } from '../game/characters';
 import { joinLiveGame } from '../lib/liveGame';
 import { heartbeat, leaveGame } from '../lib/presence';
@@ -36,17 +35,7 @@ export function IslandWorldPage({ character, onScore, onBack }: Props) {
   const [toast, setToast] = useState('');
   const [userId, setUserId] = useState('');
   const [myName, setMyName] = useState('explorer');
-  const [tray, setTray] = useState(false);
-  const [uses, setUses] = useState(() => loadRewards().uses);
-
   const flash = (msg: string) => { setToast(msg); window.setTimeout(() => setToast(''), 2600); };
-  const useItem = (kind: 'hint' | 'bubble' | 'weapon') => {
-    if (!useConsumable(kind)) return;
-    setUses(loadRewards().uses);
-    if (kind === 'hint') { engine.current?.showHint(); flash('🔮 Hint! Follow the beacon to the nearest star.'); }
-    if (kind === 'bubble') { engine.current?.activateBubble(20); flash('🫧 Bubble on — protected for 20 seconds!'); }
-    if (kind === 'weapon') { engine.current?.equipWeapon(20); flash('⚔️ Sword drawn — faster for 20 seconds!'); }
-  };
 
   // Which island you are on comes straight from your star total.
   const islandId = islandFromStars(total);
@@ -210,15 +199,6 @@ export function IslandWorldPage({ character, onScore, onBack }: Props) {
         <button className="island-act build" onClick={doPlace} title="Build a block (G)">🧱</button>
         <button className="island-act attack" onClick={doAttack} title="Bonk a player with your sword (E)">⚔️</button>
       </div>
-      <button className="island-bag" onClick={() => { setUses(loadRewards().uses); setTray((t) => !t); }} title="Your quest items">🎒</button>
-      {tray && <div className="island-tray">
-        <p className="island-tray-title">🎒 Quest items</p>
-        {(['hint', 'bubble', 'weapon'] as const).map((k) => <button key={k} className="island-tray-item" disabled={uses[k] <= 0} onClick={() => useItem(k)}>
-          <span>{CONSUMABLES[k].icon}</span><small>{CONSUMABLES[k].name}</small><b>{uses[k]}</b>
-        </button>)}
-        {uses.hint <= 0 && uses.bubble <= 0 && uses.weapon <= 0 && <p className="island-tray-empty">Win potions & swords from seasonal cups and the leaderboard.</p>}
-      </div>}
-
       <button className="island-full" onClick={goFullscreen}>⛶</button>
       <Joystick />
       <KeyPad dirs={[]} actions={[{ codes: ['Space'], label: '✋ Enter / Climb', wide: true }]} />

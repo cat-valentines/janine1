@@ -10,7 +10,7 @@ function ago(at: string) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-const ORDER: ConsumableKind[] = ['streakHolder', 'hint', 'bubble', 'weapon'];
+const ORDER: ConsumableKind[] = ['streakHolder'];
 
 /**
  * The rewards shelf: seasonal cups, consumables and full reward history. Shown
