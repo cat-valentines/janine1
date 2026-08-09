@@ -40,8 +40,8 @@ export function RewardsPanel() {
     </section>
 
     <section className="rewards-section">
-      <h2>🎒 Potions & weapons</h2>
-      <p className="rewards-note">Win these by topping the leaderboard. Hint, bubble and sword are used <b>inside a quest</b> — open the 🎒 items tray while exploring an island. Each prize has a limited number of uses; when they run out they retire to your history below.</p>
+      <h2>🧊 Streak Holder</h2>
+      <p className="rewards-note">Win the Streak Holder by topping the leaderboard. Activate it and it saves your streak automatically if you miss a day or two. It has a limited number of uses; when they run out it retires to your history below.</p>
       <div className="rewards-items">
         {ORDER.map((kind) => {
           const info = CONSUMABLES[kind];

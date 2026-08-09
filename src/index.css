@@ -2118,6 +2118,43 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 
 /* ===== Rewards ===== */
 .profile-rewards-hint { color: var(--ink-soft); font-size: .85rem; margin: 2px 0 8px; }
+
+/* ---- Pets: adopt, feed, and pick one to walk with you ---- */
+.pets-panel { display: flex; flex-direction: column; gap: 12px; }
+.pets-food-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 12px; background: #fbe9c8; color: #5a3f22; font-weight: 800; }
+.pets-food-bar b { color: #a05a1e; }
+.pets-coins { margin-left: auto; }
+.pets-food-bar button { padding: 7px 12px; border: 0; border-radius: 999px; background: #64a263; color: #fff; font-weight: 850; font-size: .8rem; cursor: pointer; }
+.pets-list { display: flex; flex-direction: column; gap: 8px; }
+.pet-card { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 14px; background: #fff; border: 2px solid #e5d8bf; }
+.pet-card.active { border-color: #64a263; box-shadow: 0 0 0 2px #64a26333; }
+.pet-emoji { font-size: 2rem; }
+.pet-body { flex: 1; min-width: 0; }
+.pet-body strong { display: block; color: #3a2a1a; font-size: .95rem; }
+.pet-body strong em { color: #64a263; font-style: normal; font-weight: 700; font-size: .8rem; }
+.pet-body small { color: #8a6f4a; font-size: .74rem; }
+.pet-hunger { height: 9px; border-radius: 999px; background: #eadfce; margin: 4px 0; overflow: hidden; }
+.pet-hunger i { display: block; height: 100%; border-radius: 999px; transition: width .3s; }
+.pet-hunger.happy i { background: #64a263; }
+.pet-hunger.peckish i { background: #f0b53c; }
+.pet-hunger.hungry i { background: #e0685f; }
+.pet-actions { display: flex; flex-direction: column; gap: 5px; }
+.pet-actions button { border: 0; border-radius: 999px; padding: 6px 10px; font-weight: 800; font-size: .74rem; cursor: pointer; }
+.pet-feed { background: #e0894a; color: #fff; }
+.pet-feed:disabled { background: #d8c6b2; cursor: default; }
+.pet-walk { background: #eadfce; color: #5a3f22; }
+.pet-walk.on { background: #64a263; color: #fff; }
+.pet-release { background: transparent; color: #b98b86; }
+.pets-adopt > strong { display: block; margin-bottom: 8px; color: #3a2a1a; }
+.pets-adopt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.pet-adopt-card { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 8px; border: 2px solid #e5d8bf; border-radius: 14px; background: #fffdf7; cursor: pointer; text-align: center; }
+.pet-adopt-card:disabled { opacity: .5; cursor: default; }
+.pet-adopt-card span { font-size: 1.8rem; }
+.pet-adopt-card b { color: #3a2a1a; font-size: .86rem; }
+.pet-adopt-card small { color: #8a6f4a; font-size: .68rem; line-height: 1.2; }
+.pet-adopt-card i { font-style: normal; font-weight: 850; color: #a05a1e; font-size: .8rem; margin-top: 2px; }
+.pets-note { color: #64a263; font-weight: 700; font-size: .84rem; }
+.pets-hint { color: var(--ink-soft); font-size: .78rem; }
 .profile-rewards .rewards-section { max-width: none; padding: 0; margin: 0 0 16px; }
 
 .rewards-page { min-height: 100dvh; padding: 0 0 60px; background: linear-gradient(#efe7ff, #fff6ea); color: #241f3a; font-family: system-ui, sans-serif; }

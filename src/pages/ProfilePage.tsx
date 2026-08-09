@@ -5,6 +5,7 @@ import { characterAssets, characterCollectibles, characterIsland } from '../game
 import { ChoiceCard } from '../components/ChoiceCard';
 import { CharacterCustomizer } from '../components/CharacterCustomizer';
 import { RewardsPanel } from '../components/RewardsPanel';
+import { PetsPanel } from '../components/PetsPanel';
 import { getStars, STAR_GOAL } from '../lib/escapeStars';
 import type { CharacterId, SettingId } from '../game/types';
 import { isIslandOpen } from '../game/progress';
@@ -74,6 +75,7 @@ interface ProfilePageProps {
   onChangeCharacter: (character: CharacterId) => void;
   onChangeAccessory: (accessory: string) => void;
   onBuyAccessory: (id: string, price: number) => void;
+  onSpendCoins: (amount: number) => void;
   onChosen: () => void;
   realName: string;
   birthday: string;
@@ -82,7 +84,7 @@ interface ProfilePageProps {
   onBack: () => void;
 }
 
-export function ProfilePage({ character, setting, coins, foodBalance, completedQuests, streak, isMember, accessory, firstTime, ownedItems, onChangeCharacter, onChangeAccessory, onBuyAccessory, onChosen, realName, birthday, country, onSavePrivate, onBack }: ProfilePageProps) {
+export function ProfilePage({ character, setting, coins, foodBalance, completedQuests, streak, isMember, accessory, firstTime, ownedItems, onChangeCharacter, onChangeAccessory, onBuyAccessory, onSpendCoins, onChosen, realName, birthday, country, onSavePrivate, onBack }: ProfilePageProps) {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [userId, setUserId] = useState('');
@@ -265,8 +267,14 @@ export function ProfilePage({ character, setting, coins, foodBalance, completedQ
 
     {!firstTime && <section className="profile-section profile-rewards">
       <h3>🏆 Reward history</h3>
-      <p className="profile-rewards-hint">Prizes are earned over time — win a season on the leaderboard for a champion cup and a bundle of potions.</p>
+      <p className="profile-rewards-hint">Prizes are earned over time — win a season on the leaderboard for a champion cup and a Streak Holder.</p>
       <RewardsPanel />
+    </section>}
+
+    {!firstTime && <section className="profile-section profile-pets">
+      <h3>🐾 Pets</h3>
+      <p className="profile-rewards-hint">Adopt a pet, buy food and keep it fed. Set one <b>walking</b> and it follows you into your house and the town market!</p>
+      <PetsPanel coins={coins} onSpendCoins={onSpendCoins} />
     </section>}
 
     {isMember && <div className="royal-sign"><span>♛</span><strong>Royal Member</strong><small>Royal islands and games unlocked</small></div>}
