@@ -94,6 +94,8 @@ interface EngineOptions {
   /** The pet you've set walking, to trot along beside you (or null for none). */
   petSpecies?: PetSpecies | null;
   petDye?: string | null;
+  /** Emoji for each pet-shop supply you own, to display in your pet corner. */
+  petSupplies?: string[];
   /** Walk into a wild animal to catch it into your fenced pasture. */
   onCollectAnimal?: (kind: string) => void;
   /** Jump on a ripe crop in the garden to harvest it (food for your box). */
@@ -185,6 +187,8 @@ export class HouseEngine {
   private livestockGroup = new THREE.Group();
   // A basket by your house holding the apples you've foraged and stashed.
   private pantryGroup = new THREE.Group();
+  // Pet-shop supplies you've bought, arranged in a pet corner of your yard.
+  private petSupplyGroup = new THREE.Group();
   private wanderers: Wanderer[] = [];
   /** Ripe crops in the garden — jump on one to harvest it. */
   private gardenCrops: Array<{ sprite: THREE.Object3D; x: number; z: number }> = [];
@@ -258,7 +262,7 @@ export class HouseEngine {
     this.sun.position.set(18, 30, 12);
     this.scene.add(this.sun);
 
-    this.scene.add(this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup, this.caveGroup, this.avatar);
+    this.scene.add(this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup, this.petSupplyGroup, this.caveGroup, this.avatar);
     this.caveGroup.visible = false;
 
     const edge = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
@@ -273,6 +277,7 @@ export class HouseEngine {
     this.buildLivestock();
     this.resetPlayer();
     if (options.petSpecies) this.setPet(options.petSpecies, options.petDye);
+    if (options.petSupplies?.length) this.setPetSupplies(options.petSupplies);
 
     this.bind();
     this.loop();
@@ -902,6 +907,32 @@ export class HouseEngine {
   private movePet(dt: number) {
     if (!this.pet || this.inCave) return;
     stepPet(this.pet, this.position.x, this.position.z, this.yaw, dt, (x, z) => this.groundY(x, z), this.forageTime);
+  }
+
+  /** Lay out the pet-shop supplies you've bought in a little corner of the yard,
+   *  on a rug, so everything you buy really shows up at your house. */
+  setPetSupplies(emojis: string[]) {
+    this.petSupplyGroup.traverse((o) => {
+      const mesh = o as THREE.Mesh & { material?: THREE.SpriteMaterial };
+      mesh.geometry?.dispose?.();
+      const mat = mesh.material as (THREE.Material & { map?: THREE.Texture }) | undefined;
+      if (mat) { mat.map?.dispose?.(); mat.dispose(); }
+    });
+    this.petSupplyGroup.clear();
+    if (!emojis.length) return;
+    // A cosy rug in the front-yard pet corner, north of the house.
+    const cornerX = 3, cornerZ = -3;
+    const rug = new THREE.Mesh(new THREE.PlaneGeometry(9, 4), new THREE.MeshLambertMaterial({ color: '#c98fd0', transparent: true, opacity: 0.7 }));
+    rug.rotation.x = -Math.PI / 2;
+    rug.position.set(cornerX + 3, this.groundY(cornerX + 3, cornerZ - 1) + 0.02, cornerZ - 1);
+    this.petSupplyGroup.add(rug);
+    emojis.slice(0, 24).forEach((emoji, i) => {
+      const sx = cornerX + (i % 6) * 1.5, sz = cornerZ - Math.floor(i / 6) * 1.5;
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTexture(emoji), transparent: true }));
+      sprite.scale.setScalar(1.1);
+      sprite.position.set(sx, this.groundY(sx, sz) + 0.7, sz);
+      this.petSupplyGroup.add(sprite);
+    });
   }
 
   /** The nearest chair/sofa you're standing by (to sit on), or null. */
