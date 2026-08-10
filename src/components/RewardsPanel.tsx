@@ -32,26 +32,31 @@ export function RewardsPanel() {
         {!hasSpringTrophy && <div className="reward-cup spring locked-trophy">
           <div className="reward-cup-art"><img src="/assets/pixel-spring-trophy.png" alt="Dimmed Spring Champion Cup" /></div>
           <strong>Spring Champion Cup</strong>
+          <span className="trophy-year">2026</span>
           <small>🔒 Not earned yet · Finish top 3</small>
         </div>}
         {!hasSummerTrophy && <div className="reward-cup summer locked-trophy">
           <div className="reward-cup-art"><img src="/assets/pixel-summer-trophy.png" alt="Dimmed Summer Champion Cup" /></div>
           <strong>Summer Champion Cup</strong>
+          <span className="trophy-year">2026</span>
           <small>🔒 Not earned yet · Finish top 3</small>
         </div>}
         {!hasAutumnTrophy && <div className="reward-cup autumn locked-trophy">
           <div className="reward-cup-art"><img src="/assets/pixel-autumn-trophy.png" alt="Dimmed Autumn Champion Cup" /></div>
           <strong>Autumn Champion Cup</strong>
+          <span className="trophy-year">2026</span>
           <small>🔒 Not earned yet · Finish top 3</small>
         </div>}
         {!hasWinterTrophy && <div className="reward-cup winter locked-trophy">
           <div className="reward-cup-art"><img src="/assets/pixel-winter-trophy.png" alt="Dimmed Winter Champion Cup" /></div>
           <strong>Winter Champion Cup</strong>
+          <span className="trophy-year">2026</span>
           <small>🔒 Not earned yet · Finish top 3</small>
         </div>}
           {state.cups.map((cup) => <div className={`reward-cup ${cup.season}`} key={cup.id}>
             <div className="reward-cup-art"><span className="cup-vines">{cup.vines}</span><span className="cup-icon">{cup.cup}</span></div>
             <strong>{cup.name}</strong>
+            <span className="trophy-year">{new Date(cup.wonAt).getFullYear()}</span>
             <small>Won {ago(cup.wonAt)}</small>
           </div>)}
       </div>

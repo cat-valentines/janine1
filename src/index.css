@@ -2183,6 +2183,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .locked-trophy .reward-cup-art img { opacity: .42; filter: grayscale(.72); }
 .locked-trophy strong, .locked-trophy small { color: #777481; }
 .reward-cup strong { display: block; font-size: .92rem; margin-top: 6px; }
+.trophy-year { display: block; margin: 3px 0 2px; color: #8b6d2c; font: 900 .82rem "Courier New", monospace; }
 .reward-cup small { color: #7a749a; }
 
 .rewards-items { display: grid; gap: 9px; }
