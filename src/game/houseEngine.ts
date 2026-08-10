@@ -101,6 +101,8 @@ interface EngineOptions {
   petSupplies?: string[];
   /** Pet-house type ids you own — real blocky huts you can walk into. */
   petHouses?: string[];
+  /** True if you've bought a ladder, to reach the apples up in the trees. */
+  hasLadder?: boolean;
   /** Walk into a wild animal to catch it into your fenced pasture. */
   onCollectAnimal?: (kind: string) => void;
   /** Jump on a ripe crop in the garden to harvest it (food for your box). */
@@ -108,7 +110,7 @@ interface EngineOptions {
 }
 
 interface Wanderer { group: THREE.Object3D; legs: THREE.Object3D[]; x: number; z: number; dir: number; speed: number; phase: number; kind?: string }
-interface Apple { mesh: THREE.Mesh; x: number; z: number; y: number; regrowAt: number }
+interface Apple { mesh: THREE.Mesh; x: number; z: number; y: number; regrowAt: number; high?: boolean }
 interface Gem { mesh: THREE.Object3D; x: number; z: number; taken: boolean }
 /** Another real player walking your land live, with their @name floating above,
  *  their house pitched at their own plot (dx,dz) out on the land. */
@@ -173,6 +175,9 @@ export class HouseEngine {
   private fishList: Array<{ group: THREE.Object3D; tail: THREE.Object3D; x: number; z: number }> = [];
   private caveMouths: Array<{ x: number; z: number }> = [];
   private choppable: Array<{ group: THREE.Object3D; x: number; z: number; chopped: boolean }> = [];
+  private fruitTrees: Array<{ x: number; z: number }> = [];
+  private hasLadder = false;
+  private ladderMesh: THREE.Object3D | null = null;
   /** Terrain (background) trees you've chopped, so they stay gone (keyed "x,z"). */
   private choppedTrees = new Set<string>();
   private chopCool = 0;   // brief pause between chopping terrain trees
@@ -287,6 +292,7 @@ export class HouseEngine {
     if (options.petSpecies) this.setPet(options.petSpecies, options.petDye);
     if (options.petSupplies?.length) this.setPetSupplies(options.petSupplies);
     if (options.petHouses?.length) this.setPetHouses(options.petHouses);
+    this.hasLadder = !!options.hasLadder;
 
     this.bind();
     this.loop();
@@ -388,6 +394,7 @@ export class HouseEngine {
     this.gems = [];
     this.caveMouths = [];
     this.choppable = [];
+    this.fruitTrees = [];
     const trunkMat = new THREE.MeshLambertMaterial({ color: '#7b5330' });
     const leafMat = new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].leaves });
     const bushMat = new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].leavesAlt });
@@ -418,7 +425,7 @@ export class HouseEngine {
         const jz = z + (rand(z, x, this.seed + 7) - 0.5) * 3.5;
         const gy = this.groundY(jx, jz);
         if (h <= 12 && r > 0.9) {
-          // A fruit tree, hung with apples you can walk into to forage.
+          // A fruit tree, its apples hung high in the canopy — you need a ladder.
           const tree = new THREE.Group();
           const trunk = new THREE.Mesh(trunkGeo, trunkMat); trunk.position.y = 1.5; tree.add(trunk);
           const canopy = new THREE.Mesh(canopyGeo, leafMat); canopy.position.y = 3.4; tree.add(canopy);
@@ -426,15 +433,16 @@ export class HouseEngine {
           tree.scale.setScalar(0.85 + rand(x + 1, z, this.seed + 2) * 0.5);
           this.forageGroup.add(tree);
           this.choppable.push({ group: tree, x: jx, z: jz, chopped: false });   // walk into the trunk to chop it for wood
-          const n = 1 + Math.floor(rand(x, z + 1, this.seed + 4) * 2);
+          this.fruitTrees.push({ x: jx, z: jz });
+          const n = 2 + Math.floor(rand(x, z + 1, this.seed + 4) * 2);
           for (let j = 0; j < n; j += 1) {
-            const ax = jx + (rand(x + j, z, this.seed + j) - 0.5) * 2.6;
-            const az = jz + (rand(x, z + j, this.seed + j) - 0.5) * 2.6;
-            const ay = this.groundY(ax, az) + 0.35;
+            const ax = jx + (rand(x + j, z, this.seed + j) - 0.5) * 1.8;
+            const az = jz + (rand(x, z + j, this.seed + j) - 0.5) * 1.8;
+            const ay = gy + 3.0 + rand(x, z + j, this.seed + 6) * 0.9;   // up in the canopy
             const apple = new THREE.Mesh(fruitGeo, appleMat);
             apple.position.set(ax, ay, az);
             this.forageGroup.add(apple);
-            this.apples.push({ mesh: apple, x: ax, z: az, y: ay, regrowAt: 0 });
+            this.apples.push({ mesh: apple, x: ax, z: az, y: ay, regrowAt: 0, high: true });
           }
         } else if (h <= 12 && r > 0.72) {
           // A berry bush of some wild kind — also foragable.
@@ -502,7 +510,8 @@ export class HouseEngine {
     }
   }
 
-  /** Walk into an apple to forage it for food; apples grow back after a while. */
+  /** Walk into low fruit (berries) to forage it; apples up in the trees need a
+   *  ladder (see pickApples). Everything grows back after a while. */
   private checkForage(dt: number) {
     this.forageTime += dt;
     for (const apple of this.apples) {
@@ -510,6 +519,7 @@ export class HouseEngine {
         if (this.forageTime >= apple.regrowAt) { apple.regrowAt = 0; apple.mesh.visible = true; }
         continue;
       }
+      if (apple.high) continue;   // apples up in the tree — pick with a ladder
       const dx = apple.x - this.position.x, dz = apple.z - this.position.z;
       if (dx * dx + dz * dz < 1.6) {
         apple.mesh.visible = false;
@@ -517,6 +527,67 @@ export class HouseEngine {
         this.options.onFood?.();
       }
     }
+    this.updateLadder();
+  }
+
+  /** Tell the engine whether you've bought a ladder (to reach the tree apples). */
+  setLadder(has: boolean) { this.hasLadder = has; if (!has && this.ladderMesh) this.ladderMesh.visible = false; }
+
+  /** How many pickable apples are up in the tree right by you (for the prompt). */
+  getNearbyApples(): number {
+    if (this.inCave || this.mode !== 'walk') return 0;
+    let count = 0;
+    for (const a of this.apples) {
+      if (!a.high || a.regrowAt > 0 || !a.mesh.visible) continue;
+      const dx = a.x - this.position.x, dz = a.z - this.position.z;
+      if (dx * dx + dz * dz < 8) count += 1;
+    }
+    return count;
+  }
+
+  /** Climb the ladder and pick the apples in the tree by you (needs a ladder). */
+  pickApples(): number {
+    if (!this.hasLadder) return 0;
+    let picked = 0;
+    for (const a of this.apples) {
+      if (!a.high || a.regrowAt > 0 || !a.mesh.visible) continue;
+      const dx = a.x - this.position.x, dz = a.z - this.position.z;
+      if (dx * dx + dz * dz < 8) {
+        a.mesh.visible = false;
+        a.regrowAt = this.forageTime + 30;   // apples take a while to grow back
+        this.options.onFood?.();
+        picked += 1;
+      }
+    }
+    return picked;
+  }
+
+  /** Lean your ladder against the fruit tree you're standing by (if you own one). */
+  private updateLadder() {
+    if (!this.hasLadder) { if (this.ladderMesh) this.ladderMesh.visible = false; return; }
+    let near: { x: number; z: number } | null = null; let bestD = 3.4;
+    for (const t of this.fruitTrees) {
+      const d = Math.hypot(t.x - this.position.x, t.z - this.position.z);
+      if (d < bestD) { bestD = d; near = t; }
+    }
+    if (!near) { if (this.ladderMesh) this.ladderMesh.visible = false; return; }
+    if (!this.ladderMesh) { this.ladderMesh = this.buildLadder(); this.scene.add(this.ladderMesh); }
+    this.ladderMesh.visible = true;
+    // Lean it against the trunk on the side you approach from.
+    const ang = Math.atan2(this.position.x - near.x, this.position.z - near.z);
+    const lx = near.x + Math.sin(ang) * 0.9, lz = near.z + Math.cos(ang) * 0.9;
+    this.ladderMesh.position.set(lx, this.groundY(lx, lz), lz);
+    this.ladderMesh.rotation.set(-0.28, ang, 0);
+  }
+
+  private buildLadder(): THREE.Group {
+    const g = new THREE.Group();
+    const wood = new THREE.MeshLambertMaterial({ color: '#a56a34' });
+    const railGeo = new THREE.BoxGeometry(0.1, 4, 0.1);
+    [-0.3, 0.3].forEach((rx) => { const rail = new THREE.Mesh(railGeo, wood); rail.position.set(rx, 2, 0); g.add(rail); });
+    const rungGeo = new THREE.BoxGeometry(0.72, 0.08, 0.08);
+    for (let i = 0; i < 7; i += 1) { const rung = new THREE.Mesh(rungGeo, wood); rung.position.set(0, 0.5 + i * 0.55, 0); g.add(rung); }
+    return g;
   }
 
   /** Walk into a glowing crystal to mine a jewel for your box. Each gem spins so
@@ -1075,6 +1146,7 @@ export class HouseEngine {
     this.neighbours.forEach((n) => { n.group.visible = false; if (n.houseGroup) n.houseGroup.visible = false; });
     this.houseOnly.forEach((g) => { g.visible = false; });
     if (this.pet) this.pet.group.visible = false;
+    if (this.ladderMesh) this.ladderMesh.visible = false;
     this.caveGroup.visible = true;
     // Deep, dark cavern light + a torch that follows you.
     this.hemi.intensity = 0.25; this.hemi.color.set('#6a6f8a'); this.sun.intensity = 0;
