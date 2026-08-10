@@ -37,7 +37,7 @@ export function buildFurnitureMesh(kind: FurnitureKind, color: string): THREE.Gr
 }
 import { buildTerrainRegion, isTerrainSolid, rand, seasonOrder, seasonStyles, terrainHeight, treeAt, PASTURE_END, type Season } from './terrain';
 import { buildPetMesh, makeLivePet, stepPet, type LivePet } from './petMesh';
-import { buildAnimalMesh, wildKindFor } from './animalMesh';
+import { buildAnimalMesh, buildFishMesh, wildKindFor } from './animalMesh';
 import type { PetSpecies } from '../lib/pets';
 
 export type Mode = 'build' | 'walk';
@@ -163,7 +163,7 @@ export class HouseEngine {
   private apples: Apple[] = [];
   private gems: Gem[] = [];
   private wild: Wanderer[] = [];   // deer/rabbits/boar you can hunt for food
-  private fishList: Array<{ sprite: THREE.Sprite; x: number; z: number }> = [];
+  private fishList: Array<{ group: THREE.Object3D; tail: THREE.Object3D; x: number; z: number }> = [];
   private caveMouths: Array<{ x: number; z: number }> = [];
   private choppable: Array<{ group: THREE.Object3D; x: number; z: number; chopped: boolean }> = [];
   /** Terrain (background) trees you've chopped, so they stay gone (keyed "x,z"). */
@@ -595,11 +595,11 @@ export class HouseEngine {
           this.forageGroup.add(built.group);
           this.wild.push({ group: built.group, legs: built.legs, kind, x: jx, z: jz, dir: rand(x, z, this.seed + 3) * Math.PI * 2, speed: 0.5 + rand(z, x, this.seed + 2) * 0.7, phase: (x + z) * 0.3 });
         } else if (h === 0 && r > 0.68) {
-          // A fish on the water — walk to the shore by it to catch it.
-          const fish = this.emojiSprite('🐟', 0.9);
-          fish.position.set(x + 0.5, 1.1, z + 0.5);
-          this.forageGroup.add(fish);
-          this.fishList.push({ sprite: fish, x: x + 0.5, z: z + 0.5 });
+          // A blocky fish bobbing on the water — walk to the shore to catch it.
+          const built = buildFishMesh();
+          built.group.position.set(x + 0.5, 1.0, z + 0.5);
+          this.forageGroup.add(built.group);
+          this.fishList.push({ group: built.group, tail: built.tail, x: x + 0.5, z: z + 0.5 });
         }
       }
     }
@@ -624,10 +624,13 @@ export class HouseEngine {
       // — press the 🪝 Catch button when you're near one (see catchNearbyAnimal).
     }
     for (const f of this.fishList) {
-      if (!f.sprite.visible) continue;
-      f.sprite.position.y = 1.05 + Math.sin(this.forageTime * 3 + f.x) * 0.12;
+      if (!f.group.visible) continue;
+      // bob on the surface, turn slowly, and wag the tail fin like a real fish
+      f.group.position.y = 1.0 + Math.sin(this.forageTime * 3 + f.x) * 0.1;
+      f.group.rotation.y = Math.sin(this.forageTime * 0.6 + f.x) * 0.8;
+      f.tail.rotation.y = Math.sin(this.forageTime * 9 + f.x) * 0.5;
       const dx = f.x - this.position.x, dz = f.z - this.position.z;
-      if (dx * dx + dz * dz < 3.2) { f.sprite.visible = false; this.options.onFish?.(); }
+      if (dx * dx + dz * dz < 3.2) { f.group.visible = false; this.options.onFish?.(); }
     }
   }
 

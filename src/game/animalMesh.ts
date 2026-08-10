@@ -24,6 +24,21 @@ const CONFIG: Record<string, AnimalConfig> = {
 const WILD_KINDS = ['deer', 'rabbit', 'boar', 'turkey', 'beaver'];
 export const wildKindFor = (i: number) => WILD_KINDS[Math.abs(i) % WILD_KINDS.length];
 
+/** A little blocky fish that bobs on the water, with a wagging tail fin. */
+export function buildFishMesh(): { group: THREE.Group; tail: THREE.Object3D } {
+  const group = new THREE.Group();
+  const body = lam('#4fa3d8');
+  const belly = lam('#f0c14a');
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.26, 0.5), body); group.add(torso);
+  const under = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.42), belly); under.position.y = -0.1; group.add(under);
+  const dorsal = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.16, 0.24), body); dorsal.position.y = 0.18; group.add(dorsal);
+  [-1, 1].forEach((d) => { const e = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.05), lam('#101018')); e.position.set(d * 0.11, 0.05, 0.22); group.add(e); });
+  const tail = new THREE.Group(); tail.position.z = -0.25;
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.3, 0.22), body); fin.position.z = -0.11; tail.add(fin);
+  group.add(tail);
+  return { group, tail };
+}
+
 /** Build a blocky animal. Origin is at its feet (y = 0). */
 export function buildAnimalMesh(kind: string): AnimalMesh {
   const cfg = CONFIG[kind] ?? CONFIG.rabbit;
