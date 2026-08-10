@@ -172,6 +172,9 @@ export class HouseEngine {
   private camera: THREE.PerspectiveCamera;
   private raycaster = new THREE.Raycaster();
   private blockGroup = new THREE.Group();
+  // Doors are hinged panels (not instanced cubes) so they can swing open like Minecraft.
+  private doorGroup = new THREE.Group();
+  private doors: Array<{ pivot: THREE.Group; x: number; y: number; z: number; cx: number; cz: number; open: number; openAt: number }> = [];
   private terrainGroup = new THREE.Group();
   // The streamed hills/trees live in their own group so they can re-mesh around
   // you without touching the endless ground plane below them.
@@ -298,7 +301,7 @@ export class HouseEngine {
     this.sun.position.set(18, 30, 12);
     this.scene.add(this.sun);
 
-    this.scene.add(this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup, this.petSupplyGroup, this.petHouseGroup, this.caveGroup, this.avatar);
+    this.scene.add(this.blockGroup, this.doorGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup, this.petSupplyGroup, this.petHouseGroup, this.caveGroup, this.avatar);
     this.caveGroup.visible = false;
 
     const edge = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
@@ -1246,7 +1249,7 @@ export class HouseEngine {
     this.caveReturn.copy(this.position);
     this.buildCave();
     // Hide the whole surface world while you're down below.
-    for (const g of [this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup]) g.visible = false;
+    for (const g of [this.blockGroup, this.doorGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup]) g.visible = false;
     this.neighbours.forEach((n) => { n.group.visible = false; if (n.houseGroup) n.houseGroup.visible = false; });
     this.houseOnly.forEach((g) => { g.visible = false; });
     if (this.pet) this.pet.group.visible = false;
@@ -1281,7 +1284,7 @@ export class HouseEngine {
     this.caveWalls.clear();
     this.caveGroup.visible = false;
     if (this.torch) this.torch.visible = false;
-    for (const g of [this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup]) g.visible = true;
+    for (const g of [this.blockGroup, this.doorGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup]) g.visible = true;
     this.neighbours.forEach((n) => { n.group.visible = true; if (n.houseGroup) n.houseGroup.visible = true; });
     this.houseOnly.forEach((g) => { g.visible = true; });
     if (this.pet) this.pet.group.visible = true;
@@ -1536,13 +1539,18 @@ export class HouseEngine {
   private rebuildBlocks() {
     this.blockGroup.clear();
     this.instanceCells.clear();
+    this.doorGroup.clear();
+    this.doors = [];
 
     const byType = new Map<string, Array<{ x: number; y: number; z: number }>>();
     for (let y = 0; y < SY; y += 1) {
       for (let z = 0; z < SZ; z += 1) {
         for (let x = 0; x < SX; x += 1) {
           const id = voxelAt(this.world, x, y, z);
-          if (id === EMPTY || !blockById(id) || !this.visible(x, y, z)) continue;
+          if (id === EMPTY || !blockById(id)) continue;
+          // Doors become real swinging panels rather than instanced cubes.
+          if (id === 'D') { this.buildDoor(x, y, z); continue; }
+          if (!this.visible(x, y, z)) continue;
           const list = byType.get(id) ?? [];
           list.push({ x, y, z });
           byType.set(id, list);
@@ -1574,6 +1582,44 @@ export class HouseEngine {
       this.blockGroup.add(mesh);
       this.instanceCells.set(mesh, cells);
     });
+  }
+
+  /** Build one hinged door for a 'D' voxel: a thin panel on a vertical hinge that
+   *  swings open (like a Minecraft door) whenever the player walks up to it. */
+  private buildDoor(x: number, y: number, z: number) {
+    // Which way does the wall run? If solid neighbours are left/right (x±1), the
+    // door spans X and the doorway leads through Z; otherwise it spans Z.
+    const solidX = isSolid(voxelAt(this.world, x - 1, y, z)) || isSolid(voxelAt(this.world, x + 1, y, z));
+    const spanX = solidX || !(isSolid(voxelAt(this.world, x, y, z - 1)) || isSolid(voxelAt(this.world, x, y, z + 1)));
+    const wood = new THREE.MeshLambertMaterial({ color: blockById('D')?.colour ?? '#6b4423' });
+    const knob = new THREE.MeshLambertMaterial({ color: '#e8c766' });
+    const pivot = new THREE.Group();
+    const panel = new THREE.Group();
+    if (spanX) {
+      pivot.position.set(x, y + 0.5, z + 0.5);           // hinge at the -x edge of the cell
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.98, 0.12), wood); slab.position.set(0.46, 0, 0); panel.add(slab);
+      const k = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.08), knob); k.position.set(0.82, 0, 0.09); panel.add(k);
+    } else {
+      pivot.position.set(x + 0.5, y + 0.5, z);           // hinge at the -z edge of the cell
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.98, 0.92), wood); slab.position.set(0, 0, 0.46); panel.add(slab);
+      const k = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.08), knob); k.position.set(0.09, 0, 0.82); panel.add(k);
+    }
+    panel.userData.doorCell = { x, y, z };
+    panel.children.forEach((c) => { c.userData.doorCell = { x, y, z }; });
+    pivot.add(panel);
+    this.doorGroup.add(pivot);
+    this.doors.push({ pivot, x, y, z, cx: x + 0.5, cz: z + 0.5, open: 0, openAt: spanX ? -1 : 1 });
+  }
+
+  /** Swing each door open when the player is near, and gently shut it when they leave. */
+  private updateDoors(dt: number) {
+    if (!this.doors.length) return;
+    for (const d of this.doors) {
+      const near = Math.hypot(this.position.x - d.cx, this.position.z - d.cz) < 2.2;
+      const target = near ? 1 : 0;
+      d.open += (target - d.open) * Math.min(1, dt * 7);
+      d.pivot.rotation.y = d.open * d.openAt * (Math.PI / 2);
+    }
   }
 
   private rebuildFurniture() {
@@ -1713,8 +1759,11 @@ export class HouseEngine {
 
   private pick() {
     this.raycaster.setFromCamera(this.pointer, this.camera);
-    const hits = this.raycaster.intersectObjects(this.blockGroup.children, false);
+    const hits = this.raycaster.intersectObjects([...this.blockGroup.children, ...this.doorGroup.children], true);
     for (const hit of hits) {
+      // A swinging door panel: resolve it back to its voxel cell so it's still editable.
+      let o: THREE.Object3D | null = hit.object;
+      while (o) { if (o.userData && o.userData.doorCell) { const c = o.userData.doorCell; return { x: c.x, y: c.y, z: c.z, nx: 0, ny: 0, nz: 0 }; } o = o.parent; }
       const mesh = hit.object as THREE.InstancedMesh;
       const cells = this.instanceCells.get(mesh);
       if (!cells || hit.instanceId === undefined || !hit.face) continue;
@@ -1923,6 +1972,7 @@ export class HouseEngine {
     const gs = globalSeason();
     if (gs !== this.season) this.setSeason(gs);
     if (this.mode === 'walk') { this.walk(dt); this.checkForage(dt); this.checkGems(dt); this.moveWild(dt); this.checkChop(dt); }
+    this.updateDoors(dt);
     this.movePet(dt);
     // Keep the endless ground under you, and stream fresh hills as you roam.
     if (this.ground) this.ground.position.set(this.position.x, 0.99, this.position.z);
