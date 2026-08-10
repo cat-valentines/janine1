@@ -194,6 +194,7 @@ export class HouseEngine {
   // Blocky pet houses you've bought — solid walls you can walk INTO via the door.
   private petHouseGroup = new THREE.Group();
   private petHouseWalls = new Set<string>();
+  private petHouseSpots: Array<{ x: number; z: number }> = [];   // interior centres, for resting
   private wanderers: Wanderer[] = [];
   /** Ripe crops in the garden — jump on one to harvest it. */
   private gardenCrops: Array<{ sprite: THREE.Object3D; x: number; z: number }> = [];
@@ -947,6 +948,7 @@ export class HouseEngine {
     this.petHouseGroup.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose?.(); const mt = m.material as THREE.Material | undefined; mt?.dispose?.(); });
     this.petHouseGroup.clear();
     this.petHouseWalls.clear();
+    this.petHouseSpots = [];
     const COLOURS: Record<string, { wall: string; roof: string; glass?: boolean }> = {
       doghouse: { wall: '#8a5a2f', roof: '#96453c' },
       cathouse: { wall: '#8d8d95', roof: '#5a5a66' },
@@ -973,8 +975,33 @@ export class HouseEngine {
       const roof = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.3, 3.4), new THREE.MeshLambertMaterial({ color: c.roof }));
       roof.position.set(ox + 1.5, 3.55, oz + 1.5);
       this.petHouseGroup.add(roof);
+      this.petHouseSpots.push({ x: ox + 1.5, z: oz + 1.5 });   // interior centre, where the pet naps
     });
   }
+
+  /** The interior spot of a pet house you're standing by (to send your pet to
+   *  rest), or null. */
+  getNearbyPetHouse(): { x: number; z: number } | null {
+    if (this.inCave || this.mode !== 'walk' || !this.pet) return null;
+    let best: { x: number; z: number } | null = null; let bestD = 3;
+    for (const s of this.petHouseSpots) {
+      const d = Math.hypot(s.x - this.position.x, s.z - this.position.z);
+      if (d < bestD) { bestD = d; best = s; }
+    }
+    return best;
+  }
+  isPetResting() { return !!this.pet?.resting; }
+
+  /** Send your pet to nap in the pet house you're by. */
+  restPet(): boolean {
+    const spot = this.getNearbyPetHouse();
+    if (!spot || !this.pet) return false;
+    this.pet.resting = true;
+    this.pet.restX = spot.x; this.pet.restZ = spot.z;
+    return true;
+  }
+  /** Wake the pet — it goes back to following you. */
+  wakePet() { if (this.pet) this.pet.resting = false; }
 
   /** The nearest chair/sofa you're standing by (to sit on), or null. */
   getNearbySeat() { return this.nearestFurniture(['chair', 'sofa'], 1.8); }

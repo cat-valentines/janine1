@@ -10,10 +10,10 @@ export interface PetMesh {
 }
 
 /** A pet that's alive in a scene — its world position and little wander brain. */
-export interface LivePet extends PetMesh { x: number; z: number; yaw: number; phase: number; wanderT: number; tx: number; tz: number }
+export interface LivePet extends PetMesh { x: number; z: number; yaw: number; phase: number; wanderT: number; tx: number; tz: number; resting: boolean; restX: number; restZ: number }
 
 export function makeLivePet(mesh: PetMesh, x: number, z: number): LivePet {
-  return Object.assign(mesh, { x, z, yaw: 0, phase: 0, wanderT: 0, tx: x, tz: z });
+  return Object.assign(mesh, { x, z, yaw: 0, phase: 0, wanderT: 0, tx: x, tz: z, resting: false, restX: x, restZ: z });
 }
 
 /**
@@ -22,6 +22,23 @@ export function makeLivePet(mesh: PetMesh, x: number, z: number): LivePet {
  * and glancing back at you, with a bouncy trot and idle bob. Call each frame.
  */
 export function stepPet(p: LivePet, px: number, pz: number, pyaw: number, dt: number, groundY: (x: number, z: number) => number, time: number) {
+  // Resting: pad over to its pet house and curl up for a nap.
+  if (p.resting) {
+    const dx = p.restX - p.x, dz = p.restZ - p.z, d = Math.hypot(dx, dz);
+    const moving = d > 0.15;
+    if (moving) {
+      const step = Math.min(d, (p.flyer ? 4 : 3.4) * dt);
+      p.x += (dx / d) * step; p.z += (dz / d) * step; p.yaw = Math.atan2(dx, dz);
+    }
+    p.phase += moving ? dt * 10 : dt * 1.4;
+    const settle = moving ? 0 : -0.12;               // sink down to lie once it arrives
+    const breathe = moving ? 0 : Math.sin(time * 2) * 0.02;
+    p.group.position.set(p.x, groundY(p.x, p.z) + (p.flyer ? 0.4 : 0) + settle + breathe, p.z);
+    p.group.rotation.y = p.yaw;
+    if (p.flyer) { const f = Math.sin(p.phase * 2) * (moving ? 0.9 : 0.25); p.wings.forEach((w, i) => { w.rotation.z = i === 0 ? f : -f; }); }
+    else { const a = moving ? Math.sin(p.phase) * 0.6 : 1.35; p.legs.forEach((leg, i) => { leg.rotation.x = moving ? ((i % 2) === (Math.floor(i / 2) % 2) ? a : -a) : a; }); }
+    return;
+  }
   const toOwner = Math.hypot(px - p.x, pz - p.z);
   let tx: number, tz: number, speed: number;
   if (toOwner > 3.4) {

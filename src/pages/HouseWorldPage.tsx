@@ -226,6 +226,8 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   const [nearCave, setNearCave] = useState(false);
   const [nearChest, setNearChest] = useState(false);
   const [nearWild, setNearWild] = useState<string | null>(null);
+  const [nearPetHouse, setNearPetHouse] = useState(false);
+  const [petResting, setPetResting] = useState(false);
   const [boxOpen, setBoxOpen] = useState(false);
   const [inCave, setInCave] = useState(false);
   const [sitting, setSitting] = useState(false);
@@ -236,8 +238,10 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       if (e) setLiveSeason(e.getSeason());   // the world drifts through seasons on its own
       const underground = !!e?.isInCave();
       setInCave(underground);
-      if (!e || mode !== 'walk' || underground) { setNearby(null); setAwayHouse(null); setNearSeat(false); setNearBed(false); setNearCave(false); setNearChest(false); setNearWild(null); if (!underground) setSitting(false); return; }
+      if (!e || mode !== 'walk' || underground) { setNearby(null); setAwayHouse(null); setNearSeat(false); setNearBed(false); setNearCave(false); setNearChest(false); setNearWild(null); setNearPetHouse(false); setPetResting(false); if (!underground) setSitting(false); return; }
       setNearWild(e.getNearbyWildAnimal());
+      setNearPetHouse(!!e.getNearbyPetHouse());
+      setPetResting(e.isPetResting());
       const live = visiting ? null : (e.getNearbyVisit() ?? null);
       setNearby(live);
       setAwayHouse(!live && !visiting ? e.getNearbyOfflineHouse() : null);   // owner not online → "come later"
@@ -366,11 +370,13 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
         <small>Everything you forage, hunt, fish and mine drops into your box automatically. Come here to eat it or sell your jewels.</small>
       </div>}
 
-      {/* Context actions: sit, sleep, head into a cave, or catch a wild animal. */}
-      {mode === 'walk' && (sitting || nearSeat || nearBed || nearCave || inCave || nearWild) && <div className="house-actions">
+      {/* Context actions: sit, sleep, cave, catch a wild animal, rest your pet. */}
+      {mode === 'walk' && (sitting || nearSeat || nearBed || nearCave || inCave || nearWild || (nearPetHouse && petSpecies) || petResting) && <div className="house-actions">
         {inCave && <button className="house-action-btn cave" onClick={() => { engine.current?.leaveCave(); setToast('🪜 You climbed back out into the daylight.'); }}>🪜 Leave the cave</button>}
         {!inCave && nearCave && <button className="house-action-btn cave" onClick={() => { if (engine.current?.enterCave()) setToast('⛏️ Into the cave! Mine the glowing jewels — leave whenever you like.'); }}>⛏️ Go into the cave</button>}
         {!inCave && nearWild && <button className="house-action-btn wild" onClick={() => { const k = engine.current?.catchNearbyAnimal(); if (k) setToast(`🪝 You caught a ${k}! It joined your fenced pasture.`); }}>🪝 Catch the {nearWild}</button>}
+        {!inCave && petResting && <button className="house-action-btn pet" onClick={() => { engine.current?.wakePet(); setToast('🐾 Your pet woke up and came to you!'); }}>🐾 Wake up your pet</button>}
+        {!inCave && !petResting && nearPetHouse && petSpecies && <button className="house-action-btn pet" onClick={() => { if (engine.current?.restPet()) setToast('😴 Your pet is having a rest in its pet house.'); }}>😴 Rest (your pet)</button>}
         {!inCave && sitting && <button className="house-action-btn" onClick={() => { engine.current?.standUp(); setToast('🧍 You stood up.'); }}>🧍 Stand up</button>}
         {!inCave && !sitting && nearSeat && <button className="house-action-btn" onClick={() => { if (engine.current?.sit()) setToast('🪑 You sat down. Ahh, comfy!'); }}>🪑 Sit down</button>}
         {!inCave && !sitting && nearBed && <button className="house-action-btn bed" onClick={() => { if (engine.current?.sleep()) setToast('🛏️ You slept! Good morning ☀️'); }}>🛏️ Sleep till morning</button>}
