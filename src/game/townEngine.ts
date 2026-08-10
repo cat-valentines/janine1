@@ -51,6 +51,7 @@ interface EngineOptions {
   selling?: boolean;
   /** The pet you've set walking, to trot along the market with you (or null). */
   petSpecies?: PetSpecies | null;
+  petDye?: string | null;
 }
 
 type ResourceKind = 'tree' | 'rock' | 'berry' | 'mushroom' | 'apple' | 'herb' | 'carrot' | 'crate' | 'nest';
@@ -152,20 +153,20 @@ export class TownEngine {
     this.limbs = built.limbs;
     this.scene.add(this.avatar);
 
-    if (options.petSpecies) this.setPet(options.petSpecies);
+    if (options.petSpecies) this.setPet(options.petSpecies, options.petDye);
     this.bind();
     this.loop();
   }
 
   /** Set (or clear) the pet that trots along the market with you. */
-  setPet(species: PetSpecies | null) {
+  setPet(species: PetSpecies | null, dye?: string | null) {
     if (this.pet) {
       this.scene.remove(this.pet.group);
       this.pet.group.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose?.(); const mt = m.material as THREE.Material | undefined; mt?.dispose?.(); });
       this.pet = null;
     }
     if (!species) return;
-    this.pet = makeLivePet(buildPetMesh(species), this.position.x + 1, this.position.z + 1);
+    this.pet = makeLivePet(buildPetMesh(species, dye), this.position.x + 1, this.position.z + 1);
     this.scene.add(this.pet.group);
   }
 

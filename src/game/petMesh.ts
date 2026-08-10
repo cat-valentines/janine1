@@ -62,8 +62,8 @@ export function stepPet(p: LivePet, px: number, pz: number, pyaw: number, dt: nu
 
 const lam = (color: string, emissive = '#000000') => new THREE.MeshLambertMaterial({ color, emissive });
 
-/** Build the pet for a species. The group's origin is at its feet (y = 0). */
-export function buildPetMesh(species: PetSpecies): PetMesh {
+/** Build the pet for a species, optionally dyed a colour. Origin at its feet. */
+export function buildPetMesh(species: PetSpecies, dye?: string | null): PetMesh {
   const group = new THREE.Group();
   const legs: THREE.Object3D[] = [];
   const wings: THREE.Object3D[] = [];
@@ -82,7 +82,7 @@ export function buildPetMesh(species: PetSpecies): PetMesh {
   if (species === 'parakeet') {
     // A little bird: bright body, wings that flap, tiny legs, hops/hovers.
     flyer = true;
-    const body = lam('#3fbf6a', '#123');
+    const body = lam(dye ?? '#3fbf6a', '#123');
     const belly = lam('#ffe27a');
     const torso = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.34, 0.32), body); torso.position.y = 0.5; group.add(torso);
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.24, 0.24), body); head.position.set(0, 0.78, 0.12); group.add(head);
@@ -105,7 +105,7 @@ export function buildPetMesh(species: PetSpecies): PetMesh {
     turtle: { color: '#5a9e55', belly: '#cdeacb', s: 0.95, ears: 'none', tail: false },
     hamster: { color: '#d8a860', belly: '#f4e0c0', s: 0.82, ears: 'round', tail: false },
   }[species];
-  const body = lam(spec.color, '#0a0805');
+  const body = lam(dye ?? spec.color, '#0a0805');
   const belly = lam(spec.belly);
   const s = spec.s;
   const torso = new THREE.Mesh(new THREE.BoxGeometry(0.46 * s, 0.32 * s, 0.72 * s), body); torso.position.y = 0.34 * s; group.add(torso);

@@ -93,6 +93,7 @@ interface EngineOptions {
   onNeedWood?: () => void;
   /** The pet you've set walking, to trot along beside you (or null for none). */
   petSpecies?: PetSpecies | null;
+  petDye?: string | null;
   /** Walk into a wild animal to catch it into your fenced pasture. */
   onCollectAnimal?: (kind: string) => void;
   /** Jump on a ripe crop in the garden to harvest it (food for your box). */
@@ -271,7 +272,7 @@ export class HouseEngine {
     this.rebuildFurniture();
     this.buildLivestock();
     this.resetPlayer();
-    if (options.petSpecies) this.setPet(options.petSpecies);
+    if (options.petSpecies) this.setPet(options.petSpecies, options.petDye);
 
     this.bind();
     this.loop();
@@ -885,15 +886,15 @@ export class HouseEngine {
     return { x: this.position.x, z: this.position.z, yaw: this.yaw, level: 0 };
   }
 
-  /** Set (or clear) the pet that trots along beside you. */
-  setPet(species: PetSpecies | null) {
+  /** Set (or clear) the pet that trots along beside you, in its (dyed) colour. */
+  setPet(species: PetSpecies | null, dye?: string | null) {
     if (this.pet) {
       this.scene.remove(this.pet.group);
       this.pet.group.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose?.(); const mt = m.material as THREE.Material | undefined; mt?.dispose?.(); });
       this.pet = null;
     }
     if (!species) return;
-    this.pet = makeLivePet(buildPetMesh(species), this.position.x + 1, this.position.z + 1);
+    this.pet = makeLivePet(buildPetMesh(species, dye), this.position.x + 1, this.position.z + 1);
     this.pet.group.visible = !this.inCave;
     this.scene.add(this.pet.group);
   }

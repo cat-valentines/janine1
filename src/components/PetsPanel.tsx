@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { loadPets, adoptPet, feedPet, buyFood, setActivePet, releasePet, PET_SPECIES, PET_ORDER, FOOD_PRICE, type PetSpecies, type PetsState } from '../lib/pets';
+import { PetShopPanel } from './PetShopPanel';
 
 interface PetsPanelProps {
   coins: number;
@@ -12,6 +13,7 @@ interface PetsPanelProps {
 export function PetsPanel({ coins, onSpendCoins, onGoHouse, onGoMarket }: PetsPanelProps) {
   const [state, setState] = useState<PetsState>(() => loadPets());
   const [note, setNote] = useState('');
+  const [shopOpen, setShopOpen] = useState(false);
   const refresh = (next: PetsState) => setState({ ...next });
 
   const active = state.pets.find((p) => p.id === state.activePetId) ?? state.pets[0] ?? null;
@@ -49,6 +51,9 @@ export function PetsPanel({ coins, onSpendCoins, onGoHouse, onGoMarket }: PetsPa
       <button onClick={() => buy(1)}>Buy 1 · {FOOD_PRICE}🪙</button>
       <button onClick={() => buy(5)}>Buy 5 · {FOOD_PRICE * 5}🪙</button>
     </div>
+
+    <button className="petshop-open" onClick={() => setShopOpen((s) => !s)}>🛍️ {shopOpen ? 'Close the Pet Shop' : 'Open the Pet Shop'}</button>
+    {shopOpen && <PetShopPanel coins={coins} onSpendCoins={onSpendCoins} onChange={() => setState(loadPets())} />}
 
     {state.pets.length > 0 && <div className="pets-list">
       {state.pets.map((pet) => {

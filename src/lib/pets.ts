@@ -29,7 +29,15 @@ export const FOOD_FILL = 40;
 const DECAY_PER_HOUR = 9;
 
 export interface Pet { id: string; species: PetSpecies; name: string; fullness: number; fullnessAt: number; adoptedAt: number }
-export interface PetsState { pets: Pet[]; food: number; activePetId: string | null }
+export interface PetsState {
+  pets: Pet[];
+  food: number;
+  activePetId: string | null;
+  /** Pet-shop supplies you own (item id → count) — they show up in your house. */
+  supplies: Record<string, number>;
+  /** Dye colour per pet id (hex), recolouring your pet. */
+  dye: Record<string, string>;
+}
 
 const KEY = 'magic-islands-pets';
 let counter = 0;
@@ -42,9 +50,11 @@ function decayed(pet: Pet, now: number): number {
 
 export function loadPets(): PetsState {
   const now = Date.now();
-  let state: PetsState = { pets: [], food: 0, activePetId: null };
+  let state: PetsState = { pets: [], food: 0, activePetId: null, supplies: {}, dye: {} };
   const raw = storage.get(KEY);
   if (raw) { try { state = { ...state, ...(JSON.parse(raw) as PetsState) }; } catch { /* keep default */ } }
+  state.supplies = state.supplies ?? {};
+  state.dye = state.dye ?? {};
   // Apply the hunger that ticked down while you were away.
   state.pets = (state.pets ?? []).map((p) => ({ ...p, fullness: decayed(p, now), fullnessAt: now }));
   if (state.activePetId && !state.pets.some((p) => p.id === state.activePetId)) state.activePetId = state.pets[0]?.id ?? null;
@@ -84,3 +94,12 @@ export function releasePet(id: string): PetsState {
 
 /** The companion that follows you into your house and the market (or null). */
 export function activePet(): Pet | null { const state = loadPets(); return state.pets.find((p) => p.id === state.activePetId) ?? null; }
+
+/** Buy a pet-shop supply (caller spends the coins) — it appears in your house. */
+export function buySupply(id: string): PetsState { const state = loadPets(); state.supplies[id] = (state.supplies[id] ?? 0) + 1; return save(state); }
+/** Dye a pet a colour (caller spends the coins). */
+export function dyePet(petId: string, colour: string): PetsState { const state = loadPets(); state.dye[petId] = colour; return save(state); }
+/** The dye colour of a pet, or null for its natural colour. */
+export function petDye(petId: string): string | null { return loadPets().dye[petId] ?? null; }
+/** The colour to draw the active pet in (its dye, or null). */
+export function activePetDye(): string | null { const s = loadPets(); return s.activePetId ? (s.dye[s.activePetId] ?? null) : null; }

@@ -29,7 +29,7 @@ import { HouseBuilderPage } from './HouseBuilderPage';
 // three.js is ~500KB — load it only when a player actually opens their house.
 const HouseWorldPage = lazy(() => import('./HouseWorldPage').then((m) => ({ default: m.HouseWorldPage })));
 import { emptyWorld, normaliseWorld } from '../game/voxel';
-import { activePet } from '../lib/pets';
+import { activePet, activePetDye } from '../lib/pets';
 import { currentSeason } from '../game/terrain';
 import { islands } from '../game/islands';
 import { getStars } from '../lib/escapeStars';
@@ -405,6 +405,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     onWood={() => setWood((n) => n + 4)}
     onUseWood={() => setWood((n) => Math.max(0, n - 1))}
     petSpecies={activePet()?.species ?? null}
+    petDye={activePetDye()}
     onCollectAnimal={(kind) => setAnimals((list) => [...list, { id: `w-${Date.now()}`, type: kind, fedAt: Date.now() }])}
     onChangeWorld={(update) => { setHouseWorld((previous) => update(previous || emptyWorld())); setOwnsHouse(true); if (!houseSource) setHouseSource('built'); }}
     onChangeFurniture={setHouseFurniture}

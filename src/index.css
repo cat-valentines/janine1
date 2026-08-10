@@ -2161,6 +2161,26 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .pets-take-house { background: #64a263; color: #fff; box-shadow: 0 3px 0 #3d6b3c; }
 .pets-take-market { background: #e0894a; color: #fff; box-shadow: 0 3px 0 #a85f2c; }
 .pets-note { color: #64a263; font-weight: 700; font-size: .84rem; }
+.petshop-open { padding: 11px; border: 0; border-radius: 999px; background: #9a6fd0; color: #fff; font-weight: 850; font-size: .95rem; cursor: pointer; box-shadow: 0 3px 0 #6f4aa0; }
+.petshop { display: flex; flex-direction: column; gap: 12px; padding: 12px; border-radius: 14px; background: #f6f0fb; border: 2px solid #d9c8ee; }
+.petshop-bar { display: flex; justify-content: space-between; align-items: center; font-weight: 850; color: #5a3f7a; }
+.petshop-cat h4 { margin: 0 0 8px; color: #4a3060; font-size: .95rem; }
+.petshop-cat h4 small { color: #8a6faa; font-weight: 600; }
+.petshop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.petshop-item { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 9px 6px; border: 2px solid #e2d5f2; border-radius: 12px; background: #fff; cursor: pointer; text-align: center; }
+.petshop-item:disabled { opacity: .5; cursor: default; }
+.petshop-emoji { font-size: 1.7rem; }
+.petshop-item b { color: #3a2a4a; font-size: .8rem; }
+.petshop-item em { color: #8a6faa; font-size: .64rem; font-style: normal; }
+.petshop-item i { font-style: normal; font-weight: 850; color: #7a4fb0; font-size: .76rem; }
+.petshop-dye { border-top: 1px dashed #d9c8ee; padding-top: 10px; }
+.petshop-dyes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.petshop-swatch { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #ffffff; box-shadow: 0 0 0 2px #cbb8e6; cursor: pointer; }
+.petshop-swatch:disabled { opacity: .4; cursor: default; }
+.petshop-custom { display: inline-flex; align-items: center; gap: 6px; }
+.petshop-custom input[type=color] { width: 34px; height: 34px; border: 0; background: none; cursor: pointer; }
+.petshop-custom button { padding: 8px 12px; border: 0; border-radius: 999px; background: #9a6fd0; color: #fff; font-weight: 800; font-size: .78rem; cursor: pointer; }
+.petshop-note { color: #7a4fb0; font-weight: 700; font-size: .84rem; }
 .pets-hint { color: var(--ink-soft); font-size: .78rem; }
 .profile-rewards .rewards-section { max-width: none; padding: 0; margin: 0 0 16px; }
 
