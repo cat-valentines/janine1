@@ -3,7 +3,7 @@ import { HouseEngine, type Mode, type View } from '../game/houseEngine';
 import { blocks, type Animal, type Plot } from '../game/building';
 import { emptyWorld, normaliseWorld, type Furniture, type FurnitureKind } from '../game/voxel';
 import { characterAssets } from '../game/characters';
-import { seasonOrder, seasonStyles, type Season } from '../game/terrain';
+import type { Season } from '../game/terrain';
 import { itemById, shopItems } from '../shop/catalog';
 import { joinLiveGame, type LivePlayer, type HouseGift, type LiveGame } from '../lib/liveGame';
 import { heartbeat, leaveGame } from '../lib/presence';
@@ -68,7 +68,7 @@ const FURNITURE_COLORS = ['#ffffff', '#e0685f', '#e8a04f', '#f2d05e', '#6fbf6a',
 const FURNITURE_COST = 20;
 
 export function HouseWorldPage(props: HouseWorldPageProps) {
-  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, applePantry, jewels, wood, petSpecies, petDye, petSupplies, petHouses, onCollectAnimal, onSpendCoins, onFood, onEatApple, onGem, onSellJewels, onWood, onUseWood, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
+  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, applePantry, jewels, wood, petSpecies, petDye, petSupplies, petHouses, onCollectAnimal, onSpendCoins, onFood, onEatApple, onGem, onSellJewels, onWood, onUseWood, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
   const onCollectAnimalRef = useRef(onCollectAnimal);
   onCollectAnimalRef.current = onCollectAnimal;
   const onFoodRef = useRef(onFood);
@@ -231,11 +231,9 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   const [boxOpen, setBoxOpen] = useState(false);
   const [inCave, setInCave] = useState(false);
   const [sitting, setSitting] = useState(false);
-  const [liveSeason, setLiveSeason] = useState<Season>(season);
   useEffect(() => {
     const id = setInterval(() => {
       const e = engine.current;
-      if (e) setLiveSeason(e.getSeason());   // the world drifts through seasons on its own
       const underground = !!e?.isInCave();
       setInCave(underground);
       if (!e || mode !== 'walk' || underground) { setNearby(null); setAwayHouse(null); setNearSeat(false); setNearBed(false); setNearCave(false); setNearChest(false); setNearWild(null); setNearPetHouse(false); setPetResting(false); if (!underground) setSitting(false); return; }
@@ -256,7 +254,8 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   useEffect(() => { if (!nearChest) setBoxOpen(false); }, [nearChest]);   // walk away → box shuts
 
   useEffect(() => { engine.current?.setWorld(world); }, [world]);
-  useEffect(() => { engine.current?.setSeason((visiting?.season as Season) ?? season); }, [season, visiting]);
+  // Seasons are automatic + shared for everyone now (the engine drives them from
+  // a global clock), so the house world never sets the season by hand.
   useEffect(() => { engine.current?.setFurniture(activeFurniture); }, [activeFurniture]);
   useEffect(() => { engine.current?.setMode(mode); }, [mode]);
   useEffect(() => { engine.current?.setView(view); }, [view]);
@@ -390,14 +389,6 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       {mode === 'build' && <p className="world-help">{erasing
         ? <>🧽 <b>Eraser on</b> — click any block to rub it out. Pick a block to build again.</>
         : <>Click a face to place a block · <b>Shift+click</b> or the <b>🧽 Eraser</b> to rub out · <b>right-drag</b> to spin · <b>scroll</b> to zoom</>}</p>}
-      <div className="season-switch">
-        {seasonOrder.map((item) => <button
-          className={liveSeason === item ? 'selected' : ''}
-          key={item}
-          onClick={() => onChangeSeason(item)}
-          title={seasonStyles[item].name}
-        >{seasonStyles[item].icon}<small>{seasonStyles[item].name}</small></button>)}
-      </div>
     </div>
 
     {mode === 'build' && <section className="world-palette">

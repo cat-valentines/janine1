@@ -58,6 +58,9 @@ const LAND_STEP = 18;
 const DAY_LENGTH = 220;
 /** Seconds each season lasts before the world drifts into the next one. */
 const SEASON_LENGTH = 200;
+/** The season right now, from a GLOBAL clock — so it's automatic and identical
+ *  for every player at the same moment (no manual switching). */
+function globalSeason(): Season { return seasonOrder[Math.floor(Date.now() / (SEASON_LENGTH * 1000)) % seasonOrder.length]; }
 /** The underground cave you can walk into: a bounded cavern of rock + jewels. */
 const CAVE_W = 34, CAVE_H = 34, CAVE_CEIL = 6;
 /** The single shared landscape seed — the same public land for every player. */
@@ -158,7 +161,6 @@ export class HouseEngine {
   private dayTime = 0.32;   // 0 midnight · 0.25 sunrise · 0.5 noon · 0.75 sunset
   private daySky = new THREE.Color();
   private skyNow = new THREE.Color();
-  private seasonTimer = 0;   // the world drifts through the seasons on its own
   // Waterfalls tumbling down the mountain cliffs — one scrolling texture, shared,
   // in their own group so the forage sweep never disposes the shared resources.
   private waterfallMat: THREE.MeshBasicMaterial | null = null;
@@ -248,7 +250,7 @@ export class HouseEngine {
     this.options = options;
     this.world = options.world;
     this.furniture = options.furniture;
-    this.season = options.season;
+    this.season = globalSeason();   // automatic + the same for everyone (ignores any saved pick)
     // ONE shared world for everybody — the same hills, water, mountains, forage,
     // caves and jewels for every player, so it's a truly public land you can all
     // explore together (your own house is still your own private build).
@@ -650,7 +652,6 @@ export class HouseEngine {
   setSeason(season: Season) {
     if (season === this.season) return;
     this.season = season;
-    this.seasonTimer = 0;   // a fresh full season from here
     this.applySky();
     this.rebuildTerrain();
     this.rebuildBlocks();
@@ -1742,12 +1743,9 @@ export class HouseEngine {
     this.moveNeighbours(dt);
     this.updateDayNight(dt);
     if (this.waterfallMat?.map) this.waterfallMat.map.offset.y -= dt * 0.7;   // water flows down
-    // The world drifts through the seasons on its own.
-    this.seasonTimer += dt;
-    if (this.seasonTimer > SEASON_LENGTH) {
-      this.seasonTimer = 0;
-      this.setSeason(seasonOrder[(seasonOrder.indexOf(this.season) + 1) % seasonOrder.length]);
-    }
+    // The season drifts on its own, from a shared global clock — same for everyone.
+    const gs = globalSeason();
+    if (gs !== this.season) this.setSeason(gs);
     if (this.mode === 'walk') { this.walk(dt); this.checkForage(dt); this.checkGems(dt); this.moveWild(dt); this.checkChop(dt); }
     this.movePet(dt);
     // Keep the endless ground under you, and stream fresh hills as you roam.
