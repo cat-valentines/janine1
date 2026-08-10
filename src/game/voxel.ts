@@ -58,7 +58,7 @@ export function normaliseWorld(world: string | undefined) {
   return emptyWorld();
 }
 
-export type FurnitureKind = 'table' | 'chair' | 'sofa' | 'bed' | 'lamp';
+export type FurnitureKind = 'table' | 'chair' | 'sofa' | 'bed' | 'lamp' | 'kitchen';
 export interface Furniture { id: string; item: string; x: number; y: number; z: number; rot: number; kind?: FurnitureKind; color?: string }
 
 /** Highest solid block at this column, so dropped furniture lands on the floor. */

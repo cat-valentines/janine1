@@ -26,6 +26,18 @@ export function buildFurnitureMesh(kind: FurnitureKind, color: string): THREE.Gr
     box(0.9, 0.22, 1.3, 0, 0.28, 0);
     box(0.68, 0.12, 0.32, 0, 0.44, -0.45, new THREE.MeshLambertMaterial({ color: '#f4efe8' }));   // pillow
     box(0.94, 0.5, 0.08, 0, 0.42, -0.68);   // headboard
+  } else if (kind === 'kitchen') {
+    // A blocky little cooker: counter + oven door + hob with two burners and a pot.
+    const steel = new THREE.MeshLambertMaterial({ color: '#d7d9de' });
+    const dark = new THREE.MeshLambertMaterial({ color: '#3a3d45' });
+    box(0.95, 0.85, 0.6, 0, 0.42, 0, mat);                 // body (painted your colour)
+    box(0.99, 0.1, 0.64, 0, 0.9, 0, steel);                // counter top
+    box(0.5, 0.4, 0.02, 0, 0.42, 0.31, dark);              // oven door
+    box(0.5, 0.05, 0.04, 0, 0.6, 0.33, steel);             // oven handle
+    [-0.22, 0.22].forEach((x) => box(0.26, 0.03, 0.26, x, 0.96, -0.05, dark));   // burners
+    box(0.22, 0.16, 0.22, -0.22, 1.06, -0.05, dark);       // a pot on the hob
+    const flame = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.03, 0.26), new THREE.MeshLambertMaterial({ color: '#ff7a33', emissive: '#ff5a1e', emissiveIntensity: 0.7 }));
+    flame.position.set(0.22, 0.965, -0.05); g.add(flame);  // a glowing hot burner
   } else {  // lamp
     box(0.28, 0.06, 0.28, 0, 0.03, 0, legMat);
     box(0.06, 0.95, 0.06, 0, 0.5, 0, legMat);
@@ -1130,6 +1142,8 @@ export class HouseEngine {
   getNearbySeat() { return this.nearestFurniture(['chair', 'sofa'], 1.8); }
   /** The nearest bed you're standing by (to sleep in), or null. */
   getNearbyBed() { return this.nearestFurniture(['bed'], 2.2); }
+  /** True if you're standing by a kitchen (to cook meat / eat fruit). */
+  getNearbyKitchen() { return !!this.nearestFurniture(['kitchen'], 2.2); }
 
   /** True if you're standing right by a cave mouth (to head underground). */
   getNearbyCave(): boolean {

@@ -59,6 +59,8 @@ interface HouseWorldPageProps {
   /** Meat you've got from your animals, and taking meat from one (it leaves the farm). */
   meat: number;
   onGetMeat: (kind: string) => void;
+  /** Cook a piece of meat at the kitchen into a hearty meal (spends 1 meat, feeds you). */
+  onCookMeat: () => void;
   onChangeWorld: (update: (previous: string) => string) => void;
   onChangeFurniture: (furniture: Furniture[]) => void;
   onRename: (name: string) => void;
@@ -71,12 +73,13 @@ const FURNITURE_KINDS: Array<{ kind: FurnitureKind; icon: string; name: string }
   { kind: 'sofa', icon: '🛋️', name: 'Sofa' },
   { kind: 'bed', icon: '🛏️', name: 'Bed' },
   { kind: 'lamp', icon: '💡', name: 'Lamp' },
+  { kind: 'kitchen', icon: '🍳', name: 'Kitchen' },
 ];
 const FURNITURE_COLORS = ['#ffffff', '#e0685f', '#e8a04f', '#f2d05e', '#6fbf6a', '#5a9fe0', '#9a6fd0', '#f28fb0', '#8a5a3a', '#3a3a44'];
 const FURNITURE_COST = 20;
 
 export function HouseWorldPage(props: HouseWorldPageProps) {
-  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, applePantry, jewels, wood, meat, petSpecies, petDye, petSupplies, petHouses, hasLadder, onBuyLadder, onCollectAnimal, onNewBaby, onGetMeat, onSpendCoins, onFood, onEatApple, onGem, onSellJewels, onWood, onUseWood, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
+  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, applePantry, jewels, wood, meat, petSpecies, petDye, petSupplies, petHouses, hasLadder, onBuyLadder, onCollectAnimal, onNewBaby, onGetMeat, onCookMeat, onSpendCoins, onFood, onEatApple, onGem, onSellJewels, onWood, onUseWood, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
   const onCollectAnimalRef = useRef(onCollectAnimal);
   onCollectAnimalRef.current = onCollectAnimal;
   const onNewBabyRef = useRef(onNewBaby);
@@ -242,6 +245,7 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   const [nearWild, setNearWild] = useState<string | null>(null);
   const [nearFarm, setNearFarm] = useState(false);
   const [hungry, setHungry] = useState(0);
+  const [nearKitchen, setNearKitchen] = useState(false);
   const [nearPetHouse, setNearPetHouse] = useState(false);
   const [petResting, setPetResting] = useState(false);
   const [treeApples, setTreeApples] = useState(0);
@@ -253,10 +257,11 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       const e = engine.current;
       const underground = !!e?.isInCave();
       setInCave(underground);
-      if (!e || mode !== 'walk' || underground) { setNearby(null); setAwayHouse(null); setNearSeat(false); setNearBed(false); setNearCave(false); setNearChest(false); setNearWild(null); setNearFarm(false); setNearPetHouse(false); setPetResting(false); setTreeApples(0); if (!underground) setSitting(false); return; }
+      if (!e || mode !== 'walk' || underground) { setNearby(null); setAwayHouse(null); setNearSeat(false); setNearBed(false); setNearCave(false); setNearChest(false); setNearWild(null); setNearFarm(false); setNearKitchen(false); setNearPetHouse(false); setPetResting(false); setTreeApples(0); if (!underground) setSitting(false); return; }
       setNearWild(e.getNearbyWildAnimal());
       setNearFarm(!visiting && e.getNearbyPennedAnimal());
       setHungry(e.hungryCount());
+      setNearKitchen(!visiting && e.getNearbyKitchen());
       setNearPetHouse(!!e.getNearbyPetHouse());
       setPetResting(e.isPetResting());
       setTreeApples(e.getNearbyApples());
@@ -393,6 +398,20 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
           <small>Cook it at a kitchen</small>
         </div>
         <small>Everything you forage, hunt, fish and mine drops into your box automatically. Come here to eat it or sell your jewels.</small>
+      </div>}
+
+      {/* Stand by a kitchen to cook the meat from your animals and eat your fruit. */}
+      {mode === 'walk' && nearKitchen && <div className="box-panel kitchen-panel">
+        <div className="box-panel-head"><strong>🍳 Your kitchen</strong></div>
+        <div className="box-row">
+          <span>🥩 Meat <b>{meat}</b></span>
+          <button disabled={meat <= 0} onClick={() => { if (meat > 0) { onCookMeat(); setToast('🍖 You cooked a hearty meal! (+2 food) 😋'); } }}>Cook a meal (+2)</button>
+        </div>
+        <div className="box-row">
+          <span>🍎 Fruit <b>{applePantry}</b></span>
+          <button disabled={applePantry <= 0} onClick={() => { if (applePantry > 0) { onEatApple(); setToast('😋 You ate some fruit. (+1 food)'); } }}>Eat a fruit (+1)</button>
+        </div>
+        <small>Cook the meat from your farm animals, and eat the fruit you've picked.</small>
       </div>}
 
       {/* Context actions: sit, sleep, cave, catch a wild animal, rest your pet. */}

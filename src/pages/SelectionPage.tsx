@@ -419,6 +419,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     meat={meat}
     onNewBaby={(kind) => setAnimals((list) => (list.length >= 24 ? list : [...list, { id: `b-${Date.now()}`, type: kind, fedAt: Date.now() }]))}
     onGetMeat={(kind) => { setMeat((m) => m + 1); setAnimals((list) => { const i = list.findIndex((a) => a.type === kind); return i < 0 ? list : [...list.slice(0, i), ...list.slice(i + 1)]; }); }}
+    onCookMeat={() => { setMeat((m) => Math.max(0, m - 1)); setFoodBalance((f) => f + 2); }}
     onChangeWorld={(update) => { setHouseWorld((previous) => update(previous || emptyWorld())); setOwnsHouse(true); if (!houseSource) setHouseSource('built'); }}
     onChangeFurniture={setHouseFurniture}
     onRename={setHouseName}
