@@ -107,9 +107,19 @@ interface EngineOptions {
   onCollectAnimal?: (kind: string) => void;
   /** Jump on a ripe crop in the garden to harvest it (food for your box). */
   onHarvest?: () => void;
+  /** A baby was born in the pen — persist it so the farm keeps growing. */
+  onNewBaby?: (kind: string) => void;
+  /** You took meat from a grown animal — it leaves the farm, you keep the meat. */
+  onGetMeat?: (kind: string) => void;
 }
 
-interface Wanderer { group: THREE.Object3D; legs: THREE.Object3D[]; x: number; z: number; dir: number; speed: number; phase: number; kind?: string }
+interface Wanderer { group: THREE.Object3D; legs: THREE.Object3D[]; x: number; z: number; dir: number; speed: number; phase: number; kind?: string;
+  /** 0 = just fed and happy, 1 = starving. Rises over time; feeding resets it. */
+  hunger: number;
+  /** A baby that grows to full size, then counts as an adult who can have young. */
+  baby?: boolean; age?: number;
+  /** Seconds until this adult can parent another baby again. */
+  breedCool?: number }
 interface Apple { mesh: THREE.Mesh; x: number; z: number; y: number; regrowAt: number; high?: boolean }
 interface Gem { mesh: THREE.Object3D; x: number; z: number; taken: boolean }
 /** Another real player walking your land live, with their @name floating above,
@@ -203,6 +213,7 @@ export class HouseEngine {
   private petHouseWalls = new Set<string>();
   private petHouseSpots: Array<{ x: number; z: number }> = [];   // interior centres, for resting
   private wanderers: Wanderer[] = [];
+  private breedTimer = 0;
   /** Ripe crops in the garden — jump on one to harvest it. */
   private gardenCrops: Array<{ sprite: THREE.Object3D; x: number; z: number }> = [];
   private avatar = new THREE.Group();
@@ -679,7 +690,7 @@ export class HouseEngine {
           const built = buildAnimalMesh(kind);
           built.group.position.set(jx, this.groundY(jx, jz), jz);
           this.forageGroup.add(built.group);
-          this.wild.push({ group: built.group, legs: built.legs, kind, x: jx, z: jz, dir: rand(x, z, this.seed + 3) * Math.PI * 2, speed: 0.5 + rand(z, x, this.seed + 2) * 0.7, phase: (x + z) * 0.3 });
+          this.wild.push({ group: built.group, legs: built.legs, kind, x: jx, z: jz, dir: rand(x, z, this.seed + 3) * Math.PI * 2, speed: 0.5 + rand(z, x, this.seed + 2) * 0.7, phase: (x + z) * 0.3, hunger: 0 });
         } else if (h === 0 && r > 0.68) {
           // A blocky fish bobbing on the water — walk to the shore to catch it.
           const built = buildFishMesh();
@@ -786,12 +797,17 @@ export class HouseEngine {
 
   /** Drop an animal of this kind into the fenced pasture (a starting farm animal,
    *  or a wild one you just caught). */
-  private penAnimal(kind: string) {
-    const x = PEN_X0 + 1 + Math.random() * (PEN_X1 - PEN_X0 - 2), z = PEN_Z0 + 1 + Math.random() * (PEN_Z1 - PEN_Z0 - 2);
+  private penAnimal(kind: string, baby = false, at?: { x: number; z: number }) {
+    const x = at ? at.x : PEN_X0 + 1 + Math.random() * (PEN_X1 - PEN_X0 - 2);
+    const z = at ? at.z : PEN_Z0 + 1 + Math.random() * (PEN_Z1 - PEN_Z0 - 2);
     const built = buildAnimalMesh(kind);
     built.group.position.set(x, 1.0, z);
+    if (baby) built.group.scale.setScalar(0.45);   // origin is at the feet, so it still stands on the ground
     this.livestockGroup.add(built.group);
-    this.wanderers.push({ group: built.group, legs: built.legs, kind, x, z, dir: Math.random() * Math.PI * 2, speed: 0.5 + Math.random() * 0.6, phase: Math.random() * 6 });
+    this.wanderers.push({ group: built.group, legs: built.legs, kind, x, z, dir: Math.random() * Math.PI * 2,
+      speed: (baby ? 0.7 : 0.5) + Math.random() * 0.6, phase: Math.random() * 6,
+      hunger: baby ? 0 : Math.random() * 0.3, baby: baby || undefined, age: baby ? 0 : undefined,
+      breedCool: baby ? undefined : 8 + Math.random() * 20 });
   }
 
   /** Amble the animals gently around their flat, fenced pasture, legs trotting.
@@ -799,9 +815,21 @@ export class HouseEngine {
   private moveAnimals(dt: number) {
     for (const w of this.wanderers) {
       w.phase += dt;
+      // Grow hungrier over ~2.5 min; a hungry animal plods along slowly until you feed it.
+      w.hunger = Math.min(1, w.hunger + dt / 150);
+      const hungry = w.hunger > 0.55;
+      // Babies grow up over ~50s, then become full-size adults who can parent young too.
+      if (w.baby) {
+        w.age = (w.age ?? 0) + dt;
+        const grown = Math.min(1, w.age / 50);
+        w.group.scale.setScalar(0.45 + 0.55 * grown);
+        if (grown >= 1) { w.baby = undefined; w.age = undefined; w.breedCool = 25 + Math.random() * 15; }
+      }
+      if (w.breedCool && w.breedCool > 0) w.breedCool = Math.max(0, w.breedCool - dt);
       w.dir += Math.sin(w.phase * 0.6) * dt * 0.9;
-      w.x += Math.cos(w.dir) * w.speed * dt;
-      w.z += Math.sin(w.dir) * w.speed * dt;
+      const speed = w.speed * (hungry ? 0.4 : 1);
+      w.x += Math.cos(w.dir) * speed * dt;
+      w.z += Math.sin(w.dir) * speed * dt;
       // Turn back a body-width INSIDE the fence, so animals never poke through it.
       const M = 0.8;
       if (w.x < PEN_X0 + M) { w.x = PEN_X0 + M; w.dir = Math.PI - w.dir; }
@@ -810,8 +838,29 @@ export class HouseEngine {
       if (w.z > PEN_Z1 - M) { w.z = PEN_Z1 - M; w.dir = -w.dir; }
       w.group.position.set(w.x, 1.0, w.z);   // flat pasture — fixed ground height
       w.group.rotation.y = Math.atan2(Math.cos(w.dir), Math.sin(w.dir));
-      const sw = Math.sin(w.phase * 7) * 0.5;
+      const sw = Math.sin(w.phase * (hungry ? 3.5 : 7)) * 0.5;
       w.legs.forEach((leg, i) => { leg.rotation.x = ((i % 2) === (Math.floor(i / 2) % 2) ? sw : -sw); });
+    }
+    // Every so often, two well-fed grown-ups of the same kind have a baby (up to a full pen).
+    this.breedTimer += dt;
+    if (this.breedTimer >= 6) { this.breedTimer = 0; this.tryBreed(); }
+  }
+
+  /** Pair up well-fed adults of the same kind and, if there's room in the pen, add a baby. */
+  private tryBreed() {
+    if (this.wanderers.length >= 24) return;
+    const ready = new Map<string, Wanderer[]>();
+    for (const w of this.wanderers) {
+      if (w.baby || w.hunger > 0.4 || (w.breedCool ?? 0) > 0 || !w.kind) continue;
+      (ready.get(w.kind) ?? ready.set(w.kind, []).get(w.kind)!).push(w);
+    }
+    for (const [kind, parents] of ready) {
+      if (parents.length < 2) continue;
+      const [a, b] = parents;
+      a.breedCool = 45; b.breedCool = 45;
+      this.penAnimal(kind, true, { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 });
+      this.options.onNewBaby?.(kind);
+      return;   // at most one birth per tick, so the pen fills up gently
     }
   }
 
@@ -1120,6 +1169,45 @@ export class HouseEngine {
     const kind = target.kind ?? 'rabbit';
     this.penAnimal(kind);
     this.options.onCollectAnimal?.(kind);
+    return kind;
+  }
+
+  /** The nearest grown farm animal you're standing by, or null (to offer Feed / Get-meat). */
+  private nearestPenned(range: number): Wanderer | null {
+    if (this.inCave || this.mode !== 'walk') return null;
+    let target: Wanderer | null = null; let bestD = range;
+    for (const w of this.wanderers) {
+      const d = Math.hypot(w.x - this.position.x, w.z - this.position.z);
+      if (d < bestD) { bestD = d; target = w; }
+    }
+    return target;
+  }
+
+  /** True if you're standing among your farm animals (to show Feed / Get-meat buttons). */
+  getNearbyPennedAnimal(): boolean { return !!this.wanderers.length && !!this.nearestPenned(3.0); }
+  /** How many of your animals look hungry right now (a nudge to feed them). */
+  hungryCount(): number { return this.wanderers.filter((w) => w.hunger > 0.55).length; }
+
+  /** Feed every animal in the pen — resets their hunger so they thrive and can breed. */
+  feedPennedAnimals(): number {
+    if (!this.wanderers.length) return 0;
+    for (const w of this.wanderers) w.hunger = 0;
+    return this.wanderers.length;
+  }
+
+  /** Get meat from the nearest grown animal: it leaves the pen and you keep the meat. */
+  getMeatFromNearby(): string | null {
+    let target: Wanderer | null = null; let bestD = 2.6;
+    for (const w of this.wanderers) {
+      if (w.baby) continue;   // never take a baby
+      const d = Math.hypot(w.x - this.position.x, w.z - this.position.z);
+      if (d < bestD) { bestD = d; target = w; }
+    }
+    if (!target) return null;
+    this.livestockGroup.remove(target.group);
+    this.wanderers = this.wanderers.filter((w) => w !== target);
+    const kind = target.kind ?? 'animal';
+    this.options.onGetMeat?.(kind);
     return kind;
   }
 

@@ -54,6 +54,11 @@ interface HouseWorldPageProps {
   onBuyLadder: () => void;
   /** Catch a wild animal into your pasture (adds it to your farm). */
   onCollectAnimal: (kind: string) => void;
+  /** A baby was born in the pen — save it so the farm keeps growing. */
+  onNewBaby: (kind: string) => void;
+  /** Meat you've got from your animals, and taking meat from one (it leaves the farm). */
+  meat: number;
+  onGetMeat: (kind: string) => void;
   onChangeWorld: (update: (previous: string) => string) => void;
   onChangeFurniture: (furniture: Furniture[]) => void;
   onRename: (name: string) => void;
@@ -71,9 +76,13 @@ const FURNITURE_COLORS = ['#ffffff', '#e0685f', '#e8a04f', '#f2d05e', '#6fbf6a',
 const FURNITURE_COST = 20;
 
 export function HouseWorldPage(props: HouseWorldPageProps) {
-  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, applePantry, jewels, wood, petSpecies, petDye, petSupplies, petHouses, hasLadder, onBuyLadder, onCollectAnimal, onSpendCoins, onFood, onEatApple, onGem, onSellJewels, onWood, onUseWood, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
+  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, applePantry, jewels, wood, meat, petSpecies, petDye, petSupplies, petHouses, hasLadder, onBuyLadder, onCollectAnimal, onNewBaby, onGetMeat, onSpendCoins, onFood, onEatApple, onGem, onSellJewels, onWood, onUseWood, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
   const onCollectAnimalRef = useRef(onCollectAnimal);
   onCollectAnimalRef.current = onCollectAnimal;
+  const onNewBabyRef = useRef(onNewBaby);
+  onNewBabyRef.current = onNewBaby;
+  const onGetMeatRef = useRef(onGetMeat);
+  onGetMeatRef.current = onGetMeat;
   const onFoodRef = useRef(onFood);
   onFoodRef.current = onFood;
   const onGemRef = useRef(onGem);
@@ -150,6 +159,8 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       onUseWood: () => onUseWoodRef.current(),
       onNeedWood: () => setToast('🪵 Out of wood! Go inside and chop a tree first.'),
       onCollectAnimal: (kind) => onCollectAnimalRef.current(kind),
+      onNewBaby: (kind) => { onNewBabyRef.current(kind); setToast(`🐣 A baby ${kind} was born on your farm!`); },
+      onGetMeat: (kind) => onGetMeatRef.current(kind),
       onHarvest: () => { onFoodRef.current(); setToast('🌾 Harvested a ripe crop — food for your box!'); },
     });
     engine.current = created;
@@ -229,6 +240,8 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   const [nearCave, setNearCave] = useState(false);
   const [nearChest, setNearChest] = useState(false);
   const [nearWild, setNearWild] = useState<string | null>(null);
+  const [nearFarm, setNearFarm] = useState(false);
+  const [hungry, setHungry] = useState(0);
   const [nearPetHouse, setNearPetHouse] = useState(false);
   const [petResting, setPetResting] = useState(false);
   const [treeApples, setTreeApples] = useState(0);
@@ -240,8 +253,10 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       const e = engine.current;
       const underground = !!e?.isInCave();
       setInCave(underground);
-      if (!e || mode !== 'walk' || underground) { setNearby(null); setAwayHouse(null); setNearSeat(false); setNearBed(false); setNearCave(false); setNearChest(false); setNearWild(null); setNearPetHouse(false); setPetResting(false); setTreeApples(0); if (!underground) setSitting(false); return; }
+      if (!e || mode !== 'walk' || underground) { setNearby(null); setAwayHouse(null); setNearSeat(false); setNearBed(false); setNearCave(false); setNearChest(false); setNearWild(null); setNearFarm(false); setNearPetHouse(false); setPetResting(false); setTreeApples(0); if (!underground) setSitting(false); return; }
       setNearWild(e.getNearbyWildAnimal());
+      setNearFarm(!visiting && e.getNearbyPennedAnimal());
+      setHungry(e.hungryCount());
       setNearPetHouse(!!e.getNearbyPetHouse());
       setPetResting(e.isPetResting());
       setTreeApples(e.getNearbyApples());
@@ -373,14 +388,20 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
           <span>💎 Jewels <b>{jewels}</b></span>
           <button disabled={jewels <= 0} onClick={() => { if (jewels > 0) { const paid = jewels * 15; onSellJewels(); setToast(`💰 Sold ${jewels} jewel${jewels === 1 ? '' : 's'} for ${paid} coins!`); } }}>Sell all 🪙 {jewels * 15}</button>
         </div>
+        <div className="box-row">
+          <span>🥩 Meat <b>{meat}</b></span>
+          <small>Cook it at a kitchen</small>
+        </div>
         <small>Everything you forage, hunt, fish and mine drops into your box automatically. Come here to eat it or sell your jewels.</small>
       </div>}
 
       {/* Context actions: sit, sleep, cave, catch a wild animal, rest your pet. */}
-      {mode === 'walk' && (sitting || nearSeat || nearBed || nearCave || inCave || nearWild || (nearPetHouse && petSpecies) || petResting || treeApples > 0) && <div className="house-actions">
+      {mode === 'walk' && (sitting || nearSeat || nearBed || nearCave || inCave || nearWild || nearFarm || (nearPetHouse && petSpecies) || petResting || treeApples > 0) && <div className="house-actions">
         {inCave && <button className="house-action-btn cave" onClick={() => { engine.current?.leaveCave(); setToast('🪜 You climbed back out into the daylight.'); }}>🪜 Leave the cave</button>}
         {!inCave && nearCave && <button className="house-action-btn cave" onClick={() => { if (engine.current?.enterCave()) setToast('⛏️ Into the cave! Mine the glowing jewels — leave whenever you like.'); }}>⛏️ Go into the cave</button>}
         {!inCave && nearWild && <button className="house-action-btn wild" onClick={() => { const k = engine.current?.catchNearbyAnimal(); if (k) setToast(`🪝 You caught a ${k}! It joined your fenced pasture.`); }}>🪝 Catch the {nearWild}</button>}
+        {!inCave && nearFarm && <button className="house-action-btn farm" onClick={() => { const n = engine.current?.feedPennedAnimals() ?? 0; if (n) setToast(`🌾 You fed your ${n} animal${n === 1 ? '' : 's'} — they're happy and well fed!`); }}>🌾 Feed the animals{hungry > 0 ? ` (${hungry} hungry)` : ''}</button>}
+        {!inCave && nearFarm && <button className="house-action-btn meat" onClick={() => { const k = engine.current?.getMeatFromNearby(); if (k) setToast(`🥩 You got meat from a ${k}. Cook it at your kitchen!`); }}>🥩 Get meat</button>}
         {!inCave && petResting && <button className="house-action-btn pet" onClick={() => { engine.current?.wakePet(); setToast('🐾 Your pet woke up and came to you!'); }}>🐾 Wake up your pet</button>}
         {!inCave && !petResting && nearPetHouse && petSpecies && <button className="house-action-btn pet" onClick={() => { if (engine.current?.restPet()) setToast('😴 Your pet is having a rest in its pet house.'); }}>😴 Rest (your pet)</button>}
         {!inCave && treeApples > 0 && hasLadder && <button className="house-action-btn apple" onClick={() => { const n = engine.current?.pickApples() ?? 0; if (n) setToast(`🍎 You climbed the ladder and picked ${n} apple${n === 1 ? '' : 's'}!`); }}>🍎 Pick apples ({treeApples})</button>}

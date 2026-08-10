@@ -135,6 +135,8 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const [wood, setWood] = useState(savedProfile.wood ?? 0);
   // Bought a ladder, so you can pick the apples up in the trees.
   const [hasLadder, setHasLadder] = useState(savedProfile.hasLadder ?? false);
+  // Meat taken from your farm animals, to cook in the kitchen.
+  const [meat, setMeat] = useState(savedProfile.meat ?? 0);
   const [shopCoins, setShopCoins] = useState(savedProfile.shopCoins);
   /** Every game's reward: spend it in the shop AND collect it on the leaderboard. */
   // A streak is only earned by ACTUALLY PLAYING a game — never by just opening
@@ -176,9 +178,9 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const selection = { character, setting, equippedItem };
   const collectible = characterCollectibles[character];
   useEffect(() => {
-    saveLocalProfile({ character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, completedQuests, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals, streak, daysPlayed, lastPlayed, applePantry, jewels, wood, hasLadder });
+    saveLocalProfile({ character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, completedQuests, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals, streak, daysPlayed, lastPlayed, applePantry, jewels, wood, hasLadder, meat });
     supabase.auth.getUser().then(({ data }) => { if (data.user) updateProfileSelection(data.user.id, selection).catch(() => undefined); });
-  }, [character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, completedQuests, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals, streak, daysPlayed, lastPlayed, applePantry, jewels, wood, hasLadder]);
+  }, [character, setting, foodBalance, shopCoins, ownedItems, equippedItem, ownsHouse, placedFurniture, accessory, completedQuests, isMember, realName, birthday, country, houseWorld, houseFurniture, houseSeason, houseSeed, characterChosen, supplies, riddleLevel, houseSource, houseName, garden, animals, streak, daysPlayed, lastPlayed, applePantry, jewels, wood, hasLadder, meat]);
   // The house lives on the account: pull it in on login so it is never lost by
   // logging out or switching device, and fall back to this device when offline.
   useEffect(() => {
@@ -414,6 +416,9 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     hasLadder={hasLadder}
     onBuyLadder={() => { if (shopCoins >= 25) { setShopCoins((c) => c - 25); setHasLadder(true); } }}
     onCollectAnimal={(kind) => setAnimals((list) => [...list, { id: `w-${Date.now()}`, type: kind, fedAt: Date.now() }])}
+    meat={meat}
+    onNewBaby={(kind) => setAnimals((list) => (list.length >= 24 ? list : [...list, { id: `b-${Date.now()}`, type: kind, fedAt: Date.now() }]))}
+    onGetMeat={(kind) => { setMeat((m) => m + 1); setAnimals((list) => { const i = list.findIndex((a) => a.type === kind); return i < 0 ? list : [...list.slice(0, i), ...list.slice(i + 1)]; }); }}
     onChangeWorld={(update) => { setHouseWorld((previous) => update(previous || emptyWorld())); setOwnsHouse(true); if (!houseSource) setHouseSource('built'); }}
     onChangeFurniture={setHouseFurniture}
     onRename={setHouseName}
