@@ -79,10 +79,12 @@ export function valueNoise(x: number, z: number, seed: number) {
   return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
 }
 
-/** Distance outside the build plot; 0 while inside it. */
+/** Distance outside the build plot; 0 while inside it. The flat zone reaches a
+ *  little south of the plot so the animal pasture sits on level, dry ground. */
+export const PASTURE_END = SZ + 14;   // z where the flat pasture strip ends
 function plotDistance(x: number, z: number) {
   const dx = Math.max(-x, 0, x - (SX - 1));
-  const dz = Math.max(-z, 0, z - (SZ - 1));
+  const dz = Math.max(-z, 0, z - (PASTURE_END - 1));
   return Math.max(dx, dz);
 }
 

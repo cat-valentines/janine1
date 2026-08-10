@@ -35,7 +35,7 @@ export function buildFurnitureMesh(kind: FurnitureKind, color: string): THREE.Gr
   }
   return g;
 }
-import { buildTerrainRegion, isTerrainSolid, rand, seasonOrder, seasonStyles, terrainHeight, treeAt, type Season } from './terrain';
+import { buildTerrainRegion, isTerrainSolid, rand, seasonOrder, seasonStyles, terrainHeight, treeAt, PASTURE_END, type Season } from './terrain';
 import { buildPetMesh, makeLivePet, stepPet, type LivePet } from './petMesh';
 import { buildAnimalMesh, wildKindFor } from './animalMesh';
 import type { PetSpecies } from '../lib/pets';
@@ -62,6 +62,8 @@ const SEASON_LENGTH = 200;
 const CAVE_W = 34, CAVE_H = 34, CAVE_CEIL = 6;
 /** The single shared landscape seed — the same public land for every player. */
 const SHARED_LAND_SEED = 71077345;
+/** The fenced animal pasture, all within the flat (dry) strip south of the plot. */
+const PEN_X0 = 1, PEN_X1 = SX - 1, PEN_Z0 = SZ + 3, PEN_Z1 = SZ + 12;
 const NIGHT_SKY = new THREE.Color('#0a1230');
 const DUSK_SKY = new THREE.Color('#e6884a');
 
@@ -618,13 +620,8 @@ export class HouseEngine {
       w.group.rotation.y = Math.atan2(Math.cos(w.dir), Math.sin(w.dir));
       const sw = Math.sin(w.phase * 8) * 0.5;
       w.legs.forEach((leg, i) => { leg.rotation.x = ((i % 2) === (Math.floor(i / 2) % 2) ? sw : -sw); });
-      const dx = w.x - this.position.x, dz = w.z - this.position.z;
-      if (dx * dx + dz * dz < 1.8) {
-        // Caught! It hops into your pasture and joins your farm.
-        w.group.visible = false;
-        this.penAnimal(w.kind ?? 'rabbit');
-        this.options.onCollectAnimal?.(w.kind ?? 'rabbit');
-      }
+      // No auto-catch: walking up just lets you SEE them. Catching is deliberate
+      // — press the 🪝 Catch button when you're near one (see catchNearbyAnimal).
     }
     for (const f of this.fishList) {
       if (!f.sprite.visible) continue;
@@ -676,6 +673,13 @@ export class HouseEngine {
       this.livestockGroup.add(sprite);
       if (ready) this.gardenCrops.push({ sprite, x: cx, z: cz });
     });
+    // A flat grass pad over the (dry, flattened) pasture strip, so it's solid
+    // green ground — never rolling hills or water under your animals.
+    const padW = SX, padD = PASTURE_END - SZ;
+    const pad = new THREE.Mesh(new THREE.PlaneGeometry(padW, padD), new THREE.MeshLambertMaterial({ color: seasonStyles[this.season].grass }));
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.set(SX / 2, 1.0, SZ + padD / 2);
+    this.livestockGroup.add(pad);
     // Animals: blocky critters that roam the pasture behind the garden.
     this.options.animals.slice(0, 24).forEach((animal) => this.penAnimal(animal.type));
     // A wooden fence around the pasture — your pen, so animals never run off, and
@@ -684,9 +688,9 @@ export class HouseEngine {
       const fenceMat = new THREE.MeshLambertMaterial({ color: '#8a5a2f' });
       const postGeo = new THREE.BoxGeometry(0.14, 1, 0.14);
       const railGeo = new THREE.BoxGeometry(2, 0.1, 0.08);
-      const post = (px: number, pz: number) => { const m = new THREE.Mesh(postGeo, fenceMat); m.position.set(px, this.groundY(px, pz) + 0.5, pz); this.livestockGroup.add(m); };
-      const rail = (px: number, pz: number, along: 'x' | 'z') => { const m = new THREE.Mesh(railGeo, fenceMat); m.position.set(px, this.groundY(px, pz) + 0.62, pz); if (along === 'z') m.rotation.y = Math.PI / 2; this.livestockGroup.add(m); };
-      const X0 = 0, X1 = SX, Z0 = SZ + 4, Z1 = SZ + 14;
+      const post = (px: number, pz: number) => { const m = new THREE.Mesh(postGeo, fenceMat); m.position.set(px, 1.5, pz); this.livestockGroup.add(m); };
+      const rail = (px: number, pz: number, along: 'x' | 'z') => { const m = new THREE.Mesh(railGeo, fenceMat); m.position.set(px, 1.62, pz); if (along === 'z') m.rotation.y = Math.PI / 2; this.livestockGroup.add(m); };
+      const X0 = PEN_X0, X1 = PEN_X1, Z0 = PEN_Z0, Z1 = PEN_Z1;
       for (let x = X0; x <= X1; x += 2) { post(x, Z0); post(x, Z1); if (x < X1) { rail(x + 1, Z0, 'x'); rail(x + 1, Z1, 'x'); } }
       for (let z = Z0; z <= Z1; z += 2) { post(X0, z); post(X1, z); if (z < Z1) { rail(X0, z + 1, 'z'); rail(X1, z + 1, 'z'); } }
     }
@@ -695,28 +699,26 @@ export class HouseEngine {
   /** Drop an animal of this kind into the fenced pasture (a starting farm animal,
    *  or a wild one you just caught). */
   private penAnimal(kind: string) {
-    const x = 1 + Math.random() * (SX - 2), z = SZ + 5 + Math.random() * 8;
+    const x = PEN_X0 + 1 + Math.random() * (PEN_X1 - PEN_X0 - 2), z = PEN_Z0 + 1 + Math.random() * (PEN_Z1 - PEN_Z0 - 2);
     const built = buildAnimalMesh(kind);
-    built.group.position.set(x, this.groundY(x, z), z);
+    built.group.position.set(x, 1.0, z);
     this.livestockGroup.add(built.group);
     this.wanderers.push({ group: built.group, legs: built.legs, kind, x, z, dir: Math.random() * Math.PI * 2, speed: 0.5 + Math.random() * 0.6, phase: Math.random() * 6 });
   }
 
-  /** Amble the animals gently around their pasture, legs trotting, kept in by the
-   *  pasture edge (their fence) and never wandering into water. */
+  /** Amble the animals gently around their flat, fenced pasture, legs trotting.
+   *  The pasture is level dry ground, so no jitter and no paddling in the water. */
   private moveAnimals(dt: number) {
-    const XMIN = 0, XMAX = SX, ZMIN = SZ + 4, ZMAX = SZ + 14;
     for (const w of this.wanderers) {
       w.phase += dt;
       w.dir += Math.sin(w.phase * 0.6) * dt * 0.9;
-      const nx = w.x + Math.cos(w.dir) * w.speed * dt, nz = w.z + Math.sin(w.dir) * w.speed * dt;
-      if (terrainHeight(Math.round(nx), Math.round(nz), this.seed) <= 0) { w.dir += Math.PI; }  // no paddling in the pond
-      else { w.x = nx; w.z = nz; }
-      if (w.x < XMIN) { w.x = XMIN; w.dir = Math.PI - w.dir; }
-      if (w.x > XMAX) { w.x = XMAX; w.dir = Math.PI - w.dir; }
-      if (w.z < ZMIN) { w.z = ZMIN; w.dir = -w.dir; }
-      if (w.z > ZMAX) { w.z = ZMAX; w.dir = -w.dir; }
-      w.group.position.set(w.x, this.groundY(w.x, w.z), w.z);
+      w.x += Math.cos(w.dir) * w.speed * dt;
+      w.z += Math.sin(w.dir) * w.speed * dt;
+      if (w.x < PEN_X0) { w.x = PEN_X0; w.dir = Math.PI - w.dir; }
+      if (w.x > PEN_X1) { w.x = PEN_X1; w.dir = Math.PI - w.dir; }
+      if (w.z < PEN_Z0) { w.z = PEN_Z0; w.dir = -w.dir; }
+      if (w.z > PEN_Z1) { w.z = PEN_Z1; w.dir = -w.dir; }
+      w.group.position.set(w.x, 1.0, w.z);   // flat pasture — fixed ground height
       w.group.rotation.y = Math.atan2(Math.cos(w.dir), Math.sin(w.dir));
       const sw = Math.sin(w.phase * 7) * 0.5;
       w.legs.forEach((leg, i) => { leg.rotation.x = ((i % 2) === (Math.floor(i / 2) % 2) ? sw : -sw); });
@@ -914,6 +916,34 @@ export class HouseEngine {
   getNearbyChest(): boolean {
     if (this.inCave || this.mode !== 'walk') return false;
     return Math.hypot(this.position.x - (SX / 2 + 4), this.position.z - SZ / 2) < 3;
+  }
+
+  /** The kind of wild animal you're standing near (to offer a Catch button), or null. */
+  getNearbyWildAnimal(): string | null {
+    if (this.inCave || this.mode !== 'walk') return null;
+    let best: string | null = null; let bestD = 2.4;
+    for (const w of this.wild) {
+      if (!w.group.visible) continue;
+      const d = Math.hypot(w.x - this.position.x, w.z - this.position.z);
+      if (d < bestD) { bestD = d; best = w.kind ?? 'rabbit'; }
+    }
+    return best;
+  }
+
+  /** Catch the nearest wild animal you're standing by: it hops into your pasture. */
+  catchNearbyAnimal(): string | null {
+    let target: Wanderer | null = null; let bestD = 2.4;
+    for (const w of this.wild) {
+      if (!w.group.visible) continue;
+      const d = Math.hypot(w.x - this.position.x, w.z - this.position.z);
+      if (d < bestD) { bestD = d; target = w; }
+    }
+    if (!target) return null;
+    target.group.visible = false;
+    const kind = target.kind ?? 'rabbit';
+    this.penAnimal(kind);
+    this.options.onCollectAnimal?.(kind);
+    return kind;
   }
 
   /** If you're standing by a house whose owner is NOT online, its name — so we

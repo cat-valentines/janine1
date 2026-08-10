@@ -904,6 +904,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .house-action-btn { padding: 11px 18px; border: 0; border-radius: 999px; background: #6a4f8a; color: #fff; font-weight: 850; font-size: .92rem; cursor: pointer; box-shadow: 0 4px 0 #402f57; }
 .house-action-btn.bed { background: #3a6ea8; box-shadow: 0 4px 0 #234465; }
 .house-action-btn.cave { background: #5a4433; box-shadow: 0 4px 0 #33261b; }
+.house-action-btn.wild { background: #6a8a3a; box-shadow: 0 4px 0 #47601f; }
 .sell-jewels-btn { position: absolute; top: 96px; right: 12px; padding: 9px 13px; border: 3px solid #2f5a8a; border-radius: 12px; background: #43b0ff; color: #06263f; font-size: .82rem; font-weight: 850; cursor: pointer; box-shadow: 0 3px 0 #2f6fa8; }
 .box-panel { position: absolute; right: 12px; top: 52px; z-index: 47; width: 232px; padding: 14px; border-radius: 14px; background: #fff8ec; border: 4px solid #6b4a2a; box-shadow: 0 10px 30px #0006; }
 .box-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
