@@ -47,6 +47,8 @@ interface HouseWorldPageProps {
   petDye: string | null;
   /** Emoji for each pet-shop supply you own, shown in the house pet corner. */
   petSupplies: string[];
+  /** Pet-house type ids you own — real blocky huts you can walk into. */
+  petHouses: string[];
   /** Catch a wild animal into your pasture (adds it to your farm). */
   onCollectAnimal: (kind: string) => void;
   onChangeWorld: (update: (previous: string) => string) => void;
@@ -66,7 +68,7 @@ const FURNITURE_COLORS = ['#ffffff', '#e0685f', '#e8a04f', '#f2d05e', '#6fbf6a',
 const FURNITURE_COST = 20;
 
 export function HouseWorldPage(props: HouseWorldPageProps) {
-  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, applePantry, jewels, wood, petSpecies, petDye, petSupplies, onCollectAnimal, onSpendCoins, onFood, onEatApple, onGem, onSellJewels, onWood, onUseWood, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
+  const { character, initialMode, season, seed, houseName, houseWorld, furniture, ownedItems, animals, garden, coins, applePantry, jewels, wood, petSpecies, petDye, petSupplies, petHouses, onCollectAnimal, onSpendCoins, onFood, onEatApple, onGem, onSellJewels, onWood, onUseWood, onChangeSeason, onChangeWorld, onChangeFurniture, onRename, onBack } = props;
   const onCollectAnimalRef = useRef(onCollectAnimal);
   onCollectAnimalRef.current = onCollectAnimal;
   const onFoodRef = useRef(onFood);
@@ -136,7 +138,7 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
       garden,
       onChangeWorld: (update) => changeWorld.current(update),
       onPlaceFurniture: (cell) => placeFurniture.current(cell),
-      petSpecies, petDye, petSupplies,
+      petSpecies, petDye, petSupplies, petHouses,
       onFood: () => { onFoodRef.current(); setToast('🍎 Apple picked — it\'s in your house basket! Eat it whenever you like.'); },
       onGem: () => { onGemRef.current(); setToast('💎 You mined a jewel! It\'s stashed in your box.'); },
       onHunt: () => { onFoodRef.current(); setToast('🍖 You hunted a wild animal — food for your box!'); },
@@ -272,9 +274,11 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
   useEffect(() => { engine.current?.setWood(wood); }, [wood]);
   // Swap the walking pet (or its dye) if it changes.
   useEffect(() => { engine.current?.setPet(petSpecies, petDye); }, [petSpecies, petDye]);
-  // Refresh the pet-corner supplies when they change (compare by content).
+  // Refresh the pet-corner supplies + pet houses when they change (by content).
   const suppliesKey = petSupplies.join('|');
+  const housesKey = petHouses.join('|');
   useEffect(() => { engine.current?.setPetSupplies(petSupplies); }, [suppliesKey]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { engine.current?.setPetHouses(petHouses); }, [housesKey]);   // eslint-disable-line react-hooks/exhaustive-deps
   // Toasts fade on their own after a few seconds.
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(''), 3500); return () => clearTimeout(id); }, [toast]);
 

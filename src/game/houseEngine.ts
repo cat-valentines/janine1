@@ -96,6 +96,8 @@ interface EngineOptions {
   petDye?: string | null;
   /** Emoji for each pet-shop supply you own, to display in your pet corner. */
   petSupplies?: string[];
+  /** Pet-house type ids you own — real blocky huts you can walk into. */
+  petHouses?: string[];
   /** Walk into a wild animal to catch it into your fenced pasture. */
   onCollectAnimal?: (kind: string) => void;
   /** Jump on a ripe crop in the garden to harvest it (food for your box). */
@@ -189,6 +191,9 @@ export class HouseEngine {
   private pantryGroup = new THREE.Group();
   // Pet-shop supplies you've bought, arranged in a pet corner of your yard.
   private petSupplyGroup = new THREE.Group();
+  // Blocky pet houses you've bought — solid walls you can walk INTO via the door.
+  private petHouseGroup = new THREE.Group();
+  private petHouseWalls = new Set<string>();
   private wanderers: Wanderer[] = [];
   /** Ripe crops in the garden — jump on one to harvest it. */
   private gardenCrops: Array<{ sprite: THREE.Object3D; x: number; z: number }> = [];
@@ -262,7 +267,7 @@ export class HouseEngine {
     this.sun.position.set(18, 30, 12);
     this.scene.add(this.sun);
 
-    this.scene.add(this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup, this.petSupplyGroup, this.caveGroup, this.avatar);
+    this.scene.add(this.blockGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup, this.petSupplyGroup, this.petHouseGroup, this.caveGroup, this.avatar);
     this.caveGroup.visible = false;
 
     const edge = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
@@ -278,6 +283,7 @@ export class HouseEngine {
     this.resetPlayer();
     if (options.petSpecies) this.setPet(options.petSpecies, options.petDye);
     if (options.petSupplies?.length) this.setPetSupplies(options.petSupplies);
+    if (options.petHouses?.length) this.setPetHouses(options.petHouses);
 
     this.bind();
     this.loop();
@@ -935,6 +941,41 @@ export class HouseEngine {
     });
   }
 
+  /** Pitch the pet houses you've bought as REAL blocky huts in the front yard —
+   *  solid walls with a doorway, so you (and your pet) can actually walk inside. */
+  setPetHouses(ids: string[]) {
+    this.petHouseGroup.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose?.(); const mt = m.material as THREE.Material | undefined; mt?.dispose?.(); });
+    this.petHouseGroup.clear();
+    this.petHouseWalls.clear();
+    const COLOURS: Record<string, { wall: string; roof: string; glass?: boolean }> = {
+      doghouse: { wall: '#8a5a2f', roof: '#96453c' },
+      cathouse: { wall: '#8d8d95', roof: '#5a5a66' },
+      birdcage: { wall: '#f2c94c', roof: '#d0a83c' },
+      aquarium: { wall: '#a9d8e8', roof: '#7fb8d0', glass: true },
+      hutch: { wall: '#b07a4a', roof: '#7a4a22' },
+    };
+    ids.slice(0, 4).forEach((id, i) => {
+      const c = COLOURS[id] ?? COLOURS.hutch;
+      const ox = 2 + i * 4, oz = -7;   // a row across the flat front yard
+      const wallMat = new THREE.MeshLambertMaterial({ color: c.wall, transparent: !!c.glass, opacity: c.glass ? 0.45 : 1 });
+      const wallGeo = new THREE.BoxGeometry(1, 2.4, 1);
+      // 3x3 footprint, hollow, with a doorway on the south side (facing the plot).
+      for (let dz = 0; dz < 3; dz += 1) for (let dx = 0; dx < 3; dx += 1) {
+        const edge = dx === 0 || dx === 2 || dz === 0 || dz === 2;
+        const isDoor = dx === 1 && dz === 2;   // front-centre doorway
+        if (!edge || isDoor) continue;
+        const cx = ox + dx, cz = oz + dz;
+        const wall = new THREE.Mesh(wallGeo, wallMat);
+        wall.position.set(cx + 0.5, 2.2, cz + 0.5);
+        this.petHouseGroup.add(wall);
+        this.petHouseWalls.add(`${cx},${cz}`);
+      }
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.3, 3.4), new THREE.MeshLambertMaterial({ color: c.roof }));
+      roof.position.set(ox + 1.5, 3.55, oz + 1.5);
+      this.petHouseGroup.add(roof);
+    });
+  }
+
   /** The nearest chair/sofa you're standing by (to sit on), or null. */
   getNearbySeat() { return this.nearestFurniture(['chair', 'sofa'], 1.8); }
   /** The nearest bed you're standing by (to sleep in), or null. */
@@ -1508,6 +1549,8 @@ export class HouseEngine {
   /** Plot blocks come from the saved house; everything else is generated land. */
   private solidAt(x: number, y: number, z: number) {
     if (this.inCave) return this.caveSolidAt(x, y, z);
+    // Pet-house walls: solid up to roof height, but the doorway cell is open.
+    if (y >= 0.9 && y < 3.5 && this.petHouseWalls.size && this.petHouseWalls.has(`${Math.floor(x)},${Math.floor(z)}`)) return true;
     if (inside(x, y, z)) return blocksMovement(voxelAt(this.world, x, y, z));
     if (x >= 0 && x < SX && z >= 0 && z < SZ) return false; // above the plot = sky
     return isTerrainSolid(x, y, z, this.seed);
