@@ -4,13 +4,22 @@ import { loadPets, adoptPet, feedPet, buyFood, setActivePet, releasePet, PET_SPE
 interface PetsPanelProps {
   coins: number;
   onSpendCoins: (amount: number) => void;
+  onGoHouse?: () => void;
+  onGoMarket?: () => void;
 }
 
 /** Adopt pets, buy food, feed them, and pick which one walks with you. */
-export function PetsPanel({ coins, onSpendCoins }: PetsPanelProps) {
+export function PetsPanel({ coins, onSpendCoins, onGoHouse, onGoMarket }: PetsPanelProps) {
   const [state, setState] = useState<PetsState>(() => loadPets());
   const [note, setNote] = useState('');
   const refresh = (next: PetsState) => setState({ ...next });
+
+  const active = state.pets.find((p) => p.id === state.activePetId) ?? state.pets[0] ?? null;
+  const takeAlong = (go?: () => void) => {
+    if (!active || !go) return;
+    if (state.activePetId !== active.id) setActivePet(active.id);   // make sure it comes with you
+    go();
+  };
 
   const adopt = (species: PetSpecies) => {
     const price = PET_SPECIES[species].price;
@@ -76,7 +85,15 @@ export function PetsPanel({ coins, onSpendCoins }: PetsPanelProps) {
       </div>
     </div>
 
+    {active && (onGoHouse || onGoMarket) && <div className="pets-take">
+      <span>🐾 Take <b>{active.name}</b> for a walk:</span>
+      <div className="pets-take-btns">
+        {onGoHouse && <button className="pets-take-house" onClick={() => takeAlong(onGoHouse)}>🏡 To my house</button>}
+        {onGoMarket && <button className="pets-take-market" onClick={() => takeAlong(onGoMarket)}>🏬 To the market</button>}
+      </div>
+    </div>}
+
     {note && <p className="pets-note">{note}</p>}
-    <p className="pets-hint">Set one pet <b>Walking</b> and it follows you into your <b>house</b> and the <b>town market</b> — feed it to keep it happy!</p>
+    <p className="pets-hint">Your walking pet acts like a real animal — it follows you when you move and mills about when you stop. Feed it to keep it happy!</p>
   </div>;
 }

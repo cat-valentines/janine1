@@ -76,6 +76,8 @@ interface ProfilePageProps {
   onChangeAccessory: (accessory: string) => void;
   onBuyAccessory: (id: string, price: number) => void;
   onSpendCoins: (amount: number) => void;
+  onOpenHouse?: () => void;
+  onOpenMarket?: () => void;
   onChosen: () => void;
   realName: string;
   birthday: string;
@@ -84,7 +86,7 @@ interface ProfilePageProps {
   onBack: () => void;
 }
 
-export function ProfilePage({ character, setting, coins, foodBalance, completedQuests, streak, isMember, accessory, firstTime, ownedItems, onChangeCharacter, onChangeAccessory, onBuyAccessory, onSpendCoins, onChosen, realName, birthday, country, onSavePrivate, onBack }: ProfilePageProps) {
+export function ProfilePage({ character, setting, coins, foodBalance, completedQuests, streak, isMember, accessory, firstTime, ownedItems, onChangeCharacter, onChangeAccessory, onBuyAccessory, onSpendCoins, onOpenHouse, onOpenMarket, onChosen, realName, birthday, country, onSavePrivate, onBack }: ProfilePageProps) {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [userId, setUserId] = useState('');
@@ -274,7 +276,7 @@ export function ProfilePage({ character, setting, coins, foodBalance, completedQ
     {!firstTime && <section className="profile-section profile-pets">
       <h3>🐾 Pets</h3>
       <p className="profile-rewards-hint">Adopt a pet, buy food and keep it fed. Set one <b>walking</b> and it follows you into your house and the town market!</p>
-      <PetsPanel coins={coins} onSpendCoins={onSpendCoins} />
+      <PetsPanel coins={coins} onSpendCoins={onSpendCoins} onGoHouse={onOpenHouse} onGoMarket={onOpenMarket} />
     </section>}
 
     {isMember && <div className="royal-sign"><span>♛</span><strong>Royal Member</strong><small>Royal islands and games unlocked</small></div>}

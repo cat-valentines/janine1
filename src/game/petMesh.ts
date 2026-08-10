@@ -9,6 +9,57 @@ export interface PetMesh {
   flyer: boolean;           // hovers + flaps instead of walking
 }
 
+/** A pet that's alive in a scene — its world position and little wander brain. */
+export interface LivePet extends PetMesh { x: number; z: number; yaw: number; phase: number; wanderT: number; tx: number; tz: number }
+
+export function makeLivePet(mesh: PetMesh, x: number, z: number): LivePet {
+  return Object.assign(mesh, { x, z, yaw: 0, phase: 0, wanderT: 0, tx: x, tz: z });
+}
+
+/**
+ * Move a pet like a real Minecraft animal: when its owner walks off it trots
+ * after them; when they're close it mills about, picking little spots to explore
+ * and glancing back at you, with a bouncy trot and idle bob. Call each frame.
+ */
+export function stepPet(p: LivePet, px: number, pz: number, pyaw: number, dt: number, groundY: (x: number, z: number) => number, time: number) {
+  const toOwner = Math.hypot(px - p.x, pz - p.z);
+  let tx: number, tz: number, speed: number;
+  if (toOwner > 3.4) {
+    // Owner is getting away — trot to a spot just behind them.
+    tx = px + Math.sin(pyaw) * 1.2; tz = pz + Math.cos(pyaw) * 1.2;
+    speed = (p.flyer ? 6 : 5) * dt;
+  } else {
+    // Close by — wander to little random spots, pausing between, staying near you.
+    p.wanderT -= dt;
+    if (p.wanderT <= 0) {
+      p.wanderT = 1.6 + Math.random() * 2.8;
+      const a = Math.random() * Math.PI * 2, r = 0.6 + Math.random() * 1.6;
+      p.tx = p.x + Math.cos(a) * r; p.tz = p.z + Math.sin(a) * r;
+      if (Math.hypot(p.tx - px, p.tz - pz) > 3) { p.tx = px + (Math.random() - 0.5) * 2; p.tz = pz + (Math.random() - 0.5) * 2; }
+    }
+    tx = p.tx; tz = p.tz;
+    speed = (p.flyer ? 2.2 : 1.9) * dt;
+  }
+  const dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz);
+  const moving = d > 0.12;
+  if (moving) {
+    const step = Math.min(d, speed);
+    p.x += (dx / d) * step; p.z += (dz / d) * step;
+    p.yaw = Math.atan2(dx, dz);
+  } else if (toOwner <= 3.4) {
+    // Idle — glance toward the owner now and then.
+    let dy = Math.atan2(px - p.x, pz - p.z) - p.yaw;
+    while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
+    p.yaw += dy * Math.min(1, dt * 2);
+  }
+  p.phase += moving ? dt * 10 : dt * 2.4;
+  const hop = p.flyer ? 0.6 + Math.sin(time * 4) * 0.08 : (moving ? Math.abs(Math.sin(p.phase)) * 0.12 : Math.sin(time * 2 + p.x) * 0.025);
+  p.group.position.set(p.x, groundY(p.x, p.z) + hop, p.z);
+  p.group.rotation.y = p.yaw;
+  if (p.flyer) { const f = Math.sin(p.phase * 2) * 0.9; p.wings.forEach((w, i) => { w.rotation.z = i === 0 ? f : -f; }); }
+  else { const sw = moving ? Math.sin(p.phase) * 0.6 : 0; p.legs.forEach((leg, i) => { leg.rotation.x = ((i % 2) === (Math.floor(i / 2) % 2) ? sw : -sw); }); }
+}
+
 const lam = (color: string, emissive = '#000000') => new THREE.MeshLambertMaterial({ color, emissive });
 
 /** Build the pet for a species. The group's origin is at its feet (y = 0). */

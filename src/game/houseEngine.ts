@@ -36,7 +36,7 @@ export function buildFurnitureMesh(kind: FurnitureKind, color: string): THREE.Gr
   return g;
 }
 import { buildTerrainRegion, isTerrainSolid, rand, seasonOrder, seasonStyles, terrainHeight, treeAt, type Season } from './terrain';
-import { buildPetMesh, type PetMesh } from './petMesh';
+import { buildPetMesh, makeLivePet, stepPet, type LivePet } from './petMesh';
 import { buildAnimalMesh, wildKindFor } from './animalMesh';
 import type { PetSpecies } from '../lib/pets';
 
@@ -169,7 +169,7 @@ export class HouseEngine {
   private chopCool = 0;   // brief pause between chopping terrain trees
   private wood = 0;   // a mirror of your wood store, so we can gate wood blocks
   // Your walking pet companion.
-  private pet: (PetMesh & { x: number; z: number; yaw: number; phase: number }) | null = null;
+  private pet: LivePet | null = null;
   private forageTime = 0;
   // Underground: swapped in when you walk into a cave mouth.
   private inCave = false;
@@ -888,40 +888,14 @@ export class HouseEngine {
       this.pet = null;
     }
     if (!species) return;
-    const built = buildPetMesh(species);
-    const start = { x: this.position.x + 1, z: this.position.z + 1, yaw: 0, phase: 0 };
-    this.pet = Object.assign(built, start);
+    this.pet = makeLivePet(buildPetMesh(species), this.position.x + 1, this.position.z + 1);
     this.pet.group.visible = !this.inCave;
     this.scene.add(this.pet.group);
   }
 
-  /** Trot the pet along a step behind you, legs swinging (or wings flapping). */
   private movePet(dt: number) {
     if (!this.pet || this.inCave) return;
-    const p = this.pet;
-    // Aim for a spot just behind you (opposite the way you face).
-    const tx = this.position.x + Math.sin(this.yaw) * 1.4;
-    const tz = this.position.z + Math.cos(this.yaw) * 1.4;
-    const dx = tx - p.x, dz = tz - p.z;
-    const dist = Math.hypot(dx, dz);
-    const moving = dist > 0.25;
-    if (moving) {
-      const step = Math.min(dist, (p.flyer ? 5.5 : 4.6) * dt);
-      p.x += (dx / dist) * step;
-      p.z += (dz / dist) * step;
-      p.yaw = Math.atan2(dx, dz);
-    }
-    const hover = p.flyer ? 0.6 + Math.sin(this.forageTime * 4) * 0.08 : 0;
-    p.group.position.set(p.x, this.groundY(p.x, p.z) + hover, p.z);
-    p.group.rotation.y = p.yaw;
-    p.phase += moving ? dt * 10 : dt * 2.2;
-    if (p.flyer) {
-      const f = Math.sin(p.phase * 2) * 0.9;
-      p.wings.forEach((w, i) => { w.rotation.z = i === 0 ? f : -f; });
-    } else {
-      const sw = moving ? Math.sin(p.phase) * 0.6 : 0;
-      p.legs.forEach((leg, i) => { leg.rotation.x = ((i % 2) === (Math.floor(i / 2) % 2) ? sw : -sw); });
-    }
+    stepPet(this.pet, this.position.x, this.position.z, this.yaw, dt, (x, z) => this.groundY(x, z), this.forageTime);
   }
 
   /** The nearest chair/sofa you're standing by (to sit on), or null. */

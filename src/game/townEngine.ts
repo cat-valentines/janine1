@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { animateWalk, buildBody, emojiTexture, faceTexture, type Limbs } from './blockBody';
 import { DRAIN_IDLE, DRAIN_WALK, FOREST_X, MAX_ENERGY, RIVER_WIDTH, RIVER_X, STREET_WIDTH, STREET_Z, TOWN_D, TOWN_W, VENOM_DRAIN, VENOM_SECONDS, WORLD_D, WORLD_W, foodEnergy, forestCamps, townHouses, townShops, type TownShop } from './town';
 import { pixelTexture, shade, type PixelPattern } from './pixelTexture';
-import { buildPetMesh, type PetMesh } from './petMesh';
+import { buildPetMesh, makeLivePet, stepPet, type LivePet } from './petMesh';
 import type { PetSpecies } from '../lib/pets';
 
 const EYE = 1.6;
@@ -81,7 +81,7 @@ export class TownEngine {
 
   private avatar: THREE.Group;
   private limbs: Limbs;
-  private pet: (PetMesh & { x: number; z: number; yaw: number; phase: number }) | null = null;
+  private pet: LivePet | null = null;
   private position = new THREE.Vector3(6, GROUND_Y, STREET_Z);
   private velocity = new THREE.Vector3();
   private yaw = -Math.PI / 2;
@@ -165,31 +165,13 @@ export class TownEngine {
       this.pet = null;
     }
     if (!species) return;
-    const built = buildPetMesh(species);
-    this.pet = Object.assign(built, { x: this.position.x + 1, z: this.position.z + 1, yaw: 0, phase: 0 });
+    this.pet = makeLivePet(buildPetMesh(species), this.position.x + 1, this.position.z + 1);
     this.scene.add(this.pet.group);
   }
 
-  /** Trot the pet a step behind you, legs swinging (or wings flapping). */
   private movePet(dt: number) {
     if (!this.pet) return;
-    const p = this.pet;
-    const tx = this.position.x + Math.sin(this.yaw) * 1.4;
-    const tz = this.position.z + Math.cos(this.yaw) * 1.4;
-    const dx = tx - p.x, dz = tz - p.z;
-    const dist = Math.hypot(dx, dz);
-    const moving = dist > 0.25;
-    if (moving) {
-      const step = Math.min(dist, (p.flyer ? 5.5 : 4.6) * dt);
-      p.x += (dx / dist) * step; p.z += (dz / dist) * step;
-      p.yaw = Math.atan2(dx, dz);
-    }
-    const hover = p.flyer ? 0.6 + Math.sin(this.time * 4) * 0.08 : 0;
-    p.group.position.set(p.x, GROUND_Y + hover, p.z);
-    p.group.rotation.y = p.yaw;
-    p.phase += moving ? dt * 10 : dt * 2.2;
-    if (p.flyer) { const f = Math.sin(p.phase * 2) * 0.9; p.wings.forEach((w, i) => { w.rotation.z = i === 0 ? f : -f; }); }
-    else { const sw = moving ? Math.sin(p.phase) * 0.6 : 0; p.legs.forEach((leg, i) => { leg.rotation.x = ((i % 2) === (Math.floor(i / 2) % 2) ? sw : -sw); }); }
+    stepPet(this.pet, this.position.x, this.position.z, this.yaw, dt, () => GROUND_Y, this.time);
   }
 
   // ---- world -------------------------------------------------------------

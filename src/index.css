@@ -2153,6 +2153,12 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .pet-adopt-card b { color: #3a2a1a; font-size: .86rem; }
 .pet-adopt-card small { color: #8a6f4a; font-size: .68rem; line-height: 1.2; }
 .pet-adopt-card i { font-style: normal; font-weight: 850; color: #a05a1e; font-size: .8rem; margin-top: 2px; }
+.pets-take { padding: 11px 12px; border-radius: 12px; background: #eaf4e6; border: 2px dashed #9ac48f; }
+.pets-take > span { display: block; color: #3a5a30; font-weight: 700; font-size: .86rem; margin-bottom: 8px; }
+.pets-take-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.pets-take-btns button { flex: 1; min-width: 120px; padding: 11px 14px; border: 0; border-radius: 999px; font-weight: 850; font-size: .9rem; cursor: pointer; }
+.pets-take-house { background: #64a263; color: #fff; box-shadow: 0 3px 0 #3d6b3c; }
+.pets-take-market { background: #e0894a; color: #fff; box-shadow: 0 3px 0 #a85f2c; }
 .pets-note { color: #64a263; font-weight: 700; font-size: .84rem; }
 .pets-hint { color: var(--ink-soft); font-size: .78rem; }
 .profile-rewards .rewards-section { max-width: none; padding: 0; margin: 0 0 16px; }
