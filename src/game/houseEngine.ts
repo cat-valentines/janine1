@@ -802,10 +802,12 @@ export class HouseEngine {
       w.dir += Math.sin(w.phase * 0.6) * dt * 0.9;
       w.x += Math.cos(w.dir) * w.speed * dt;
       w.z += Math.sin(w.dir) * w.speed * dt;
-      if (w.x < PEN_X0) { w.x = PEN_X0; w.dir = Math.PI - w.dir; }
-      if (w.x > PEN_X1) { w.x = PEN_X1; w.dir = Math.PI - w.dir; }
-      if (w.z < PEN_Z0) { w.z = PEN_Z0; w.dir = -w.dir; }
-      if (w.z > PEN_Z1) { w.z = PEN_Z1; w.dir = -w.dir; }
+      // Turn back a body-width INSIDE the fence, so animals never poke through it.
+      const M = 0.8;
+      if (w.x < PEN_X0 + M) { w.x = PEN_X0 + M; w.dir = Math.PI - w.dir; }
+      if (w.x > PEN_X1 - M) { w.x = PEN_X1 - M; w.dir = Math.PI - w.dir; }
+      if (w.z < PEN_Z0 + M) { w.z = PEN_Z0 + M; w.dir = -w.dir; }
+      if (w.z > PEN_Z1 - M) { w.z = PEN_Z1 - M; w.dir = -w.dir; }
       w.group.position.set(w.x, 1.0, w.z);   // flat pasture — fixed ground height
       w.group.rotation.y = Math.atan2(Math.cos(w.dir), Math.sin(w.dir));
       const sw = Math.sin(w.phase * 7) * 0.5;
@@ -1633,8 +1635,8 @@ export class HouseEngine {
     const target = remove
       ? { x: hit.x, y: hit.y, z: hit.z }
       : { x: hit.x + hit.nx, y: hit.y + hit.ny, z: hit.z + hit.nz };
-    // Never dig away the last ground layer, or the player falls out of the world.
-    if (remove && target.y === 0) return;
+    // Digging the ground (y===0) is allowed — you can carve holes and dig in.
+    // The walker is clamped to y>=0 (see step()), so nobody falls out of the world.
     // Building with wood spends the wood you chopped from trees.
     if (!remove && this.picked === 'W') {
       if (this.wood <= 0) { this.options.onNeedWood?.(); return; }
