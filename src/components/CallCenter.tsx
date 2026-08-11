@@ -25,6 +25,7 @@ export function CallCenter() {
   const [err, setErr] = useState('');
   const [video, setVideo] = useState(false);      // is the current call a video call?
   const [camOff, setCamOff] = useState(false);
+  const [hasCam, setHasCam] = useState(false);    // did we actually get a camera track?
 
   const pc = useRef<RTCPeerConnection | null>(null);
   const shared = useRef<RealtimeChannel | null>(null);
@@ -71,7 +72,7 @@ export function CallCenter() {
     if (remoteVideo.current) remoteVideo.current.srcObject = null;
     if (localVideo.current) localVideo.current.srcObject = null;
     if (remoteAudio.current) remoteAudio.current.srcObject = null;
-    setStatus('idle'); setMuted(false); setSecs(0); setVideo(false); setCamOff(false);
+    setStatus('idle'); setMuted(false); setSecs(0); setVideo(false); setCamOff(false); setHasCam(false);
   };
 
   const flushIce = async () => {
@@ -98,9 +99,18 @@ export function CallCenter() {
   };
 
   const getMedia = async (withVideo: boolean) => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo ? { facingMode: 'user' } : false });
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo ? { facingMode: 'user' } : false });
+    } catch (e) {
+      // Camera blocked or missing — still make the call, just voice (no camera).
+      if (!withVideo) throw e;
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    }
     local.current = stream;
     stream.getTracks().forEach((t) => pc.current?.addTrack(t, stream));
+    const cam = stream.getVideoTracks().length > 0;
+    setHasCam(cam); if (!cam) setCamOff(true);   // no camera → show it as off
     attachMedia();
   };
 
@@ -229,15 +239,15 @@ export function CallCenter() {
   // Keep the media elements wired up as the overlay mounts / the call state changes.
   useEffect(() => { attachMedia(); }); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const statusText = status === 'calling' ? 'Calling…' : status === 'incoming' ? (video ? 'wants to video-chat…' : 'is calling you…')
+  const statusText = status === 'calling' ? 'Calling…' : status === 'incoming' ? 'is calling you…'
     : status === 'connecting' ? 'Connecting…' : status === 'active' ? `On call · ${mmss(secs)}` : '';
 
   const controls = status === 'incoming' ? <>
     <button className="call-decline" onClick={declineCall}>✕ Decline</button>
-    <button className="call-accept" onClick={acceptCall}>{video ? '📹' : '📞'} Accept</button>
+    <button className="call-accept" onClick={acceptCall}>📞 Accept</button>
   </> : <>
     {status === 'active' && <button className={`call-mute ${muted ? 'on' : ''}`} onClick={toggleMute}>{muted ? '🔇' : '🎙️'}</button>}
-    {status === 'active' && video && <button className={`call-mute ${camOff ? 'on' : ''}`} onClick={toggleCam}>{camOff ? '📷' : '📹'}</button>}
+    {status === 'active' && hasCam && <button className={`call-mute ${camOff ? 'on' : ''}`} onClick={toggleCam} title={camOff ? 'Turn camera on' : 'Turn camera off'}>{camOff ? '📷' : '📹'}</button>}
     <button className="call-hang" onClick={hangUp}>✕ {status === 'calling' ? 'Cancel' : 'Hang up'}</button>
   </>;
 
