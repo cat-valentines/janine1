@@ -35,6 +35,26 @@ function tone(freq: number, start: number, dur: number, type: OscillatorType = '
   osc.stop(c.currentTime + start + dur + 0.02);
 }
 
+// --- Call ringing: a repeating two-tone ring (rings regardless of the sfx mute,
+//     because a call should always ring, like a phone). ---
+let ringTimer: number | null = null;
+export function startRing() {
+  stopRing();
+  if (!ac()) return;
+  const play = () => { tone(880, 0, 0.28, 'sine', 0.12); tone(660, 0.32, 0.3, 'sine', 0.12); };
+  play();
+  ringTimer = window.setInterval(play, 1600);
+}
+export function stopRing() {
+  if (ringTimer !== null) { clearInterval(ringTimer); ringTimer = null; }
+}
+/** A short tune when a call connects or ends. */
+export function callTone(kind: 'connect' | 'end') {
+  if (!ac()) return;
+  if (kind === 'connect') { tone(523, 0, 0.12, 'sine', 0.14); tone(784, 0.1, 0.2, 'sine', 0.14); }
+  else { tone(660, 0, 0.12, 'sine', 0.12); tone(440, 0.11, 0.22, 'sine', 0.12); }
+}
+
 /** Play a named effect (a no-op if muted or Web Audio is unavailable). */
 export function sfx(kind: Sfx) {
   if (sfxMuted()) return;

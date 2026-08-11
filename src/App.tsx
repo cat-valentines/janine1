@@ -8,6 +8,7 @@ import { markPlayedToday } from './lib/streak';
 import { loadLocalProfile } from './lib/localProfile';
 import type { GameSelection } from './game/types';
 import { AppAssistant } from './components/AppAssistant';
+import { CallCenter } from './components/CallCenter';
 
 export default function App() {
   const path = useRoute();
@@ -27,7 +28,7 @@ export default function App() {
     return <><InvitePage code={inviteCode} onJoined={() => {
       window.history.replaceState({}, '', window.location.pathname);
       setInviteCode(null);
-    }} /><AppAssistant /></>;
+    }} /><AppAssistant /><CallCenter /></>;
   }
 
   // Tower Royal has its own URL, so it can be linked to and the back button
@@ -41,6 +42,7 @@ export default function App() {
         <AuthErrorBanner />
         <GamePage selection={playing} onExit={() => { setSelection(null); navigate('/'); }} />
         <AppAssistant />
+        <CallCenter />
       </>
     );
   }
@@ -50,6 +52,7 @@ export default function App() {
       <AuthErrorBanner />
       <SelectionPage onStart={(next) => { setSelection(next); navigate('/play/tower'); }} />
       <AppAssistant />
+      <CallCenter />
     </>
   );
 }

@@ -343,8 +343,8 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
         {selected.status === 'accepted' && <>
           <div className="friend-actions">
             <button className={showChat ? 'on' : ''} onClick={() => { const next = !showChat; setShowChat(next); if (next) openChat(selected.id); }}>💬 Text</button>
-            <button className={tray === 'now' ? 'on' : ''} onClick={() => openTray('now')}>🎮 Invite to Play</button>
-            <button className={tray === 'plan' ? 'on' : ''} onClick={() => openTray('plan')}>📅 Plan a Play Date</button>
+            <button className={tray === 'now' ? 'on' : ''} onClick={() => openTray('now')}>🎮 Invite to play</button>
+            <button className="call-btn" onClick={() => window.dispatchEvent(new CustomEvent('friend-call', { detail: { id: selected.id, name: selected.name } }))}>📞 Call</button>
             <button className="selfie-btn" onClick={() => setSelfieOpen(true)}>📸 Selfie</button>
           </div>
 
