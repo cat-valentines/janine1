@@ -2447,3 +2447,20 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .call-vid-info strong { display: block; font-size: 1.35rem; }
 .call-vid-info span { color: #dbe6f5; font-size: .95rem; }
 .call-vid-buttons { position: absolute; left: 0; right: 0; bottom: 34px; z-index: 2; display: flex; gap: 12px; justify-content: center; }
+
+/* ---- Call window: minimise / full screen -------------------------------- */
+.call-card { position: relative; }
+.call-size { position: absolute; right: 14px; top: 14px; z-index: 3; border: none; background: #ffffff2a; color: #fff; width: 40px; height: 40px; border-radius: 12px; font-size: 1.05rem; cursor: pointer; }
+.call-card .call-size { background: #ffffff18; color: #cfe; }
+/* Minimised: a small floating window instead of covering the screen. */
+.call-overlay.mini { inset: auto; right: 14px; bottom: 14px; width: auto; height: auto; background: transparent; padding: 0; display: block; }
+.call-overlay.video.mini { width: 156px; height: 214px; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 34px #000b; border: 2px solid #ffffff66; }
+.call-overlay.video.mini .call-remote-video { border-radius: 14px; cursor: pointer; }
+.call-overlay.mini .call-card { max-width: 210px; padding: 14px 16px; }
+.call-overlay.mini .call-avatar { width: 54px; height: 54px; font-size: 1.6rem; margin-bottom: 8px; }
+.call-overlay.mini .call-name { font-size: 1.1rem; }
+.call-overlay.mini .call-status { margin: 4px 0 12px; font-size: .85rem; }
+.call-mini-bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: linear-gradient(#0000, #000b); }
+.call-mini-bar span { flex: 1; color: #fff; font-size: .8rem; font-weight: 700; }
+.call-mini-bar button { border: none; color: #fff; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: .85rem; background: #ffffff2a; padding: 0; }
+.call-mini-bar .call-hang { background: #e0564f; box-shadow: none; }

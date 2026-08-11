@@ -26,6 +26,7 @@ export function CallCenter() {
   const [video, setVideo] = useState(false);      // is the current call a video call?
   const [camOff, setCamOff] = useState(false);
   const [hasCam, setHasCam] = useState(false);    // did we actually get a camera track?
+  const [mini, setMini] = useState(false);        // small floating window vs full screen
 
   const pc = useRef<RTCPeerConnection | null>(null);
   const shared = useRef<RealtimeChannel | null>(null);
@@ -72,7 +73,7 @@ export function CallCenter() {
     if (remoteVideo.current) remoteVideo.current.srcObject = null;
     if (localVideo.current) localVideo.current.srcObject = null;
     if (remoteAudio.current) remoteAudio.current.srcObject = null;
-    setStatus('idle'); setMuted(false); setSecs(0); setVideo(false); setCamOff(false); setHasCam(false);
+    setStatus('idle'); setMuted(false); setSecs(0); setVideo(false); setCamOff(false); setHasCam(false); setMini(false);
   };
 
   const flushIce = async () => {
@@ -251,16 +252,26 @@ export function CallCenter() {
     <button className="call-hang" onClick={hangUp}>✕ {status === 'calling' ? 'Cancel' : 'Hang up'}</button>
   </>;
 
+  const canResize = status !== 'incoming';   // keep an incoming call full so you can answer it
+
   return <>
     <audio ref={remoteAudio} autoPlay />
-    {status !== 'idle' && video && <div className="call-overlay video">
-      <video ref={remoteVideo} className="call-remote-video" autoPlay playsInline />
-      <video ref={localVideo} className="call-local-video" autoPlay playsInline muted />
-      <div className="call-vid-info"><strong>@{peerName}</strong><span>{statusText}</span></div>
-      <div className="call-buttons call-vid-buttons">{controls}</div>
+    {status !== 'idle' && video && <div className={`call-overlay video ${mini ? 'mini' : ''}`}>
+      <video ref={remoteVideo} className="call-remote-video" autoPlay playsInline onClick={() => mini && setMini(false)} />
+      {!mini && <video ref={localVideo} className="call-local-video" autoPlay playsInline muted />}
+      {mini ? <div className="call-mini-bar">
+        <button onClick={() => setMini(false)} title="Make bigger">⛶</button>
+        <span>{mmss(secs)}</span>
+        <button className="call-hang" onClick={hangUp} title="Hang up">✕</button>
+      </div> : <>
+        {canResize && <button className="call-size" onClick={() => setMini(true)} title="Make smaller">🗕</button>}
+        <div className="call-vid-info"><strong>@{peerName}</strong><span>{statusText}</span></div>
+        <div className="call-buttons call-vid-buttons">{controls}</div>
+      </>}
     </div>}
-    {status !== 'idle' && !video && <div className="call-overlay">
+    {status !== 'idle' && !video && <div className={`call-overlay ${mini ? 'mini' : ''}`}>
       <div className={`call-card ${status === 'incoming' ? 'ringing' : ''}`}>
+        {canResize && <button className="call-size" onClick={() => setMini(!mini)} title={mini ? 'Make bigger' : 'Make smaller'}>{mini ? '⛶' : '🗕'}</button>}
         <div className="call-avatar">📞</div>
         <strong className="call-name">@{peerName}</strong>
         <p className="call-status">{statusText}</p>
