@@ -142,3 +142,62 @@ export function buildPetMesh(species: PetSpecies, dye?: string | null): PetMesh 
   if (species === 'turtle') { const shell = new THREE.Mesh(new THREE.SphereGeometry(0.36 * s, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), lam('#3f6f37')); shell.position.y = 0.4 * s; shell.scale.set(1, 0.7, 1.1); group.add(shell); }
   return { group, legs, wings, flyer };
 }
+
+/**
+ * A blocky (Minecraft-style) pet-shop toy or supply — a real little 3D model,
+ * not an emoji, so everything you buy stands up in your yard and the pet can
+ * play with its toys. Origin is at the base (y = 0), so it sits on the ground.
+ */
+export function buildSupplyMesh(id: string): THREE.Group {
+  const g = new THREE.Group();
+  const box = (w: number, h: number, d: number, x: number, y: number, z: number, color: string) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lam(color)); m.position.set(x, y, z); g.add(m); return m;
+  };
+  const ball = (r: number, x: number, y: number, z: number, color: string) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), lam(color)); m.position.set(x, y, z); g.add(m); return m;
+  };
+  const cyl = (rt: number, rb: number, h: number, x: number, y: number, z: number, color: string) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 12), lam(color)); m.position.set(x, y, z); g.add(m); return m;
+  };
+  switch (id) {
+    // ---- toys the pet plays with ----
+    case 'ball': ball(0.2, 0, 0.2, 0, '#e0685f'); box(0.42, 0.05, 0.05, 0, 0.2, 0, '#ffffff'); box(0.05, 0.05, 0.42, 0, 0.2, 0, '#ffffff'); break;
+    case 'yarn': ball(0.2, 0, 0.2, 0, '#f28fb0'); box(0.44, 0.04, 0.04, 0, 0.22, 0.05, '#d86fa0'); box(0.04, 0.04, 0.44, 0.05, 0.2, 0, '#d86fa0'); box(0.44, 0.04, 0.04, 0, 0.15, -0.05, '#d86fa0'); break;
+    case 'frisbee': cyl(0.28, 0.28, 0.06, 0, 0.1, 0, '#5a9fe0'); cyl(0.16, 0.16, 0.07, 0, 0.11, 0, '#3a7fc0'); break;
+    case 'teddy':
+      box(0.24, 0.28, 0.16, 0, 0.28, 0, '#a5764b'); box(0.22, 0.2, 0.18, 0, 0.52, 0.02, '#b5865b');
+      [-1, 1].forEach((sd) => box(0.09, 0.09, 0.06, sd * 0.1, 0.61, 0.02, '#a5764b'));
+      [-1, 1].forEach((sd) => box(0.09, 0.18, 0.09, sd * 0.17, 0.3, 0, '#a5764b'));
+      [-1, 1].forEach((sd) => box(0.09, 0.14, 0.09, sd * 0.07, 0.09, 0.02, '#a5764b'));
+      [-1, 1].forEach((sd) => box(0.04, 0.05, 0.04, sd * 0.05, 0.54, 0.12, '#2a1c10'));
+      box(0.05, 0.04, 0.04, 0, 0.48, 0.13, '#2a1c10'); break;
+    case 'mouse':
+      box(0.16, 0.13, 0.3, 0, 0.1, 0, '#b8b8c2'); box(0.11, 0.09, 0.11, 0, 0.11, 0.19, '#c8c8d2');
+      box(0.03, 0.03, 0.26, 0, 0.06, -0.24, '#e0a0a0');
+      [-1, 1].forEach((sd) => box(0.08, 0.08, 0.02, sd * 0.06, 0.19, 0.03, '#e6b4bc'));
+      box(0.035, 0.035, 0.035, 0, 0.12, 0.26, '#ff8f8f'); break;
+    // ---- bowls ----
+    case 'foodbowl': case 'waterbowl':
+      cyl(0.22, 0.18, 0.12, 0, 0.06, 0, '#c86a4a'); cyl(0.17, 0.17, 0.05, 0, 0.11, 0, id === 'waterbowl' ? '#4aa8e0' : '#8a5a2f'); break;
+    // ---- beds ----
+    case 'bed': box(0.72, 0.14, 0.52, 0, 0.07, 0, '#6f8fd0'); box(0.6, 0.12, 0.3, 0, 0.2, -0.09, '#f4efe8'); break;
+    case 'cushion': box(0.5, 0.16, 0.5, 0, 0.08, 0, '#6fbf6a'); box(0.12, 0.03, 0.12, 0, 0.17, 0, '#4f9f4a'); break;
+    case 'basket': cyl(0.3, 0.26, 0.18, 0, 0.09, 0, '#c8a060'); cyl(0.24, 0.22, 0.16, 0, 0.11, 0, '#8a5a2f'); break;
+    // ---- species specials ----
+    case 'scratch': box(0.3, 0.06, 0.3, 0, 0.03, 0, '#8a5a3a'); box(0.14, 0.62, 0.14, 0, 0.34, 0, '#c9a06a'); ball(0.1, 0, 0.72, 0, '#e0685f'); break;
+    case 'chewbone':
+      box(0.06, 0.06, 0.3, 0, 0.1, 0, '#f0ead6');
+      [-1, 1].forEach((sd) => { box(0.08, 0.12, 0.08, 0, 0.1, sd * 0.17, '#f0ead6'); box(0.12, 0.08, 0.08, 0, 0.1, sd * 0.17, '#f0ead6'); }); break;
+    case 'perch': box(0.42, 0.05, 0.05, 0, 0.3, 0, '#a5764b'); [-1, 1].forEach((sd) => box(0.02, 0.32, 0.02, sd * 0.19, 0.46, 0, '#9a9aa2')); break;
+    case 'baskrock': { const r = new THREE.Mesh(new THREE.SphereGeometry(0.24, 6, 5), lam('#8a8a90')); r.position.y = 0.14; r.scale.set(1.2, 0.7, 1); g.add(r); break; }
+    case 'wheel': { const w = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.04, 6, 14), lam('#d0d0d8')); w.position.y = 0.28; g.add(w); box(0.22, 0.05, 0.22, 0, 0.03, 0, '#8a5a3a'); box(0.03, 0.26, 0.03, 0, 0.15, 0, '#a0a0a8'); break; }
+    // ---- food & treats (a little sack/tin sitting in the pet corner) ----
+    case 'kibble': box(0.26, 0.34, 0.2, 0, 0.17, 0, '#c8944a'); box(0.26, 0.06, 0.2, 0, 0.36, 0, '#a5764b'); break;
+    case 'treats': box(0.28, 0.2, 0.2, 0, 0.1, 0, '#e0a84a'); box(0.1, 0.06, 0.13, 0, 0.22, 0, '#f0ead6'); break;
+    case 'fishfood': cyl(0.12, 0.12, 0.28, 0, 0.14, 0, '#4aa8e0'); cyl(0.13, 0.13, 0.05, 0, 0.3, 0, '#e0685f'); break;
+    case 'berrymix': box(0.26, 0.18, 0.22, 0, 0.09, 0, '#7a4a9a'); [[-0.06, 0.06], [0.06, 0.02], [0, 0.08]].forEach(([x, z]) => ball(0.05, x, 0.22, z, '#5a5add')); break;
+    // ---- anything else: a friendly little crate ----
+    default: box(0.3, 0.24, 0.3, 0, 0.12, 0, '#b08050'); box(0.32, 0.04, 0.32, 0, 0.26, 0, '#8a5a2f');
+  }
+  return g;
+}

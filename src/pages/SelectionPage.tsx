@@ -411,7 +411,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     onUseWood={() => setWood((n) => Math.max(0, n - 1))}
     petSpecies={activePet()?.species ?? null}
     petDye={activePetDye()}
-    petSupplies={Object.entries(loadPets().supplies).flatMap(([id, n]) => { const it = shopItemById(id); return it && it.category !== 'house' ? Array.from({ length: n as number }, () => it.emoji) : []; })}
+    petSupplies={Object.entries(loadPets().supplies).flatMap(([id, n]) => { const it = shopItemById(id); return it && it.category !== 'house' ? Array.from({ length: n as number }, () => id) : []; })}
     petHouses={Object.entries(loadPets().supplies).flatMap(([id, n]) => { const it = shopItemById(id); return it && it.category === 'house' ? Array.from({ length: n as number }, () => id) : []; })}
     hasLadder={hasLadder}
     onBuyLadder={() => { if (shopCoins >= 25) { setShopCoins((c) => c - 25); setHasLadder(true); } }}

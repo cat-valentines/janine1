@@ -48,7 +48,8 @@ export function buildFurnitureMesh(kind: FurnitureKind, color: string): THREE.Gr
   return g;
 }
 import { buildTerrainRegion, isTerrainSolid, rand, seasonOrder, seasonStyles, terrainHeight, treeAt, PASTURE_END, type Season } from './terrain';
-import { buildPetMesh, makeLivePet, stepPet, type LivePet } from './petMesh';
+import { buildPetMesh, buildSupplyMesh, makeLivePet, stepPet, type LivePet } from './petMesh';
+import { shopItemById } from '../lib/petShop';
 import { buildAnimalMesh, buildFishMesh, wildKindFor } from './animalMesh';
 import type { PetSpecies } from '../lib/pets';
 
@@ -232,8 +233,12 @@ export class HouseEngine {
   private livestockGroup = new THREE.Group();
   // A basket by your house holding the apples you've foraged and stashed.
   private pantryGroup = new THREE.Group();
-  // Pet-shop supplies you've bought, arranged in a pet corner of your yard.
+  // Pet-shop supplies you've bought — real blocky models in a pet corner of your yard.
   private petSupplyGroup = new THREE.Group();
+  // The toys among them (blocky ball, mouse, …) that your pet trots over to and plays with.
+  private petToys: Array<{ mesh: THREE.Object3D; x: number; z: number; baseY: number }> = [];
+  private petPlayTimer = 0;
+  private petPlayIdx = -1;
   // Blocky pet houses you've bought — solid walls you can walk INTO via the door.
   private petHouseGroup = new THREE.Group();
   private petHouseWalls = new Set<string>();
@@ -1068,11 +1073,13 @@ export class HouseEngine {
   private movePet(dt: number) {
     if (!this.pet || this.inCave) return;
     stepPet(this.pet, this.position.x, this.position.z, this.yaw, dt, (x, z) => this.groundY(x, z), this.forageTime);
+    this.petPlay(dt);   // after stepPet, so it can steer the pet toward a toy and bounce it
   }
 
-  /** Lay out the pet-shop supplies you've bought in a little corner of the yard,
-   *  on a rug, so everything you buy really shows up at your house. */
-  setPetSupplies(emojis: string[]) {
+  /** Lay out the pet-shop supplies you've bought as real blocky models in a little
+   *  corner of the yard, on a rug — and remember which are toys, so the pet can go
+   *  and play with them. Everything you buy really stands up at your house. */
+  setPetSupplies(ids: string[]) {
     this.petSupplyGroup.traverse((o) => {
       const mesh = o as THREE.Mesh & { material?: THREE.SpriteMaterial };
       mesh.geometry?.dispose?.();
@@ -1080,20 +1087,47 @@ export class HouseEngine {
       if (mat) { mat.map?.dispose?.(); mat.dispose(); }
     });
     this.petSupplyGroup.clear();
-    if (!emojis.length) return;
+    this.petToys = [];
+    this.petPlayIdx = -1;
+    if (!ids.length) return;
     // A cosy rug in the front-yard pet corner, north of the house.
     const cornerX = 3, cornerZ = -3;
     const rug = new THREE.Mesh(new THREE.PlaneGeometry(9, 4), new THREE.MeshLambertMaterial({ color: '#c98fd0', transparent: true, opacity: 0.7 }));
     rug.rotation.x = -Math.PI / 2;
     rug.position.set(cornerX + 3, this.groundY(cornerX + 3, cornerZ - 1) + 0.02, cornerZ - 1);
     this.petSupplyGroup.add(rug);
-    emojis.slice(0, 24).forEach((emoji, i) => {
+    ids.slice(0, 24).forEach((id, i) => {
       const sx = cornerX + (i % 6) * 1.5, sz = cornerZ - Math.floor(i / 6) * 1.5;
-      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTexture(emoji), transparent: true }));
-      sprite.scale.setScalar(1.1);
-      sprite.position.set(sx, this.groundY(sx, sz) + 0.7, sz);
-      this.petSupplyGroup.add(sprite);
+      const baseY = this.groundY(sx, sz) + 0.03;
+      const model = buildSupplyMesh(id);
+      model.position.set(sx, baseY, sz);
+      this.petSupplyGroup.add(model);
+      if (shopItemById(id)?.category === 'toy') this.petToys.push({ mesh: model, x: sx, z: sz, baseY });
     });
+  }
+
+  /** Let the pet trot over to its toys and play — it picks a toy, pads up to it,
+   *  and bats it about (the toy bounces and spins) before wandering off again. */
+  private petPlay(dt: number) {
+    if (!this.pet || this.inCave || !this.petToys.length || this.pet.resting) return;
+    for (const toy of this.petToys) toy.mesh.position.y = toy.baseY;   // toys sit still by default
+    // Only play when you're nearby (otherwise the pet is busy following you).
+    const ownerNear = Math.hypot(this.position.x - this.pet.x, this.position.z - this.pet.z) < 3;
+    this.petPlayTimer -= dt;
+    if (this.petPlayTimer <= 0) {
+      this.petPlayTimer = 3 + Math.random() * 4;
+      this.petPlayIdx = ownerNear && Math.random() < 0.8 ? Math.floor(Math.random() * this.petToys.length) : -1;
+    }
+    if (this.petPlayIdx < 0 || !ownerNear) return;
+    const toy = this.petToys[this.petPlayIdx];
+    this.pet.tx = toy.x; this.pet.tz = toy.z; this.pet.wanderT = 1.0;   // steer the pet to the toy
+    const d = Math.hypot(this.pet.x - toy.x, this.pet.z - toy.z);
+    if (d < 0.9) {
+      const t = this.forageTime;
+      toy.mesh.position.y = toy.baseY + Math.abs(Math.sin(t * 9)) * 0.3;   // the toy bounces
+      toy.mesh.rotation.y += dt * 7;
+      this.pet.group.position.y += Math.abs(Math.sin(t * 9 + 1)) * 0.1;    // a happy little pounce
+    }
   }
 
   /** Pitch the pet houses you've bought as REAL blocky huts in the front yard —
