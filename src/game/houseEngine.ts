@@ -66,6 +66,11 @@ const SPEED = 4.6;
  *  The patch reaches past where the fog turns opaque, so its edge never shows. */
 const LAND_PATCH = 56;
 const LAND_STEP = 18;
+/** The endless neighbourhood: everyone's houses are tiled across the land on lots
+ *  this far apart, and we keep this many lots built out around you (covering the
+ *  fog), so wherever you walk you keep coming upon other players' houses. */
+const HOOD_PLOT = 40;
+const HOOD_RADIUS = 2;
 /** Seconds for one full day → night → day. A gentle few-minute cycle. */
 const DAY_LENGTH = 220;
 /** Seconds each season lasts before the world drifts into the next one. */
@@ -149,6 +154,12 @@ function hashId(id: string): number {
   return h >>> 0;
 }
 function hueFromId(id: string): number { return hashId(id) % 360; }
+/** A stable hash for a neighbourhood grid cell, so each lot always looks the same. */
+function hashCell(gx: number, gz: number): number {
+  let h = (Math.imul(gx, 73856093) ^ Math.imul(gz, 19349663)) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+  return h >>> 0;
+}
 
 /** Emoji drawn to a texture, so shop furniture shows up in the 3D house. */
 function emojiTexture(emoji: string) {
@@ -241,9 +252,13 @@ export class HouseEngine {
   private sitting = false;   // relaxing on a chair/sofa — frozen until you stand
   /** Other real players on the land right now, keyed by their user id. */
   private neighbours = new Map<string, Neighbour>();
-  /** Other players' saved houses on the land — a persistent neighbourhood, shown
-   *  even when their owner isn't online (keyed by user id). */
-  private houseOnly = new Map<string, THREE.Group>();
+  /** The endless neighbourhood: everyone's saved houses, tiled across the land so
+   *  you keep coming upon them as you walk (even when their owner is offline).
+   *  Streams in around you like the terrain does — keyed by grid cell "gx,gz". */
+  private hood = new Map<string, THREE.Group>();
+  private hoodList: Array<{ id: string; name: string; house: string }> = [];
+  private hoodCell = { gx: 99999, gz: 99999 };
+  private hoodSig = '';
   private highlight: THREE.LineSegments;
 
   private world: string;
@@ -401,6 +416,7 @@ export class HouseEngine {
     });
     this.scatterForage(cx, cz);      // food follows you across the endless land
     this.scatterCreatures(cx, cz);   // animals to hunt + fish to catch, too
+    this.streamHood();               // and other players' houses, tiled across the land
   }
 
   /** Scatter fruit trees + berry bushes across the patch of land around you, so
@@ -1234,9 +1250,9 @@ export class HouseEngine {
     if (this.inCave || this.mode !== 'walk') return null;
     let best: string | null = null;
     let bestD = 14;
-    this.houseOnly.forEach((group, id) => {
-      const c = this.plotCentre(id);
-      const d = Math.hypot(this.position.x - c.x, this.position.z - c.z);
+    this.hood.forEach((group) => {
+      const cx = group.userData.cx as number, cz = group.userData.cz as number;
+      const d = Math.hypot(this.position.x - cx, this.position.z - cz);
       if (d < bestD) { bestD = d; best = (group.userData.houseName as string) ?? 'a builder'; }
     });
     return best;
@@ -1251,7 +1267,7 @@ export class HouseEngine {
     // Hide the whole surface world while you're down below.
     for (const g of [this.blockGroup, this.doorGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup]) g.visible = false;
     this.neighbours.forEach((n) => { n.group.visible = false; if (n.houseGroup) n.houseGroup.visible = false; });
-    this.houseOnly.forEach((g) => { g.visible = false; });
+    this.hood.forEach((g) => { g.visible = false; });
     if (this.pet) this.pet.group.visible = false;
     if (this.ladderMesh) this.ladderMesh.visible = false;
     this.caveGroup.visible = true;
@@ -1286,7 +1302,7 @@ export class HouseEngine {
     if (this.torch) this.torch.visible = false;
     for (const g of [this.blockGroup, this.doorGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup]) g.visible = true;
     this.neighbours.forEach((n) => { n.group.visible = true; if (n.houseGroup) n.houseGroup.visible = true; });
-    this.houseOnly.forEach((g) => { g.visible = true; });
+    this.hood.forEach((g) => { g.visible = true; });
     if (this.pet) this.pet.group.visible = true;
     this.applySky();   // day/night resumes and re-tints the sky next frame
     this.position.copy(this.caveReturn);
@@ -1442,24 +1458,66 @@ export class HouseEngine {
    * who's live right now is drawn by setLivePlayers instead (skipped here).
    */
   setNeighbourHouses(list: Array<{ id: string; name: string; house: string }>) {
-    const here = new Set(list.map((h) => h.id));
-    this.houseOnly.forEach((group, id) => {
-      if (here.has(id) && !this.neighbours.has(id)) return;
-      this.scene.remove(group); this.freeMaterials(group); this.houseOnly.delete(id);
+    const filtered = list.filter((h) => h.house && h.house.length > 4);
+    // This reloads every 25s — only rebuild when the neighbourhood actually changed.
+    const sig = filtered.map((h) => `${h.id}:${h.name}:${hashId(h.house)}`).join('|');
+    if (sig === this.hoodSig) return;
+    this.hoodSig = sig;
+    this.hoodList = filtered;
+    // Rebuild the neighbourhood fresh around wherever you are now.
+    this.hood.forEach((group) => { this.scene.remove(group); this.freeMaterials(group); });
+    this.hood.clear();
+    this.hoodCell = { gx: 99999, gz: 99999 };
+    this.streamHood(true);
+  }
+
+  /** Keep the endless neighbourhood built out around you: as you cross into a new
+   *  lot, tile in the houses ahead and free the ones now far behind. */
+  private streamHood(force = false) {
+    const pgx = Math.round(this.position.x / HOOD_PLOT);
+    const pgz = Math.round(this.position.z / HOOD_PLOT);
+    if (!force && pgx === this.hoodCell.gx && pgz === this.hoodCell.gz) return;
+    this.hoodCell = { gx: pgx, gz: pgz };
+    if (!this.hoodList.length) {
+      this.hood.forEach((g) => { this.scene.remove(g); this.freeMaterials(g); });
+      this.hood.clear();
+      return;
+    }
+    const need = new Set<string>();
+    for (let gx = pgx - HOOD_RADIUS; gx <= pgx + HOOD_RADIUS; gx += 1) {
+      for (let gz = pgz - HOOD_RADIUS; gz <= pgz + HOOD_RADIUS; gz += 1) {
+        const key = `${gx},${gz}`;
+        need.add(key);
+        if (!this.hood.has(key)) { const g = this.buildHoodPlot(gx, gz); if (g) this.hood.set(key, g); }
+      }
+    }
+    this.hood.forEach((g, key) => {
+      if (need.has(key)) return;
+      this.scene.remove(g); this.freeMaterials(g); this.hood.delete(key);
     });
-    list.forEach((h) => {
-      if (this.neighbours.has(h.id) || this.houseOnly.has(h.id)) return;   // live wins / already built
-      const c = this.plotCentre(h.id);
-      const baseY = Math.max(1, terrainHeight(c.x, c.z, this.seed));   // sit on the ground, never underwater
-      const group = this.buildHouseMesh(h.house, c.x - SX / 2, c.z - SZ / 2, baseY);
-      const sign = this.neighbourName(`🏠 ${h.name}`);
-      sign.position.set(c.x, baseY + 5.2, c.z);
-      group.add(sign);
-      group.visible = !this.inCave;
-      group.userData.houseName = h.name;
-      this.scene.add(group);
-      this.houseOnly.set(h.id, group);
-    });
+  }
+
+  /** Build the house standing on one neighbourhood lot (or null for an empty lot,
+   *  a lot on the water, or your own home lot at the world's origin). */
+  private buildHoodPlot(gx: number, gz: number): THREE.Group | null {
+    if (gx === 0 && gz === 0) return null;         // the origin lot is your own home
+    const h = hashCell(gx, gz);
+    if (h % 10 < 3) return null;                    // ~30% empty lots, like a real street
+    const person = this.hoodList[h % this.hoodList.length];
+    const wx = gx * HOOD_PLOT + ((h % 11) - 5);     // a little jitter so they're not on a strict grid
+    const wz = gz * HOOD_PLOT + (((h >> 4) % 11) - 5);
+    const ground = terrainHeight(wx, wz, this.seed);
+    if (ground <= 0) return null;                   // never out on the ocean
+    const baseY = Math.max(1, ground);
+    const group = this.buildHouseMesh(person.house, wx - SX / 2, wz - SZ / 2, baseY);
+    const sign = this.neighbourName(`🏠 ${person.name}`);
+    sign.position.set(wx, baseY + 5.2, wz);
+    group.add(sign);
+    group.visible = !this.inCave;
+    group.userData.houseName = person.name;
+    group.userData.cx = wx; group.userData.cz = wz;
+    this.scene.add(group);
+    return group;
   }
 
   /**
