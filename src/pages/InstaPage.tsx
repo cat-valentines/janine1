@@ -3,9 +3,11 @@ import { characterAssets } from '../game/characters';
 import type { CharacterId } from '../game/types';
 import {
   addComment, bumpLike, createPost, deleteComment, deletePost, likedLocal, loadComments, loadFeed,
-  photoUrl, reportPost, saveLikedLocal, setFollow, type InstaComment, type InstaPost,
+  loadProfile, loadUserPosts, photoUrl, reportPost, saveLikedLocal, setFollow,
+  type InstaComment, type InstaPost, type InstaProfile,
 } from '../lib/insta';
 import { setSfxMuted, sfx, sfxMuted } from '../lib/sfx';
+import { supabase } from '../lib/supabase';
 
 const avatar = (id: string) => characterAssets[id as CharacterId] ?? characterAssets.cottontail;
 
@@ -29,9 +31,11 @@ interface CardProps {
   onDelete: (p: InstaPost) => void;
   onReport: (p: InstaPost) => void;
   onNeedAccount: () => void;
+  onOpenProfile: (uid: string) => void;
+  hideFollow?: boolean;
 }
 
-function PostCard({ post, liked, signedIn, username, character, onLike, onFollow, onDelete, onReport, onNeedAccount }: CardProps) {
+function PostCard({ post, liked, signedIn, username, character, onLike, onFollow, onDelete, onReport, onNeedAccount, onOpenProfile, hideFollow }: CardProps) {
   const [open, setOpen] = useState(false);
   const [comments, setComments] = useState<InstaComment[] | null>(null);
   const [text, setText] = useState('');
@@ -65,12 +69,14 @@ function PostCard({ post, liked, signedIn, username, character, onLike, onFollow
 
   return <article className="insta-card">
     <header className="insta-card-top">
-      <img className="insta-avatar" src={avatar(post.author_character)} alt="" />
-      <div className="insta-who"><strong>@{post.author_name}</strong><small>{ago(post.created_at)}</small></div>
+      <button className="insta-who-link" onClick={() => onOpenProfile(post.author_id)}>
+        <img className="insta-avatar" src={avatar(post.author_character)} alt="" />
+        <div className="insta-who"><strong>@{post.author_name}</strong><small>{ago(post.created_at)}</small></div>
+      </button>
       {post.is_mine
         ? <button className="insta-del" onClick={() => onDelete(post)} title="Delete">🗑️</button>
         : <>
-            <button className={`insta-follow ${post.followed_by_me ? 'on' : ''}`} onClick={() => onFollow(post)}>{post.followed_by_me ? 'Following' : 'Follow'}</button>
+            {!hideFollow && <button className={`insta-follow ${post.followed_by_me ? 'on' : ''}`} onClick={() => onFollow(post)}>{post.followed_by_me ? 'Following' : 'Follow'}</button>}
             <button className="insta-report" onClick={() => onReport(post)} title="Report this post">⚐</button>
           </>}
     </header>
@@ -92,8 +98,8 @@ function PostCard({ post, liked, signedIn, username, character, onLike, onFollow
     {open && <div className="insta-comments">
       {comments === null && <p className="insta-cmt-loading">Loading comments…</p>}
       {comments?.map((c) => <div className="insta-cmt" key={c.id}>
-        <img src={avatar(c.author_character)} alt="" />
-        <p><strong>@{c.author_name}</strong> {c.body}</p>
+        <img src={avatar(c.author_character)} alt="" onClick={() => onOpenProfile(c.author_id)} style={{ cursor: 'pointer' }} />
+        <p><strong className="insta-cmt-name" onClick={() => onOpenProfile(c.author_id)}>@{c.author_name}</strong> {c.body}</p>
         <CommentDelete comment={c} signedIn={signedIn} username={username} onRemove={removeComment} />
       </div>)}
       {comments?.length === 0 && <p className="insta-cmt-loading">No comments yet — say something nice! 💬</p>}
@@ -128,8 +134,23 @@ export function InstaPage({ username, character, signedIn, onNeedAccount, onBack
   const [reportText, setReportText] = useState('');
   const [reportNote, setReportNote] = useState('');
   const [reportBusy, setReportBusy] = useState(false);
+  const [viewUid, setViewUid] = useState<string | null>(null);   // whose profile is open
+  const [profileData, setProfileData] = useState<InstaProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profilePosts, setProfilePosts] = useState<InstaPost[] | null>(null);
+  const [myId, setMyId] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  useEffect(() => { supabase.auth.getUser().then(({ data }) => setMyId(data.user?.id ?? null)).catch(() => undefined); }, []);
   const isVideoFile = !!file && file.type.startsWith('video/');
+
+  const openProfile = (uid: string) => { setViewUid(uid); sfx('tap'); window.scrollTo(0, 0); };
+  const closeProfile = () => setViewUid(null);
+  useEffect(() => {
+    if (!viewUid) return;
+    setProfileLoading(true); setProfileData(null); setProfilePosts(null);
+    loadProfile(viewUid).then((p) => setProfileData(p)).catch(() => setProfileData(null)).finally(() => setProfileLoading(false));
+    loadUserPosts(viewUid).then(setProfilePosts).catch(() => setProfilePosts([]));
+  }, [viewUid]);
 
   const needAccount = () => { setNote('Log in or sign up (it\'s free) to post, follow, and comment!'); onNeedAccount(); };
 
@@ -164,7 +185,8 @@ export function InstaPage({ username, character, signedIn, onNeedAccount, onBack
     const nowLiked = !likedSet.has(p.id);
     const next = new Set(likedSet); if (nowLiked) next.add(p.id); else next.delete(p.id);
     setLikedSet(next); saveLikedLocal(next);
-    setPosts((list) => list?.map((x) => x.id === p.id ? { ...x, like_count: Math.max(0, x.like_count + (nowLiked ? 1 : -1)) } : x) ?? list);
+    const bump = (list: InstaPost[] | null) => list?.map((x) => x.id === p.id ? { ...x, like_count: Math.max(0, x.like_count + (nowLiked ? 1 : -1)) } : x) ?? list;
+    setPosts(bump); setProfilePosts(bump);
     bumpLike(p.id, nowLiked).catch(() => undefined);
     sfx(nowLiked ? 'like' : 'unlike');
   };
@@ -172,14 +194,29 @@ export function InstaPage({ username, character, signedIn, onNeedAccount, onBack
   const toggleFollow = (p: InstaPost) => {
     if (!signedIn) return void needAccount();
     const following = !p.followed_by_me;
-    setPosts((list) => list?.map((x) => x.author_id === p.author_id ? { ...x, followed_by_me: following } : x) ?? list);
+    const mark = (list: InstaPost[] | null) => list?.map((x) => x.author_id === p.author_id ? { ...x, followed_by_me: following } : x) ?? list;
+    setPosts(mark); setProfilePosts(mark);
+    if (viewUid === p.author_id) setProfileData((d) => d ? { ...d, followed_by_me: following, followers: Math.max(0, d.followers + (following ? 1 : -1)) } : d);
     setFollow(p.author_id, following).catch(() => refresh());
+    sfx('follow');
+  };
+
+  // The big Follow button on a profile page.
+  const profileFollow = () => {
+    if (!signedIn) return void needAccount();
+    if (!profileData || !viewUid) return;
+    const following = !profileData.followed_by_me;
+    setProfileData({ ...profileData, followed_by_me: following, followers: Math.max(0, profileData.followers + (following ? 1 : -1)) });
+    setProfilePosts((list) => list?.map((x) => ({ ...x, followed_by_me: following })) ?? list);
+    setPosts((list) => list?.map((x) => x.author_id === viewUid ? { ...x, followed_by_me: following } : x) ?? list);
+    setFollow(viewUid, following).catch(() => undefined);
     sfx('follow');
   };
 
   const removePost = (p: InstaPost) => {
     if (!window.confirm('Delete this post?')) return;
-    setPosts((list) => list?.filter((x) => x.id !== p.id) ?? list);
+    const drop = (list: InstaPost[] | null) => list?.filter((x) => x.id !== p.id) ?? list;
+    setPosts(drop); setProfilePosts(drop);
     deletePost(p.id, p.image_path).catch(() => refresh());
   };
 
@@ -203,31 +240,56 @@ export function InstaPage({ username, character, signedIn, onNeedAccount, onBack
 
   return <main className="insta-page">
     <header className="insta-top">
-      <button className="insta-back" onClick={onBack}>←</button>
-      <h1>📸 Insta</h1>
+      <button className="insta-back" onClick={viewUid ? closeProfile : onBack}>←</button>
+      <h1>{viewUid ? 'Profile' : '📸 Insta'}</h1>
       <button className="insta-mute" onClick={toggleMute} title={muted ? 'Sound off' : 'Sound on'}>{muted ? '🔇' : '🔊'}</button>
-      <button className="insta-new" onClick={() => { if (!signedIn) return void needAccount(); setComposing(true); setNote(''); }}>＋ Post</button>
+      {!viewUid && <button className="insta-new" onClick={() => { if (!signedIn) return void needAccount(); setComposing(true); setNote(''); }}>＋ Post</button>}
     </header>
-
-    <div className="insta-me">
-      <img src={avatar(character)} alt="" />
-      <div><strong>@{username || 'explorer'}</strong><span>Share a photo or video with everyone</span></div>
-    </div>
-
-    <div className="insta-tabs">
-      <button className={tab === 'explore' ? 'on' : ''} onClick={() => { setTab('explore'); sfx('tap'); }}>🌍 Explore</button>
-      <button className={tab === 'following' ? 'on' : ''} onClick={() => { setTab('following'); sfx('tap'); }}>👥 Following</button>
-    </div>
 
     {note && <p className="insta-note">{note}</p>}
 
-    {posts === null && <p className="insta-empty">Loading…</p>}
-    {posts && posts.length === 0 && <p className="insta-empty">{tab === 'following' ? 'Follow some players to see their posts here!' : 'No posts yet — be the first to share! 📷🎬'}</p>}
+    {!viewUid && <>
+      <button className="insta-me insta-me-link" onClick={() => { if (myId) openProfile(myId); }}>
+        <img src={avatar(character)} alt="" />
+        <div><strong>@{username || 'explorer'}</strong><span>Share a photo or video with everyone</span></div>
+      </button>
 
-    <div className="insta-feed">
-      {posts?.map((p) => <PostCard key={p.id} post={p} liked={likedSet.has(p.id)} signedIn={signedIn} username={username} character={character}
-        onLike={toggleLike} onFollow={toggleFollow} onDelete={removePost} onReport={openReport} onNeedAccount={needAccount} />)}
-    </div>
+      <div className="insta-tabs">
+        <button className={tab === 'explore' ? 'on' : ''} onClick={() => { setTab('explore'); sfx('tap'); }}>🌍 Explore</button>
+        <button className={tab === 'following' ? 'on' : ''} onClick={() => { setTab('following'); sfx('tap'); }}>👥 Following</button>
+      </div>
+
+      {posts === null && <p className="insta-empty">Loading…</p>}
+      {posts && posts.length === 0 && <p className="insta-empty">{tab === 'following' ? 'Follow some players to see their posts here!' : 'No posts yet — be the first to share! 📷🎬'}</p>}
+
+      <div className="insta-feed">
+        {posts?.map((p) => <PostCard key={p.id} post={p} liked={likedSet.has(p.id)} signedIn={signedIn} username={username} character={character}
+          onLike={toggleLike} onFollow={toggleFollow} onDelete={removePost} onReport={openReport} onNeedAccount={needAccount} onOpenProfile={openProfile} />)}
+      </div>
+    </>}
+
+    {viewUid && <>
+      {profileLoading && <p className="insta-empty">Loading…</p>}
+      {!profileLoading && profileData && <>
+        <div className="insta-profile-head">
+          <img className="insta-profile-avatar" src={avatar(profileData.char_id)} alt="" />
+          <div className="insta-profile-stats">
+            <div><strong>{profileData.posts}</strong><span>posts</span></div>
+            <div><strong>{profileData.followers}</strong><span>followers</span></div>
+            <div><strong>{profileData.following}</strong><span>following</span></div>
+          </div>
+        </div>
+        <div className="insta-profile-name">@{profileData.uname}</div>
+        {!profileData.is_me && <button className={`insta-profile-follow ${profileData.followed_by_me ? 'on' : ''}`} onClick={profileFollow}>{profileData.followed_by_me ? '✓ Following' : '＋ Follow'}</button>}
+        {profilePosts === null && <p className="insta-empty">Loading posts…</p>}
+        {profilePosts && profilePosts.length === 0 && <p className="insta-empty">No posts yet. 📷</p>}
+        <div className="insta-feed">
+          {profilePosts?.map((p) => <PostCard key={p.id} post={p} liked={likedSet.has(p.id)} signedIn={signedIn} username={username} character={character}
+            onLike={toggleLike} onFollow={toggleFollow} onDelete={removePost} onReport={openReport} onNeedAccount={needAccount} onOpenProfile={openProfile} hideFollow />)}
+        </div>
+      </>}
+      {!profileLoading && !profileData && <p className="insta-empty">Couldn't load this profile.</p>}
+    </>}
 
     {composing && <div className="insta-compose-backdrop" onClick={() => !posting && setComposing(false)}>
       <div className="insta-compose" onClick={(e) => e.stopPropagation()}>

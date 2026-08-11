@@ -25,6 +25,16 @@ export interface InstaPost {
   is_mine: boolean;
 }
 
+export interface InstaProfile {
+  uname: string;
+  char_id: string;
+  followers: number;
+  following: number;
+  posts: number;
+  followed_by_me: boolean;
+  is_me: boolean;
+}
+
 export interface InstaComment {
   id: string;
   post_id: string;
@@ -102,6 +112,20 @@ export async function createPost(name: string, character: string, file: File, ca
     caption: caption.slice(0, 300),
   });
   if (error) throw error;
+}
+
+/** A player's Insta profile (name, character, follower/following/post counts). */
+export async function loadProfile(uid: string): Promise<InstaProfile | null> {
+  const { data, error } = await supabase.rpc('insta_profile', { uid });
+  if (error) throw error;
+  return (data && (data[0] as InstaProfile)) || null;
+}
+
+/** One player's own posts (newest first). */
+export async function loadUserPosts(uid: string): Promise<InstaPost[]> {
+  const { data, error } = await supabase.rpc('insta_user_posts', { uid });
+  if (error) throw error;
+  return (data ?? []) as InstaPost[];
 }
 
 /** The feed: everyone's posts, or just the people you follow. */

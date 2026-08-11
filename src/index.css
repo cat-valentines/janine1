@@ -2464,3 +2464,21 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .call-mini-bar span { flex: 1; color: #fff; font-size: .8rem; font-weight: 700; }
 .call-mini-bar button { border: none; color: #fff; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: .85rem; background: #ffffff2a; padding: 0; }
 .call-mini-bar .call-hang { background: #e0564f; box-shadow: none; }
+
+/* ---- Insta: player profile pages ---------------------------------------- */
+.insta-who-link { display: flex; align-items: center; gap: 10px; flex: 1; border: none; background: none; padding: 0; cursor: pointer; text-align: left; min-width: 0; }
+.insta-cmt-name { cursor: pointer; }
+.insta-me-link { width: 100%; border: none; background: none; cursor: pointer; text-align: left; }
+.insta-profile-head { display: flex; align-items: center; gap: 20px; padding: 14px 8px 6px; }
+.insta-profile-avatar { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; background: #ffe6f0; border: 3px solid #f4a9c8; padding: 3px; flex: none; }
+.insta-profile-stats { flex: 1; display: flex; justify-content: space-around; }
+.insta-profile-stats div { text-align: center; }
+.insta-profile-stats strong { display: block; font-size: 1.3rem; color: #333; }
+.insta-profile-stats span { color: #9a7f8c; font-size: .8rem; }
+.insta-profile-name { padding: 4px 10px 12px; font-weight: 800; font-size: 1.1rem; color: #c23a72; }
+.insta-profile-follow { display: block; width: calc(100% - 20px); margin: 0 10px 16px; border: none; background: #e0568f; color: #fff; padding: 12px; border-radius: 12px; font-weight: 800; font-size: 1rem; box-shadow: 0 4px 0 #ab3468; cursor: pointer; }
+.insta-profile-follow.on { background: #f0e6ec; color: #96788a; box-shadow: 0 4px 0 #d8c3d0; }
+
+@media (prefers-color-scheme: dark) {
+  .insta-profile-stats strong { color: #f0e6ee; }
+}
