@@ -76,7 +76,7 @@ function PostCard({ post, liked, signedIn, username, character, onLike, onFollow
       {post.is_mine
         ? <button className="insta-del" onClick={() => onDelete(post)} title="Delete">🗑️</button>
         : <>
-            {!hideFollow && <button className={`insta-follow ${post.followed_by_me ? 'on' : ''}`} onClick={() => onFollow(post)}>{post.followed_by_me ? 'Following' : 'Follow'}</button>}
+            {!hideFollow && <button className={`insta-follow ${post.followed_by_me ? 'on' : ''}`} onClick={() => onFollow(post)}>{post.followed_by_me ? 'Unfollow' : 'Follow'}</button>}
             <button className="insta-report" onClick={() => onReport(post)} title="Report this post">⚐</button>
           </>}
     </header>
@@ -280,7 +280,7 @@ export function InstaPage({ username, character, signedIn, onNeedAccount, onBack
           </div>
         </div>
         <div className="insta-profile-name">@{profileData.uname}</div>
-        {!profileData.is_me && <button className={`insta-profile-follow ${profileData.followed_by_me ? 'on' : ''}`} onClick={profileFollow}>{profileData.followed_by_me ? '✓ Following' : '＋ Follow'}</button>}
+        {!profileData.is_me && <button className={`insta-profile-follow ${profileData.followed_by_me ? 'on' : ''}`} onClick={profileFollow}>{profileData.followed_by_me ? '✓ Unfollow' : '＋ Follow'}</button>}
         {profilePosts === null && <p className="insta-empty">Loading posts…</p>}
         {profilePosts && profilePosts.length === 0 && <p className="insta-empty">No posts yet. 📷</p>}
         <div className="insta-feed">
