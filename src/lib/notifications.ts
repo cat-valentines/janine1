@@ -6,7 +6,7 @@ import { peekRewardNotices } from './rewards';
 
 export interface NotificationItem {
   id: string;
-  kind: 'friend' | 'invite' | 'message' | 'reward';
+  kind: 'friend' | 'invite' | 'message' | 'reward' | 'insta';
   text: string;
   /** The other player (who texted / added you), so the panel can open their chat. */
   friendId: string;
@@ -23,12 +23,14 @@ const looksLikeInvite = (message: string) => /invited you|play date|come play|�
  * returns [] if the tables are not reachable, so the bell just stays quiet.
  */
 export async function loadNotifications(userId: string): Promise<NotificationItem[]> {
-  const [friends, everyone, conns, msgs] = await Promise.all([
+  const [friends, everyone, conns, msgs, insta] = await Promise.all([
     loadMyFriends().catch(() => []),
     loadAllPlayers().catch(() => []),
     supabase.from('friend_connections').select('requester_id, status, created_at')
       .eq('friend_id', userId).order('created_at', { ascending: false }).limit(20),
     supabase.from('friend_messages').select('id, sender_id, message, created_at')
+      .eq('recipient_id', userId).order('created_at', { ascending: false }).limit(30),
+    supabase.from('insta_notifications').select('id, actor_id, actor_name, media_type, created_at')
       .eq('recipient_id', userId).order('created_at', { ascending: false }).limit(30),
   ]);
 
@@ -59,6 +61,13 @@ export async function loadNotifications(userId: string): Promise<NotificationIte
       : invite ? msg.message
         : `💬 @${nameOf(msg.sender_id)} texted you: ${msg.message}`;
     items.push({ id: msg.id, kind: invite ? 'invite' : 'message', at: msg.created_at, friendId: msg.sender_id, text });
+  });
+
+  // A player you follow posted something new on Insta.
+  (insta.data ?? []).forEach((row) => {
+    const n = row as { id: string; actor_id: string; actor_name: string; media_type: string; created_at: string };
+    items.push({ id: `insta-${n.id}`, kind: 'insta', at: n.created_at, friendId: n.actor_id,
+      text: `📸 @${n.actor_name} posted a new ${n.media_type === 'video' ? 'video 🎬' : 'photo'}` });
   });
 
   // Prizes you've won (seasonal cups, potions) — kept on-device, shown in the bell.
