@@ -2482,3 +2482,18 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 @media (prefers-color-scheme: dark) {
   .insta-profile-stats strong { color: #f0e6ee; }
 }
+
+/* ---- Group call: participant grid --------------------------------------- */
+.group-chat-top .group-call { border: none; background: #3fbf6a; color: #fff; width: 34px; height: 34px; border-radius: 10px; font-size: 1rem; cursor: pointer; margin-left: auto; }
+.call-overlay.group { background: #0b1220; }
+.call-grid { position: absolute; inset: 0; display: grid; gap: 4px; padding: 4px; grid-template-columns: 1fr; }
+.call-grid.grid-2 { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+.call-grid.grid-3, .call-grid.grid-4 { grid-template-columns: 1fr 1fr; }
+.call-grid.grid-5, .call-grid.grid-6 { grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; }
+.call-grid.grid-7, .call-grid.grid-8, .call-grid.grid-9 { grid-template-columns: 1fr 1fr 1fr; }
+.call-tile { position: relative; background: #17202f; border-radius: 12px; overflow: hidden; min-height: 0; }
+.call-tile-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.call-tile.self .call-tile-video { transform: scaleX(-1); }
+.call-tile-name { position: absolute; left: 6px; bottom: 6px; background: #000000a0; color: #fff; padding: 2px 8px; border-radius: 8px; font-size: .72rem; font-weight: 700; }
+.call-overlay.group.mini .call-grid { grid-template-columns: 1fr 1fr; }
+.call-overlay.group.mini .call-tile-name { display: none; }

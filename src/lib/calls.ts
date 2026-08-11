@@ -59,3 +59,35 @@ export async function signalUser(userId: string, signal: CallSignal) {
 export async function logMissedCall(fromId: string, fromName: string, toId: string) {
   try { await sendFriendMessage(fromId, toId, `📞 Missed call from @${fromName} — tap to call back`); } catch { /* offline is fine */ }
 }
+
+// ---- Group calls: a mesh where everyone connects to everyone -------------
+export interface GroupSignal {
+  ev: 'gring' | 'join' | 'hello' | 'offer' | 'answer' | 'ice' | 'leave';
+  from: string;
+  fromName?: string;
+  to?: string;          // targeted peer for hello/offer/answer/ice
+  roomId?: string;
+  groupId?: string;
+  groupName?: string;
+  sdp?: string;
+  candidate?: string;
+}
+
+export function joinGroup(topic: string, onSignal: (s: GroupSignal) => void): Promise<RealtimeChannel> {
+  return new Promise((resolve) => {
+    const ch = supabase.channel(topic, { config: { broadcast: { self: false } } });
+    ch.on('broadcast', { event: 'gsig' }, ({ payload }) => onSignal(payload as GroupSignal));
+    ch.subscribe((status) => { if (status === 'SUBSCRIBED') resolve(ch); });
+  });
+}
+
+export function sendG(ch: RealtimeChannel, s: GroupSignal) {
+  ch.send({ type: 'broadcast', event: 'gsig', payload: s });
+}
+
+/** Ring one group member on their personal group-call channel. */
+export async function ringGroupMember(userId: string, s: GroupSignal) {
+  const ch = await joinGroup(`gcalls-${userId}`, () => undefined);
+  sendG(ch, s);
+  setTimeout(() => leaveChannel(ch), 1500);
+}

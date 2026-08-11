@@ -460,6 +460,7 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
           <div className="group-chat-top">
             <button className="group-back" onClick={() => { setActiveGroup(null); setGroupsOpen(true); }}>←</button>
             <strong>👥 {activeGroup.name}</strong>
+            <button className="group-call" onClick={() => window.dispatchEvent(new CustomEvent('group-call', { detail: { groupId: activeGroup.id, groupName: activeGroup.name, memberIds: groupMemberIds } }))} title="Start a group call">📞</button>
             <button className="group-add" onClick={() => setAddOpen(true)} title="Add players to this group">＋</button>
             <button className="group-clear" onClick={clearGroup} title="Clear these messages from your view">🧹</button>
           </div>
