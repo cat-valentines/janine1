@@ -20,6 +20,7 @@ import type { ShopItem } from '../shop/catalog';
 import { YourHousePage } from './YourHousePage';
 import { MapPage } from './MapPage';
 import { ProfilePage } from './ProfilePage';
+import { InstaPage } from './InstaPage';
 import { RewardsPage } from './RewardsPage';
 import { RoyalMemberPage } from './RoyalMemberPage';
 import { StreakPage } from './StreakPage';
@@ -69,6 +70,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const path = useRoute();
   const marketOpen = path === '/market' || path === '/market/sell';
   const houseOpen = path === '/house';
+  const instaOpen = path === '/insta';
   const mapOpen = path === '/map';
   const riddleOpen = path === '/play/riddles';
   const pongOpen = path === '/play/pong';
@@ -443,6 +445,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     onOpenGarden={() => { home(); navigate('/house/build'); }}
     onOpenMarket={() => { home(); navigate('/house/market'); }}
     onInvite={createFriendChallenge} onClose={() => home()} />;
+  if (instaOpen) return <InstaPage username={username} character={character} signedIn={signedIn} onNeedAccount={() => setAuthMode('signup')} onBack={() => home()} />;
   if (mapOpen) return <MapPage streak={streak} completedQuests={completedQuests} isMember={isMember} stars={getStars()} onBack={() => home()} onInvite={createFriendChallenge} onJoinMembership={() => { home(); navigate('/royal'); }} onPlay={() => onStart(selection)} onPlayGame={(gameId, islandName) => { home(); if (gameId === 'medicine') navigate('/play/medicine/' + encodeURIComponent(islandName)); else if (gameId === 'runner') navigate('/play/runner/' + encodeURIComponent(islandName)); }} />;
   if (streakOpen) return <StreakPage
     streak={streak} daysPlayed={daysPlayed} completedQuests={completedQuests}
@@ -500,7 +503,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <Leaderboard />
       <PlayersDirectory onOpenFriends={() => setFriendsOpen(true)} />
       <ChallengeRoom onChallenge={createFriendChallenge} inviteLink={inviteLink} message={challengeMessage} />
-      {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); navigate('/market'); }} onSellItems={() => { setMenuOpen(false); navigate('/market/sell'); }} onOpenHouse={() => { setMenuOpen(false); navigate('/house'); }} onOpenMap={() => { setMenuOpen(false); navigate('/map'); }} onInviteFriend={() => { setMenuOpen(false); setFriendsOpen(true); }} />}
+      {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); navigate('/market'); }} onSellItems={() => { setMenuOpen(false); navigate('/market/sell'); }} onOpenHouse={() => { setMenuOpen(false); navigate('/house'); }} onOpenInsta={() => { setMenuOpen(false); navigate('/insta'); }} onOpenMap={() => { setMenuOpen(false); navigate('/map'); }} onInviteFriend={() => { setMenuOpen(false); setFriendsOpen(true); }} />}
       {notifOpen && <NotificationsPanel items={notifs} signedIn={signedIn} seenAt={notifSeen} onClose={() => setNotifOpen(false)} onOpenFriends={() => { setNotifOpen(false); setFriendsOpen(true); }} onOpenFriend={(fid) => { setNotifOpen(false); setPendingFriend(fid); setFriendsOpen(true); }} onOpenRewards={() => { setNotifOpen(false); navigate('/rewards'); }} onClearAll={() => { clearNotifications(); setNotifs([]); }} />}
       {friendsOpen && <FriendsPanel initialFriendId={pendingFriend} onClose={() => { setFriendsOpen(false); setPendingFriend(''); }} onShare={() => { createFriendChallenge(); setFriendsOpen(false); }} />}
       {authMode && <div className="auth-backdrop" onClick={() => setAuthMode(null)}><div className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="auth-close" onClick={() => setAuthMode(null)}>×</button><Auth key={authMode} initialMode={authMode} onClose={() => setAuthMode(null)} /></div></div>}

@@ -2324,3 +2324,59 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .furn-swatch.selected { border-color: #3a3a44; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #3a3a44; }
 .furniture-shop small { color: var(--ink-soft); font-size: .72rem; line-height: 1.35; }
 .furn-warn { color: #b04a3a !important; font-weight: 800; }
+
+/* ---- Insta: a simple public photo feed ---------------------------------- */
+.insta-page { max-width: 620px; margin: 0 auto; padding: 0 12px 80px; min-height: 100vh; }
+.insta-top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 12px 4px; background: linear-gradient(#fff9f0 82%, #fff9f000); }
+.insta-top h1 { flex: 1; margin: 0; font-size: 1.4rem; color: #d2447a; letter-spacing: .5px; }
+.insta-back { border: none; background: #fff; width: 40px; height: 40px; border-radius: 12px; font-size: 1.2rem; box-shadow: 0 3px 0 #e2c6b0; cursor: pointer; }
+.insta-new { border: none; background: #e0568f; color: #fff; padding: 9px 15px; border-radius: 12px; font-weight: 800; box-shadow: 0 3px 0 #ab3468; cursor: pointer; }
+.insta-me { display: flex; align-items: center; gap: 12px; padding: 8px 6px 12px; }
+.insta-me img { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; background: #ffe6f0; border: 3px solid #f4a9c8; padding: 3px; }
+.insta-me strong { display: block; color: #333; font-size: 1.05rem; }
+.insta-me span { color: #9a7f8c; font-size: .82rem; }
+.insta-tabs { display: flex; gap: 8px; padding: 4px 4px 12px; }
+.insta-tabs button { flex: 1; border: none; background: #fff; color: #8a6f7c; padding: 10px; border-radius: 12px; font-weight: 700; box-shadow: 0 3px 0 #ecd8c8; cursor: pointer; }
+.insta-tabs button.on { background: #ffd9e7; color: #c23a72; box-shadow: 0 3px 0 #e79bbb; }
+.insta-note { background: #fff3d6; color: #8a6a1f; border-radius: 10px; padding: 8px 12px; margin: 4px 6px; font-size: .85rem; }
+.insta-empty { text-align: center; color: #9a7f8c; padding: 40px 20px; font-size: .95rem; }
+.insta-feed { display: flex; flex-direction: column; gap: 16px; }
+.insta-card { background: #fff; border-radius: 18px; overflow: hidden; box-shadow: 0 6px 20px #0000000f; }
+.insta-card-top { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+.insta-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; background: #ffe6f0; border: 2px solid #f4a9c8; padding: 2px; }
+.insta-who { flex: 1; line-height: 1.15; }
+.insta-who strong { color: #333; font-size: .95rem; }
+.insta-who small { display: block; color: #a99; font-size: .72rem; }
+.insta-follow { border: none; background: #e0568f; color: #fff; padding: 7px 14px; border-radius: 10px; font-weight: 800; font-size: .82rem; cursor: pointer; }
+.insta-follow.on { background: #f0e6ec; color: #96788a; }
+.insta-del { border: none; background: #fbecef; padding: 7px 10px; border-radius: 10px; cursor: pointer; font-size: .9rem; }
+.insta-photo { display: block; width: 100%; max-height: 620px; object-fit: cover; background: #f3eef1; }
+.insta-card-actions { padding: 8px 12px 2px; }
+.insta-like { border: none; background: none; font-size: 1rem; font-weight: 800; color: #555; cursor: pointer; padding: 4px 2px; }
+.insta-like.on { color: #e0568f; }
+.insta-caption { padding: 2px 12px 14px; margin: 0; color: #333; font-size: .92rem; line-height: 1.4; }
+.insta-caption strong { color: #c23a72; margin-right: 4px; }
+
+.insta-compose-backdrop { position: fixed; inset: 0; z-index: 60; background: #0007; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.insta-compose { width: 100%; max-width: 420px; background: #fff; border-radius: 20px; padding: 16px; box-shadow: 0 20px 60px #0006; }
+.insta-compose-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.insta-compose-head strong { font-size: 1.1rem; color: #333; }
+.insta-compose-head button { border: none; background: #f2eef0; width: 34px; height: 34px; border-radius: 10px; font-size: 1.2rem; cursor: pointer; }
+.insta-pick { width: 100%; border: 3px dashed #f4a9c8; background: #fff6fa; color: #c23a72; padding: 34px; border-radius: 14px; font-weight: 800; font-size: 1rem; cursor: pointer; }
+.insta-preview { display: block; width: 100%; border: none; background: none; padding: 0; position: relative; cursor: pointer; border-radius: 14px; overflow: hidden; }
+.insta-preview img { width: 100%; max-height: 340px; object-fit: cover; display: block; }
+.insta-preview span { position: absolute; right: 8px; bottom: 8px; background: #000000a8; color: #fff; padding: 5px 10px; border-radius: 8px; font-size: .78rem; }
+.insta-caption-input { width: 100%; box-sizing: border-box; margin-top: 12px; border: 2px solid #eee; border-radius: 12px; padding: 10px; font: inherit; resize: vertical; min-height: 64px; }
+.insta-share { width: 100%; margin-top: 12px; border: none; background: #e0568f; color: #fff; padding: 13px; border-radius: 12px; font-weight: 800; font-size: 1rem; box-shadow: 0 4px 0 #ab3468; cursor: pointer; }
+.insta-share:disabled { background: #e6cdd8; box-shadow: 0 4px 0 #cbb0bd; cursor: default; }
+.insta-safety { margin: 10px 2px 0; color: #9a7f8c; font-size: .74rem; line-height: 1.35; text-align: center; }
+
+@media (prefers-color-scheme: dark) {
+  .insta-page { background: #17121a; }
+  .insta-top { background: linear-gradient(#17121a 82%, #17121a00); }
+  .insta-card, .insta-compose { background: #241b28; }
+  .insta-tabs button, .insta-back { background: #2e2333; color: #d8c3d0; box-shadow: 0 3px 0 #120d15; }
+  .insta-who strong, .insta-me strong, .insta-caption, .insta-compose-head strong { color: #f0e6ee; }
+  .insta-caption-input { background: #2e2333; color: #f0e6ee; border-color: #3a2c42; }
+  .insta-compose-head button { background: #2e2333; color: #d8c3d0; }
+}
