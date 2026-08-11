@@ -14,6 +14,7 @@ export interface CallSignal {
   callId: string;
   from: string;
   fromName?: string;
+  video?: boolean;      // true when it's a video call (both turn cameras on)
   sdp?: string;         // JSON of an RTCSessionDescriptionInit
   candidate?: string;   // JSON of an RTCIceCandidateInit
   reason?: 'decline' | 'ended' | 'busy';

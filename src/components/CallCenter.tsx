@@ -7,7 +7,7 @@ import {
 import { callTone, startRing, stopRing } from '../lib/sfx';
 
 type Status = 'idle' | 'calling' | 'incoming' | 'connecting' | 'active';
-interface CallMeta { callId: string; peerId: string; peerName: string; incoming: boolean }
+interface CallMeta { callId: string; peerId: string; peerName: string; incoming: boolean; video: boolean }
 
 function mmss(s: number) { const m = Math.floor(s / 60); const r = s % 60; return `${m}:${r < 10 ? '0' : ''}${r}`; }
 
@@ -23,6 +23,8 @@ export function CallCenter() {
   const [muted, setMuted] = useState(false);
   const [secs, setSecs] = useState(0);
   const [err, setErr] = useState('');
+  const [video, setVideo] = useState(false);      // is the current call a video call?
+  const [camOff, setCamOff] = useState(false);
 
   const pc = useRef<RTCPeerConnection | null>(null);
   const shared = useRef<RealtimeChannel | null>(null);
@@ -32,8 +34,19 @@ export function CallCenter() {
   const tick = useRef<number | null>(null);
   const call = useRef<CallMeta | null>(null);
   const remoteAudio = useRef<HTMLAudioElement | null>(null);
+  const remoteVideo = useRef<HTMLVideoElement | null>(null);
+  const localVideo = useRef<HTMLVideoElement | null>(null);
+  const remoteStream = useRef<MediaStream | null>(null);
   const meRef = useRef(me);
   meRef.current = me;
+
+  // Wire the audio/video streams into their elements (re-runs on render so the refs
+  // are always current, even though the overlay mounts after state updates).
+  const attachMedia = () => {
+    if (call.current?.video) { if (remoteVideo.current && remoteStream.current) { remoteVideo.current.srcObject = remoteStream.current; remoteVideo.current.play().catch(() => undefined); } }
+    else if (remoteAudio.current && remoteStream.current) { remoteAudio.current.srcObject = remoteStream.current; remoteAudio.current.play().catch(() => undefined); }
+    if (localVideo.current && local.current) { localVideo.current.srcObject = local.current; localVideo.current.play().catch(() => undefined); }
+  };
 
   // Who am I? (works only for signed-in players — calls need a real account.)
   useEffect(() => {
@@ -54,7 +67,11 @@ export function CallCenter() {
     leaveChannel(shared.current); shared.current = null;
     pendingIce.current = [];
     call.current = null;
-    setStatus('idle'); setMuted(false); setSecs(0);
+    remoteStream.current = null;
+    if (remoteVideo.current) remoteVideo.current.srcObject = null;
+    if (localVideo.current) localVideo.current.srcObject = null;
+    if (remoteAudio.current) remoteAudio.current.srcObject = null;
+    setStatus('idle'); setMuted(false); setSecs(0); setVideo(false); setCamOff(false);
   };
 
   const flushIce = async () => {
@@ -69,7 +86,7 @@ export function CallCenter() {
       const c = call.current;
       if (e.candidate && shared.current && c) sendSignal(shared.current, { ev: 'ice', callId: c.callId, from: meRef.current?.id ?? '', candidate: JSON.stringify(e.candidate) });
     };
-    p.ontrack = (e) => { if (remoteAudio.current) { remoteAudio.current.srcObject = e.streams[0]; remoteAudio.current.play().catch(() => undefined); } };
+    p.ontrack = (e) => { remoteStream.current = e.streams[0]; attachMedia(); };
     p.onconnectionstatechange = () => {
       if (p.connectionState === 'connected') {
         setStatus('active'); callTone('connect');
@@ -80,10 +97,11 @@ export function CallCenter() {
     return p;
   };
 
-  const getMic = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const getMedia = async (withVideo: boolean) => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo ? { facingMode: 'user' } : false });
     local.current = stream;
     stream.getTracks().forEach((t) => pc.current?.addTrack(t, stream));
+    attachMedia();
   };
 
   // ---- shared call-channel signalling (offer/answer/ice/hangup) ----
@@ -117,8 +135,8 @@ export function CallCenter() {
   const onPersonal = (sig: CallSignal) => {
     if (sig.ev === 'ring') {
       if (status !== 'idle' || call.current) { signalUser(sig.from, { ev: 'hangup', reason: 'busy', callId: sig.callId, from: meRef.current?.id ?? '' }); return; }
-      call.current = { callId: sig.callId, peerId: sig.from, peerName: sig.fromName || 'a friend', incoming: true };
-      setPeerName(call.current.peerName); setErr(''); setStatus('incoming'); startRing();
+      call.current = { callId: sig.callId, peerId: sig.from, peerName: sig.fromName || 'a friend', incoming: true, video: !!sig.video };
+      setPeerName(call.current.peerName); setVideo(!!sig.video); setErr(''); setStatus('incoming'); startRing();
     } else if (sig.ev === 'hangup') {
       const c = call.current;
       if (c && sig.callId === c.callId && !c.incoming) { setErr(sig.reason === 'busy' ? `${c.peerName} is busy right now.` : `${c.peerName} declined.`); cleanup(); }
@@ -138,18 +156,18 @@ export function CallCenter() {
   }, [me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- actions ----
-  const startCall = async (peerId: string, name: string) => {
+  const startCall = async (peerId: string, name: string, wantVideo: boolean) => {
     if (!meRef.current) { setErr('Log in to call your friends.'); return; }
     if (status !== 'idle' || call.current) return;
     setErr('');
     const id = newCallId();
-    call.current = { callId: id, peerId, peerName: name, incoming: false };
-    setPeerName(name); setStatus('calling');
+    call.current = { callId: id, peerId, peerName: name, incoming: false, video: wantVideo };
+    setPeerName(name); setVideo(wantVideo); setStatus('calling');
     try {
       shared.current = await joinChannel(`call-${id}`, (s) => onSharedRef.current(s));
       setupPeer();
-      await getMic();
-      await signalUser(peerId, { ev: 'ring', callId: id, from: meRef.current.id, fromName: meRef.current.name });
+      await getMedia(wantVideo);
+      await signalUser(peerId, { ev: 'ring', callId: id, from: meRef.current.id, fromName: meRef.current.name, video: wantVideo });
       ringTimeout.current = window.setTimeout(() => {
         // Still not connected after 30s → treat as a missed call.
         if (call.current && !call.current.incoming && pc.current?.connectionState !== 'connected') {
@@ -166,7 +184,7 @@ export function CallCenter() {
 
   // The Call button (in Friends) fires this event.
   useEffect(() => {
-    const handler = (e: Event) => { const d = (e as CustomEvent).detail as { id: string; name: string }; if (d?.id) startCallRef.current(d.id, d.name || 'a friend'); };
+    const handler = (e: Event) => { const d = (e as CustomEvent).detail as { id: string; name: string; video?: boolean }; if (d?.id) startCallRef.current(d.id, d.name || 'a friend', !!d.video); };
     window.addEventListener('friend-call', handler);
     return () => window.removeEventListener('friend-call', handler);
   }, []);
@@ -177,7 +195,7 @@ export function CallCenter() {
     try {
       shared.current = await joinChannel(`call-${c.callId}`, (s) => onSharedRef.current(s));
       setupPeer();
-      await getMic();
+      await getMedia(c.video);
       sendSignal(shared.current, { ev: 'accept', callId: c.callId, from: meRef.current?.id ?? '' });
     } catch {
       setErr('Please allow microphone access to answer.'); cleanup();
@@ -202,29 +220,41 @@ export function CallCenter() {
     const on = !muted; s.getAudioTracks().forEach((t) => { t.enabled = !on; }); setMuted(on);
   };
 
+  const toggleCam = () => {
+    const s = local.current; if (!s) return;
+    const off = !camOff; s.getVideoTracks().forEach((t) => { t.enabled = !off; }); setCamOff(off);
+  };
+
   useEffect(() => cleanup, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Keep the media elements wired up as the overlay mounts / the call state changes.
+  useEffect(() => { attachMedia(); }); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const statusText = status === 'calling' ? 'Calling…' : status === 'incoming' ? (video ? 'wants to video-chat…' : 'is calling you…')
+    : status === 'connecting' ? 'Connecting…' : status === 'active' ? `On call · ${mmss(secs)}` : '';
+
+  const controls = status === 'incoming' ? <>
+    <button className="call-decline" onClick={declineCall}>✕ Decline</button>
+    <button className="call-accept" onClick={acceptCall}>{video ? '📹' : '📞'} Accept</button>
+  </> : <>
+    {status === 'active' && <button className={`call-mute ${muted ? 'on' : ''}`} onClick={toggleMute}>{muted ? '🔇' : '🎙️'}</button>}
+    {status === 'active' && video && <button className={`call-mute ${camOff ? 'on' : ''}`} onClick={toggleCam}>{camOff ? '📷' : '📹'}</button>}
+    <button className="call-hang" onClick={hangUp}>✕ {status === 'calling' ? 'Cancel' : 'Hang up'}</button>
+  </>;
 
   return <>
     <audio ref={remoteAudio} autoPlay />
-    {status !== 'idle' && <div className="call-overlay">
+    {status !== 'idle' && video && <div className="call-overlay video">
+      <video ref={remoteVideo} className="call-remote-video" autoPlay playsInline />
+      <video ref={localVideo} className="call-local-video" autoPlay playsInline muted />
+      <div className="call-vid-info"><strong>@{peerName}</strong><span>{statusText}</span></div>
+      <div className="call-buttons call-vid-buttons">{controls}</div>
+    </div>}
+    {status !== 'idle' && !video && <div className="call-overlay">
       <div className={`call-card ${status === 'incoming' ? 'ringing' : ''}`}>
         <div className="call-avatar">📞</div>
         <strong className="call-name">@{peerName}</strong>
-        <p className="call-status">
-          {status === 'calling' && 'Calling…'}
-          {status === 'incoming' && 'is calling you…'}
-          {status === 'connecting' && 'Connecting…'}
-          {status === 'active' && `On call · ${mmss(secs)}`}
-        </p>
-        <div className="call-buttons">
-          {status === 'incoming' ? <>
-            <button className="call-decline" onClick={declineCall}>✕ Decline</button>
-            <button className="call-accept" onClick={acceptCall}>📞 Accept</button>
-          </> : <>
-            {status === 'active' && <button className={`call-mute ${muted ? 'on' : ''}`} onClick={toggleMute}>{muted ? '🔇 Muted' : '🎙️ Mute'}</button>}
-            <button className="call-hang" onClick={hangUp}>✕ {status === 'calling' ? 'Cancel' : 'Hang up'}</button>
-          </>}
-        </div>
+        <p className="call-status">{statusText}</p>
+        <div className="call-buttons">{controls}</div>
       </div>
     </div>}
     {err && status === 'idle' && <div className="call-toast" onClick={() => setErr('')}>📞 {err}</div>}
