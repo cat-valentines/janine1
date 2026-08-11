@@ -152,6 +152,15 @@ export async function deleteComment(id: string) {
   await supabase.from('insta_comments').delete().eq('id', id);
 }
 
+/** Report a post — ONLY counts if a reason is actually written. Returns whether it
+ *  was recorded (false = nothing meaningful written, so it wasn't a report). */
+export async function reportPost(postId: string, reason: string): Promise<boolean> {
+  if (!reason.trim()) return false;   // an empty report is never sent
+  const { data, error } = await supabase.rpc('insta_report', { post_id: postId, reason });
+  if (error) throw error;
+  return data === true;
+}
+
 /** Follow or unfollow a player. */
 export async function setFollow(followeeId: string, following: boolean) {
   const me = await myId();

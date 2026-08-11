@@ -3,7 +3,7 @@ import { characterAssets } from '../game/characters';
 import type { CharacterId } from '../game/types';
 import {
   addComment, bumpLike, createPost, deleteComment, deletePost, likedLocal, loadComments, loadFeed,
-  photoUrl, saveLikedLocal, setFollow, type InstaComment, type InstaPost,
+  photoUrl, reportPost, saveLikedLocal, setFollow, type InstaComment, type InstaPost,
 } from '../lib/insta';
 import { setSfxMuted, sfx, sfxMuted } from '../lib/sfx';
 
@@ -27,10 +27,11 @@ interface CardProps {
   onLike: (p: InstaPost) => void;
   onFollow: (p: InstaPost) => void;
   onDelete: (p: InstaPost) => void;
+  onReport: (p: InstaPost) => void;
   onNeedAccount: () => void;
 }
 
-function PostCard({ post, liked, signedIn, username, character, onLike, onFollow, onDelete, onNeedAccount }: CardProps) {
+function PostCard({ post, liked, signedIn, username, character, onLike, onFollow, onDelete, onReport, onNeedAccount }: CardProps) {
   const [open, setOpen] = useState(false);
   const [comments, setComments] = useState<InstaComment[] | null>(null);
   const [text, setText] = useState('');
@@ -68,7 +69,10 @@ function PostCard({ post, liked, signedIn, username, character, onLike, onFollow
       <div className="insta-who"><strong>@{post.author_name}</strong><small>{ago(post.created_at)}</small></div>
       {post.is_mine
         ? <button className="insta-del" onClick={() => onDelete(post)} title="Delete">🗑️</button>
-        : <button className={`insta-follow ${post.followed_by_me ? 'on' : ''}`} onClick={() => onFollow(post)}>{post.followed_by_me ? 'Following' : 'Follow'}</button>}
+        : <>
+            <button className={`insta-follow ${post.followed_by_me ? 'on' : ''}`} onClick={() => onFollow(post)}>{post.followed_by_me ? 'Following' : 'Follow'}</button>
+            <button className="insta-report" onClick={() => onReport(post)} title="Report this post">⚐</button>
+          </>}
     </header>
 
     {post.media_type === 'video'
@@ -120,6 +124,10 @@ export function InstaPage({ username, character, signedIn, onNeedAccount, onBack
   const [posting, setPosting] = useState(false);
   const [likedSet, setLikedSet] = useState<Set<string>>(() => likedLocal());
   const [muted, setMuted] = useState(sfxMuted());
+  const [reporting, setReporting] = useState<InstaPost | null>(null);
+  const [reportText, setReportText] = useState('');
+  const [reportNote, setReportNote] = useState('');
+  const [reportBusy, setReportBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const isVideoFile = !!file && file.type.startsWith('video/');
 
@@ -177,6 +185,22 @@ export function InstaPage({ username, character, signedIn, onNeedAccount, onBack
 
   const toggleMute = () => { const m = !muted; setMuted(m); setSfxMuted(m); if (!m) sfx('tap'); };
 
+  const openReport = (p: InstaPost) => { setReporting(p); setReportText(''); setReportNote(''); };
+  const submitReport = async () => {
+    const reason = reportText.trim();
+    // No words written = an accidental tap, not a report. Never sent.
+    if (!reason) { setReportNote('Please tell us what happened — an empty report isn\'t sent.'); return; }
+    setReportBusy(true);
+    try {
+      const target = reporting;
+      const ok = target ? await reportPost(target.id, reason) : false;
+      setReporting(null); setReportText(''); setReportNote('');
+      setNote(ok ? '✅ Thanks — you reported this post. We\'ll take a look.' : 'A report needs a few words about what happened.');
+    } catch {
+      setReportNote('Could not send the report. Please try again.');
+    } finally { setReportBusy(false); }
+  };
+
   return <main className="insta-page">
     <header className="insta-top">
       <button className="insta-back" onClick={onBack}>←</button>
@@ -202,7 +226,7 @@ export function InstaPage({ username, character, signedIn, onNeedAccount, onBack
 
     <div className="insta-feed">
       {posts?.map((p) => <PostCard key={p.id} post={p} liked={likedSet.has(p.id)} signedIn={signedIn} username={username} character={character}
-        onLike={toggleLike} onFollow={toggleFollow} onDelete={removePost} onNeedAccount={needAccount} />)}
+        onLike={toggleLike} onFollow={toggleFollow} onDelete={removePost} onReport={openReport} onNeedAccount={needAccount} />)}
     </div>
 
     {composing && <div className="insta-compose-backdrop" onClick={() => !posting && setComposing(false)}>
@@ -219,6 +243,19 @@ export function InstaPage({ username, character, signedIn, onNeedAccount, onBack
         {note && <p className="insta-note">{note}</p>}
         <button className="insta-share" onClick={share} disabled={posting || !file}>{posting ? 'Sharing…' : 'Share to everyone'}</button>
         <p className="insta-safety">Your post is public — everyone playing can see it. Be kind, and never share photos or videos of other people without asking.</p>
+      </div>
+    </div>}
+
+    {reporting && <div className="insta-compose-backdrop" onClick={() => !reportBusy && setReporting(null)}>
+      <div className="insta-compose" onClick={(e) => e.stopPropagation()}>
+        <div className="insta-compose-head"><strong>⚐ Report this post</strong><button onClick={() => setReporting(null)} disabled={reportBusy}>×</button></div>
+        <p className="insta-report-hint">Tell us <strong>what happened</strong> — why is this post a problem? A report with nothing written isn't sent.</p>
+        <textarea className="insta-caption-input" value={reportText} onChange={(e) => { setReportText(e.target.value); setReportNote(''); }} maxLength={500} placeholder="What's wrong with this post?" autoFocus />
+        {reportNote && <p className="insta-note">{reportNote}</p>}
+        <div className="insta-report-row">
+          <button className="insta-report-cancel" onClick={() => setReporting(null)} disabled={reportBusy}>Cancel</button>
+          <button className="insta-share" onClick={submitReport} disabled={reportBusy || !reportText.trim()}>{reportBusy ? 'Sending…' : 'Send report'}</button>
+        </div>
       </div>
     </div>}
   </main>;
