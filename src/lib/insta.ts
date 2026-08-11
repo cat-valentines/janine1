@@ -4,8 +4,10 @@
 // an anonymous account first, so everyone can join in.
 import { supabase } from './supabase';
 import { ensureGuestAccount } from './players';
+import { storage } from './storage';
 
 const BUCKET = 'insta-media';
+const MAX_VIDEO = 50 * 1024 * 1024;   // 50 MB, matching the bucket's size cap
 
 export interface InstaPost {
   id: string;
@@ -13,12 +15,24 @@ export interface InstaPost {
   author_name: string;
   author_character: string;
   image_path: string;
+  media_type: 'image' | 'video' | string;
   caption: string;
   created_at: string;
   like_count: number;
+  comment_count: number;
   liked_by_me: boolean;
   followed_by_me: boolean;
   is_mine: boolean;
+}
+
+export interface InstaComment {
+  id: string;
+  post_id: string;
+  author_id: string;
+  author_name: string;
+  author_character: string;
+  body: string;
+  created_at: string;
 }
 
 function newId() {
@@ -60,19 +74,31 @@ async function myId(): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
-/** Post a photo + caption to the public feed. Returns the new post id. */
+/** Post a photo OR a video + caption to the public feed. */
 export async function createPost(name: string, character: string, file: File, caption: string) {
   const me = await myId();
   if (!me) throw new Error('Sign in to post.');
-  const blob = await compressImage(file);
-  const path = `${me}/${newId()}.jpg`;
-  const up = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+  const isVideo = file.type.startsWith('video/');
+  let blob: Blob; let ext: string; let contentType: string;
+  if (isVideo) {
+    if (file.size > MAX_VIDEO) throw new Error('That video is too big (max 50 MB). Try a shorter clip.');
+    blob = file;
+    ext = (file.type.includes('webm') ? 'webm' : file.type.includes('quicktime') ? 'mov' : 'mp4');
+    contentType = file.type;
+  } else {
+    blob = await compressImage(file);
+    ext = 'jpg';
+    contentType = 'image/jpeg';
+  }
+  const path = `${me}/${newId()}.${ext}`;
+  const up = await supabase.storage.from(BUCKET).upload(path, blob, { contentType, upsert: false });
   if (up.error) throw up.error;
   const { error } = await supabase.from('insta_posts').insert({
     author_id: me,
     author_name: (name || 'explorer').slice(0, 30),
     author_character: character || 'cottontail',
     image_path: path,
+    media_type: isVideo ? 'video' : 'image',
     caption: caption.slice(0, 300),
   });
   if (error) throw error;
@@ -85,12 +111,45 @@ export async function loadFeed(onlyFollowing = false): Promise<InstaPost[]> {
   return (data ?? []) as InstaPost[];
 }
 
-/** Like or unlike a post. */
-export async function setLike(postId: string, liked: boolean) {
+// --- Likes: an aggregate counter ANYONE can bump (guests included), with which
+//     posts you've liked remembered on THIS device so the heart stays filled. ---
+const LIKED_KEY = 'insta-liked';
+
+export function likedLocal(): Set<string> {
+  try { return new Set(JSON.parse(storage.get(LIKED_KEY) ?? '[]') as string[]); } catch { return new Set(); }
+}
+export function saveLikedLocal(set: Set<string>) {
+  storage.set(LIKED_KEY, JSON.stringify([...set].slice(-500)));
+}
+
+/** Nudge a post's public like count (works for guests too). */
+export async function bumpLike(postId: string, up: boolean) {
+  await supabase.rpc('insta_bump_like', { post_id: postId, delta: up ? 1 : -1 });
+}
+
+/** Comments — everyone can read; only signed-in players can write. */
+export async function loadComments(postId: string): Promise<InstaComment[]> {
+  const { data, error } = await supabase
+    .from('insta_comments').select('*').eq('post_id', postId).order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as InstaComment[];
+}
+
+export async function addComment(postId: string, name: string, character: string, body: string) {
   const me = await myId();
-  if (!me) return;
-  if (liked) await supabase.from('insta_likes').upsert({ post_id: postId, user_id: me });
-  else await supabase.from('insta_likes').delete().eq('post_id', postId).eq('user_id', me);
+  if (!me) throw new Error('Sign in to comment.');
+  const { error } = await supabase.from('insta_comments').insert({
+    post_id: postId,
+    author_id: me,
+    author_name: (name || 'explorer').slice(0, 30),
+    author_character: character || 'cottontail',
+    body: body.slice(0, 300),
+  });
+  if (error) throw error;
+}
+
+export async function deleteComment(id: string) {
+  await supabase.from('insta_comments').delete().eq('id', id);
 }
 
 /** Follow or unfollow a player. */

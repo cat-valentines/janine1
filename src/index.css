@@ -2380,3 +2380,31 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
   .insta-caption-input { background: #2e2333; color: #f0e6ee; border-color: #3a2c42; }
   .insta-compose-head button { background: #2e2333; color: #d8c3d0; }
 }
+
+/* ---- Insta v2: comments, video, sound ----------------------------------- */
+.insta-mute { border: none; background: #fff; width: 40px; height: 40px; border-radius: 12px; font-size: 1.1rem; box-shadow: 0 3px 0 #e2c6b0; cursor: pointer; }
+.insta-video-wrap { position: relative; }
+.insta-video-wrap .insta-photo { cursor: pointer; }
+.insta-sound { position: absolute; right: 10px; bottom: 10px; border: none; background: #000000a0; color: #fff; width: 38px; height: 38px; border-radius: 50%; font-size: 1rem; cursor: pointer; }
+.insta-card-actions { display: flex; gap: 14px; align-items: center; }
+.insta-comment-btn { border: none; background: none; font-size: 1rem; font-weight: 800; color: #555; cursor: pointer; padding: 4px 2px; }
+.insta-comments { padding: 4px 12px 14px; border-top: 1px solid #f0e8ec; margin-top: 4px; }
+.insta-cmt-loading { color: #a99; font-size: .82rem; padding: 8px 2px; }
+.insta-cmt { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; }
+.insta-cmt img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; background: #ffe6f0; border: 2px solid #f4a9c8; padding: 1px; flex: none; }
+.insta-cmt p { margin: 0; font-size: .88rem; color: #333; line-height: 1.35; flex: 1; }
+.insta-cmt p strong { color: #c23a72; margin-right: 4px; }
+.insta-cmt-del { border: none; background: #f5eef1; color: #96788a; width: 22px; height: 22px; border-radius: 6px; cursor: pointer; flex: none; }
+.insta-cmt-add { display: flex; gap: 8px; margin-top: 8px; }
+.insta-cmt-add input { flex: 1; border: 2px solid #eee; border-radius: 20px; padding: 8px 14px; font: inherit; font-size: .88rem; }
+.insta-cmt-add button { border: none; background: #e0568f; color: #fff; padding: 8px 16px; border-radius: 20px; font-weight: 800; cursor: pointer; }
+.insta-cmt-add button:disabled { background: #e6cdd8; cursor: default; }
+.insta-cmt-signin { width: 100%; margin-top: 8px; border: 2px dashed #f4a9c8; background: #fff6fa; color: #c23a72; padding: 10px; border-radius: 12px; font-weight: 700; cursor: pointer; }
+.insta-preview video { width: 100%; max-height: 340px; object-fit: cover; display: block; }
+
+@media (prefers-color-scheme: dark) {
+  .insta-mute { background: #2e2333; color: #d8c3d0; box-shadow: 0 3px 0 #120d15; }
+  .insta-comments { border-top-color: #33283a; }
+  .insta-cmt p, .insta-comment-btn { color: #e6d6e2; }
+  .insta-cmt-add input { background: #2e2333; color: #f0e6ee; border-color: #3a2c42; }
+}
