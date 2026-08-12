@@ -29,7 +29,7 @@ export function NotificationsPanel({ items, signedIn, seenAt, onClose, onOpenFri
         <button onClick={onClose} aria-label="Close notifications">×</button>
       </div>
 
-      {signedIn && items.length > 0 && <button className="notif-clear-all" onClick={onClearAll}>🧹 Clear all</button>}
+      {signedIn && items.length > 0 && <button className="notif-clear-all" onClick={() => { if (window.confirm('Clear all your notifications?')) onClearAll(); }}>🧹 Clear all</button>}
 
       {!signedIn
         ? <div className="friend-login-note"><span>🔐</span><h3>Log in to see your notifications</h3><p>When a friend adds you or invites you to play, it shows up here.</p></div>

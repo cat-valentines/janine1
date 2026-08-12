@@ -35,6 +35,12 @@ export async function saveMediaPrivate(me: string, kind: MediaKind, sourcePath: 
   return resendMedia(me, me, kind, sourcePath);
 }
 
+/** Best-effort delete of a stored media file (you can only remove files in your
+ *  own folder; group files stay orphaned but the message is gone from the chat). */
+export async function deleteMediaFile(path: string) {
+  try { await supabase.storage.from(BUCKET).remove([path]); } catch { /* orphan is harmless */ }
+}
+
 /** A short-lived signed URL to actually display a private media file. */
 export async function mediaSignedUrl(path: string) {
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, WEEK);

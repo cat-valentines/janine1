@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { loadFriendMessages, sendFriendMessage, parseMedia, loadSavedSelfies, markChatSeen, chatSeenAt, chatClearedAt, clearChatView, messageUnread, loadIncomingLatest, type FriendMessage, type MediaKind } from '../lib/friends';
-import { mediaSignedUrl, resendMedia, saveMediaPrivate } from '../lib/media';
-import { createGroup, loadMyGroups, loadGroupMessages, loadGroupMemberIds, addGroupMember, sendGroupText, clearedAt, clearGroupView, groupSeenAt, markGroupSeen, groupUnread, loadGroupLatest, type ChatGroup, type GroupMessage } from '../lib/groups';
+import { loadFriendMessages, sendFriendMessage, deleteFriendMessage, parseMedia, loadSavedSelfies, markChatSeen, chatSeenAt, chatClearedAt, clearChatView, messageUnread, loadIncomingLatest, type FriendMessage, type MediaKind } from '../lib/friends';
+import { mediaSignedUrl, resendMedia, saveMediaPrivate, deleteMediaFile } from '../lib/media';
+import { createGroup, loadMyGroups, loadGroupMessages, loadGroupMemberIds, addGroupMember, sendGroupText, deleteGroupMessage, clearedAt, clearGroupView, groupSeenAt, markGroupSeen, groupUnread, loadGroupLatest, type ChatGroup, type GroupMessage } from '../lib/groups';
 import { acceptFriend, addFriend, changeUsername, isTakenError, isUsernameFree, loadAllPlayers, loadMyFriends, loadMyStats, removeFriend, searchPlayers, USERNAME_RULE, type FoundPlayer, type FriendRow } from '../lib/players';
 import { inviteLink, inviteTargets, gameTargets, type InviteTarget } from '../game/inviteTargets';
 import { SelfieStudio } from './SelfieStudio';
@@ -38,6 +38,7 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
   const [saved, setSaved] = useState<FriendMessage[]>([]);
   /** The chat opens only when you tap 💬 Text on a friend's profile. */
   const [showChat, setShowChat] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState<null | 'friend' | 'group'>(null);
   const [pendingAction, setPendingAction] = useState<null | 'chat' | 'invite'>(null);
   /** Which invite tray is open: none, "invite now", or "plan a play date". */
   const [tray, setTray] = useState<'none' | 'now' | 'plan'>('none');
@@ -75,7 +76,7 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
     return loadFriendMessages(id).then(setChat).catch(() => setChat([]));
   };
   // Clear the chat from YOUR view only (your saved selfies are untouched).
-  const clearChat = () => { if (selected) { clearChatView(selected.id); setChat((c) => [...c]); } };
+  const clearChat = () => { if (selected && window.confirm('Clear these messages from your view?\n\nThis only hides them for you — your saved photos stay, and nothing is deleted for the other person.')) { clearChatView(selected.id); setChat((c) => [...c]); } };
 
   // Tapped a notification → jump straight to that friend and open their chat.
   useEffect(() => {
@@ -270,7 +271,17 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
     try { await sendGroupText(activeGroup.id, userId, groupText); setGroupText(''); refreshGroup(); }
     catch { setNote('Message not sent.'); }
   };
-  const clearGroup = () => { if (activeGroup) { clearGroupView(activeGroup.id); setGroupMsgs((cur) => [...cur]); } };
+  const clearGroup = () => { if (activeGroup && window.confirm('Clear these messages from your view?\n\nThis only hides them for you — nothing is deleted for everyone else.')) { clearGroupView(activeGroup.id); setGroupMsgs((cur) => [...cur]); } };
+  // Delete a photo/video from the shared history FOREVER (only your own; RLS enforces it).
+  const deleteHistoryMedia = async (mode: 'friend' | 'group', id: string, path: string) => {
+    if (!window.confirm('Delete this photo forever?\n\nThis removes it from the chat for everyone, and it can\'t be undone.')) return;
+    try {
+      if (mode === 'friend') { await deleteFriendMessage(id); setChat((c) => c.filter((m) => m.id !== id)); }
+      else { await deleteGroupMessage(id); setGroupMsgs((c) => c.filter((m) => m.id !== id)); }
+      await deleteMediaFile(path);
+      setNote('🗑️ Deleted forever.');
+    } catch { setNote('Could only delete photos you sent yourself.'); }
+  };
   const saveMedia = async (kind: MediaKind, path: string) => {
     try { await saveMediaPrivate(userId, kind, path); setNote('💾 Saved to your private selfies.'); }
     catch { setNote('Could not save that — please try again.'); }
@@ -389,7 +400,7 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
             const cut = chatClearedAt(selected.id);
             const shown = chat.filter((item) => !cut || item.created_at > cut);
             return <div className="chat-box">
-              <div className="chat-head"><h3>Chat with {selected.name}</h3><button className="chat-clear" onClick={clearChat} title="Clear these messages from your view (your saved selfies stay)">🧹 Clear</button></div>
+              <div className="chat-head"><h3>Chat with {selected.name}</h3><button className="chat-history" onClick={() => setHistoryOpen('friend')} title="See all photos & videos shared here">🖼️ History</button><button className="chat-clear" onClick={clearChat} title="Clear these messages from your view (your saved selfies stay)">🧹 Clear</button></div>
               {shown.map((item) => {
                 const media = parseMedia(item.message);
                 const mine = item.sender_id === userId;
@@ -461,6 +472,7 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
             <button className="group-back" onClick={() => { setActiveGroup(null); setGroupsOpen(true); }}>←</button>
             <strong>👥 {activeGroup.name}</strong>
             <button className="group-call" onClick={() => window.dispatchEvent(new CustomEvent('group-call', { detail: { groupId: activeGroup.id, groupName: activeGroup.name, memberIds: groupMemberIds } }))} title="Start a group call">📞</button>
+            <button className="group-history" onClick={() => setHistoryOpen('group')} title="See all photos & videos shared here">🖼️</button>
             <button className="group-add" onClick={() => setAddOpen(true)} title="Add players to this group">＋</button>
             <button className="group-clear" onClick={clearGroup} title="Clear these messages from your view">🧹</button>
           </div>
@@ -478,6 +490,29 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
             <button className="group-photo-btn" onClick={() => setGroupSelfie(true)} title="Send a photo or video">📸</button>
             <input value={groupText} onChange={(e) => setGroupText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendGroupMsg()} placeholder="Message the group…" maxLength={4000} />
             <button className="group-send" onClick={sendGroupMsg}>Send</button>
+          </div>
+        </div>
+      </div>}
+
+      {historyOpen && <div className="quest-over" onClick={() => setHistoryOpen(null)}>
+        <div className="group-chat media-history" onClick={(e) => e.stopPropagation()}>
+          <div className="group-chat-top">
+            <button className="group-back" onClick={() => setHistoryOpen(null)}>←</button>
+            <strong>🖼️ Photo &amp; video history</strong>
+          </div>
+          <p className="history-note">Everything shared in this chat. You can delete the ones <b>you</b> sent — forever.</p>
+          <div className="group-chat-body">
+            {(() => {
+              const src = historyOpen === 'friend' ? chat : groupMsgs;
+              const items = src.map((m) => ({ m, media: parseMedia(m.message) })).filter((x) => x.media);
+              return items.length
+                ? <div className="selfie-gallery-grid">
+                    {items.map(({ m, media }) => <ChatMedia key={m.id} mine={m.sender_id === userId} kind={media!.kind} path={media!.path}
+                      label={historyOpen === 'group' ? nameOf(m.sender_id) : undefined}
+                      onDelete={m.sender_id === userId ? () => deleteHistoryMedia(historyOpen === 'friend' ? 'friend' : 'group', m.id, media!.path) : undefined} />)}
+                  </div>
+                : <p className="friend-empty">No photos or videos shared here yet. 📸</p>;
+            })()}
           </div>
         </div>
       </div>}
@@ -503,7 +538,7 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
 }
 
 /** Renders a photo/video chat message by resolving its private storage path to a signed URL. */
-function ChatMedia({ mine, kind, path, label, onResend, onSave }: { mine: boolean; kind: MediaKind; path: string; label?: string; onResend?: () => void; onSave?: () => void }) {
+function ChatMedia({ mine, kind, path, label, onResend, onSave, onDelete }: { mine: boolean; kind: MediaKind; path: string; label?: string; onResend?: () => void; onSave?: () => void; onDelete?: () => void }) {
   const [url, setUrl] = useState('');
   useEffect(() => { let live = true; mediaSignedUrl(path).then((u) => { if (live) setUrl(u); }); return () => { live = false; }; }, [path]);
   return <div className={`chat-media ${mine ? 'chat-mine' : ''}`}>
@@ -513,6 +548,7 @@ function ChatMedia({ mine, kind, path, label, onResend, onSave }: { mine: boolea
     <div className="chat-media-btns">
       {onSave && <button className="chat-save" onClick={onSave}>💾 Save</button>}
       {onResend && <button className="chat-resend" onClick={onResend}>↗ Send to a friend</button>}
+      {onDelete && <button className="chat-delete" onClick={onDelete}>🗑️ Delete forever</button>}
     </div>
   </div>;
 }

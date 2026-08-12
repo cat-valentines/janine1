@@ -15,6 +15,12 @@ export async function loadFriendMessages(friendId: string) {
   return ((data ?? []) as FriendMessage[]).reverse();
 }
 
+/** Delete one of your own messages forever (RLS only lets you delete your own). */
+export async function deleteFriendMessage(id: string) {
+  const { error } = await supabase.from('friend_messages').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export async function sendFriendMessage(senderId: string, recipientId: string, message: string) {
   const { error } = await supabase.from('friend_messages').insert({
     sender_id: senderId, recipient_id: recipientId, message: message.trim(),

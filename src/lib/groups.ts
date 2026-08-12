@@ -44,6 +44,12 @@ export async function sendGroupText(gid: string, senderId: string, message: stri
   if (error) throw error;
 }
 
+/** Delete one of your own group messages forever (RLS only lets you delete your own). */
+export async function deleteGroupMessage(id: string) {
+  const { error } = await supabase.from('chat_group_messages').delete().eq('id', id);
+  if (error) throw error;
+}
+
 /** Upload a captured photo/video to the group and post it as a message. */
 export async function sendGroupMedia(gid: string, senderId: string, kind: MediaKind, blob: Blob, ext: string, contentType: string) {
   const path = await uploadGroupMedia(gid, senderId, blob, ext, contentType);
