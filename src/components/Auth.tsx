@@ -70,8 +70,11 @@ export function Auth({ initialMode = 'signin', onClose }: { initialMode?: 'signi
       if (error) {
         setMessage(friendlyError(error.message));
       } else if (!data.session) {
-        // Email confirmation is switched on, so there's no session yet.
-        setSentTo(email);
+        // No session came back. Try to log in right away — this succeeds the moment
+        // the account is usable (email confirmation off / auto-confirm on), so a new
+        // player is signed straight in instead of being stuck waiting for an email.
+        const { data: signedIn } = await supabase.auth.signInWithPassword({ email, password });
+        if (!signedIn.session) setSentTo(email);   // still blocked → confirmation really is required
       }
       // With a session, onAuthStateChange signs them straight in and closes this box.
     } catch (error) {
