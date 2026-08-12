@@ -63,6 +63,18 @@ export function RewardsPanel() {
     </section>
 
     <section className="rewards-section">
+      <h2>🏅 Summer 2026 medals</h2>
+      <p className="rewards-note">Finish the Summer 2026 leaderboard in 1st, 2nd, or 3rd place to earn the matching medal.</p>
+      <div className="season-medals">
+        {[1, 2, 3].map((place) => <div className="season-medal locked-medal" key={place}>
+          <img src={`/assets/pixel-summer-medal-${place}.png`} alt={`Dimmed Summer 2026 ${place} place medal`} />
+          <strong>{place}{place === 1 ? 'st' : place === 2 ? 'nd' : 'rd'} Place</strong>
+          <small>🔒 Not earned yet</small>
+        </div>)}
+      </div>
+    </section>
+
+    <section className="rewards-section">
       <h2>🧊 Streak Holder</h2>
       <p className="rewards-note">Win the Streak Holder by topping the leaderboard. Activate it and it saves your streak automatically if you miss a day or two. It has a limited number of uses; when they run out it retires to your history below.</p>
       <div className="rewards-items">
