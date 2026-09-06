@@ -48,8 +48,8 @@ export function buildFurnitureMesh(kind: FurnitureKind, color: string): THREE.Gr
   return g;
 }
 import { buildTerrainRegion, isTerrainSolid, rand, seasonOrder, seasonStyles, terrainHeight, treeAt, PASTURE_END, type Season } from './terrain';
-import { buildPetMesh, buildSupplyMesh, makeLivePet, stepPet, type LivePet } from './petMesh';
-import { shopItemById } from '../lib/petShop';
+import { buildPetMesh, buildSupplyMesh, makeLivePet, stepPet, type LivePet, type ScenePetSpec } from './petMesh';
+import { petCanRestAt, RESTING_SPOTS, shopItemById } from '../lib/petShop';
 import { buildAnimalMesh, buildFishMesh, wildKindFor } from './animalMesh';
 import type { PetSpecies } from '../lib/pets';
 
@@ -107,9 +107,8 @@ interface EngineOptions {
   onWood?: () => void;
   onUseWood?: () => void;
   onNeedWood?: () => void;
-  /** The pet you've set walking, to trot along beside you (or null for none). */
-  petSpecies?: PetSpecies | null;
-  petDye?: string | null;
+  /** The pets you've set walking, to trot along beside you (maybe none). */
+  pets?: ScenePetSpec[];
   /** Emoji for each pet-shop supply you own, to display in your pet corner. */
   petSupplies?: string[];
   /** Pet-house type ids you own — real blocky huts you can walk into. */
@@ -125,6 +124,9 @@ interface EngineOptions {
   /** You took meat from a grown animal — it leaves the farm, you keep the meat. */
   onGetMeat?: (kind: string) => void;
 }
+
+/** One of your pets once it's alive in the scene, with its own toy to play with. */
+type ScenePet = LivePet & { id: string; species: PetSpecies; name: string; toyIdx: number; playT: number };
 
 interface Wanderer { group: THREE.Object3D; legs: THREE.Object3D[]; x: number; z: number; dir: number; speed: number; phase: number; kind?: string;
   /** 0 = just fed and happy, 1 = starving. Rises over time; feeding resets it. */
@@ -208,8 +210,8 @@ export class HouseEngine {
   private choppedTrees = new Set<string>();
   private chopCool = 0;   // brief pause between chopping terrain trees
   private wood = 0;   // a mirror of your wood store, so we can gate wood blocks
-  // Your walking pet companion.
-  private pet: LivePet | null = null;
+  // The pets out walking with you — any mix of your animals, following as a parade.
+  private pets: ScenePet[] = [];
   private forageTime = 0;
   // Underground: swapped in when you walk into a cave mouth.
   private inCave = false;
@@ -224,14 +226,17 @@ export class HouseEngine {
   private pantryGroup = new THREE.Group();
   // Pet-shop supplies you've bought — real blocky models in a pet corner of your yard.
   private petSupplyGroup = new THREE.Group();
-  // The toys among them (blocky ball, mouse, …) that your pet trots over to and plays with.
+  // The toys among them (blocky ball, mouse, …) that your pets trot over to and play with.
   private petToys: Array<{ mesh: THREE.Object3D; x: number; z: number; baseY: number }> = [];
-  private petPlayTimer = 0;
-  private petPlayIdx = -1;
   // Blocky pet houses you've bought — solid walls you can walk INTO via the door.
   private petHouseGroup = new THREE.Group();
   private petHouseWalls = new Set<string>();
-  private petHouseSpots: Array<{ x: number; z: number }> = [];   // interior centres, for resting
+  /**
+   * Everywhere a pet can settle down: the inside of each pet house, plus beds and
+   * perches out on the rug. Each remembers WHICH item it is, so a parakeet roosts
+   * in the birdcage or on its perch and never in the cat tower.
+   */
+  private restSpots: Array<{ x: number; z: number; itemId: string }> = [];
   private wanderers: Wanderer[] = [];
   private breedTimer = 0;
   /** Ripe crops in the garden — jump on one to harvest it. */
@@ -276,6 +281,8 @@ export class HouseEngine {
   private keys = new Set<string>();
   private orbit = { radius: 26, theta: Math.PI / 4, phi: 1.0, target: new THREE.Vector3(SX / 2, 2, SZ / 2) };
   private dragging = false;
+  /** Last touch position, so a finger can drag to look around (iPads have no pointer lock). */
+  private lastPointer = { x: 0, y: 0 };
   private pointerLocked = false;
   private running = true;
   private clock = new THREE.Clock();
@@ -322,7 +329,7 @@ export class HouseEngine {
     this.rebuildFurniture();
     this.buildLivestock();
     this.resetPlayer();
-    if (options.petSpecies) this.setPet(options.petSpecies, options.petDye);
+    if (options.pets?.length) this.setPets(options.pets);
     if (options.petSupplies?.length) this.setPetSupplies(options.petSupplies);
     if (options.petHouses?.length) this.setPetHouses(options.petHouses);
     this.hasLadder = !!options.hasLadder;
@@ -1040,23 +1047,32 @@ export class HouseEngine {
     return { x: this.position.x, z: this.position.z, yaw: this.yaw, level: 0 };
   }
 
-  /** Set (or clear) the pet that trots along beside you, in its (dyed) colour. */
-  setPet(species: PetSpecies | null, dye?: string | null) {
-    if (this.pet) {
-      this.scene.remove(this.pet.group);
-      this.pet.group.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose?.(); const mt = m.material as THREE.Material | undefined; mt?.dispose?.(); });
-      this.pet = null;
+  /** Set which pets trot along beside you, each in its own (dyed) colour. */
+  setPets(list: ScenePetSpec[]) {
+    for (const pet of this.pets) {
+      this.scene.remove(pet.group);
+      pet.group.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose?.(); const mt = m.material as THREE.Material | undefined; mt?.dispose?.(); });
     }
-    if (!species) return;
-    this.pet = makeLivePet(buildPetMesh(species, dye), this.position.x + 1, this.position.z + 1);
-    this.pet.group.visible = !this.inCave;
-    this.scene.add(this.pet.group);
+    this.pets = list.slice(0, 4).map((spec, i) => {
+      const live = makeLivePet(buildPetMesh(spec.species, spec.dye), this.position.x + 1 + i * 0.6, this.position.z + 1, i) as ScenePet;
+      live.id = spec.id;
+      live.species = spec.species;
+      live.name = spec.name;
+      live.toyIdx = -1;
+      live.playT = Math.random() * 3;
+      live.group.visible = !this.inCave;
+      this.scene.add(live.group);
+      return live;
+    });
   }
 
-  private movePet(dt: number) {
-    if (!this.pet || this.inCave) return;
-    stepPet(this.pet, this.position.x, this.position.z, this.yaw, dt, (x, z) => this.groundY(x, z), this.forageTime);
-    this.petPlay(dt);   // after stepPet, so it can steer the pet toward a toy and bounce it
+  private movePets(dt: number) {
+    if (this.inCave) return;
+    for (const toy of this.petToys) toy.mesh.position.y = toy.baseY;   // toys sit still until a pet bats one
+    for (const pet of this.pets) {
+      stepPet(pet, this.position.x, this.position.z, this.yaw, dt, (x, z) => this.groundY(x, z), this.forageTime);
+      this.petPlay(pet, dt);   // after stepPet, so it can steer the pet toward a toy and bounce it
+    }
   }
 
   /** Lay out the pet-shop supplies you've bought as real blocky models in a little
@@ -1071,7 +1087,9 @@ export class HouseEngine {
     });
     this.petSupplyGroup.clear();
     this.petToys = [];
-    this.petPlayIdx = -1;
+    for (const pet of this.pets) pet.toyIdx = -1;
+    // Rest spots out on the rug are rebuilt here; the pet-house ones stay.
+    this.restSpots = this.restSpots.filter((spot) => shopItemById(spot.itemId)?.category === 'house');
     if (!ids.length) return;
     // A cosy rug in the front-yard pet corner, north of the house.
     const cornerX = 3, cornerZ = -3;
@@ -1086,30 +1104,35 @@ export class HouseEngine {
       model.position.set(sx, baseY, sz);
       this.petSupplyGroup.add(model);
       if (shopItemById(id)?.category === 'toy') this.petToys.push({ mesh: model, x: sx, z: sz, baseY });
+      // A perch, a basking rock or a bed is somewhere its own pet can settle.
+      if (id in RESTING_SPOTS) this.restSpots.push({ x: sx, z: sz, itemId: id });
     });
   }
 
-  /** Let the pet trot over to its toys and play — it picks a toy, pads up to it,
-   *  and bats it about (the toy bounces and spins) before wandering off again. */
-  private petPlay(dt: number) {
-    if (!this.pet || this.inCave || !this.petToys.length || this.pet.resting) return;
-    for (const toy of this.petToys) toy.mesh.position.y = toy.baseY;   // toys sit still by default
+  /** Let a pet trot over to its toys and play — it picks a toy, pads up to it,
+   *  and bats it about (the toy bounces and spins) before wandering off again.
+   *  Each pet picks its own toy, so two of them never fight over the same ball. */
+  private petPlay(pet: ScenePet, dt: number) {
+    if (this.inCave || !this.petToys.length || pet.resting) return;
     // Only play when you're nearby (otherwise the pet is busy following you).
-    const ownerNear = Math.hypot(this.position.x - this.pet.x, this.position.z - this.pet.z) < 3;
-    this.petPlayTimer -= dt;
-    if (this.petPlayTimer <= 0) {
-      this.petPlayTimer = 3 + Math.random() * 4;
-      this.petPlayIdx = ownerNear && Math.random() < 0.8 ? Math.floor(Math.random() * this.petToys.length) : -1;
+    const ownerNear = Math.hypot(this.position.x - pet.x, this.position.z - pet.z) < 3;
+    pet.playT -= dt;
+    if (pet.playT <= 0) {
+      pet.playT = 3 + Math.random() * 4;
+      const taken = new Set(this.pets.filter((o) => o !== pet && o.toyIdx >= 0).map((o) => o.toyIdx));
+      const free = this.petToys.map((_, i) => i).filter((i) => !taken.has(i));
+      pet.toyIdx = ownerNear && free.length && Math.random() < 0.8 ? free[Math.floor(Math.random() * free.length)] : -1;
     }
-    if (this.petPlayIdx < 0 || !ownerNear) return;
-    const toy = this.petToys[this.petPlayIdx];
-    this.pet.tx = toy.x; this.pet.tz = toy.z; this.pet.wanderT = 1.0;   // steer the pet to the toy
-    const d = Math.hypot(this.pet.x - toy.x, this.pet.z - toy.z);
+    if (pet.toyIdx < 0 || !ownerNear) return;
+    const toy = this.petToys[pet.toyIdx];
+    if (!toy) { pet.toyIdx = -1; return; }
+    pet.tx = toy.x; pet.tz = toy.z; pet.wanderT = 1.0;   // steer the pet to the toy
+    const d = Math.hypot(pet.x - toy.x, pet.z - toy.z);
     if (d < 0.9) {
       const t = this.forageTime;
       toy.mesh.position.y = toy.baseY + Math.abs(Math.sin(t * 9)) * 0.3;   // the toy bounces
       toy.mesh.rotation.y += dt * 7;
-      this.pet.group.position.y += Math.abs(Math.sin(t * 9 + 1)) * 0.1;    // a happy little pounce
+      pet.group.position.y += Math.abs(Math.sin(t * 9 + 1)) * 0.1;         // a happy little pounce
     }
   }
 
@@ -1119,7 +1142,8 @@ export class HouseEngine {
     this.petHouseGroup.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose?.(); const mt = m.material as THREE.Material | undefined; mt?.dispose?.(); });
     this.petHouseGroup.clear();
     this.petHouseWalls.clear();
-    this.petHouseSpots = [];
+    // Keep the rug spots (beds, perches); rebuild only the pet-house ones.
+    this.restSpots = this.restSpots.filter((spot) => shopItemById(spot.itemId)?.category !== 'house');
     const COLOURS: Record<string, { wall: string; roof: string; glass?: boolean }> = {
       doghouse: { wall: '#8a5a2f', roof: '#96453c' },
       cathouse: { wall: '#8d8d95', roof: '#5a5a66' },
@@ -1146,33 +1170,45 @@ export class HouseEngine {
       const roof = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.3, 3.4), new THREE.MeshLambertMaterial({ color: c.roof }));
       roof.position.set(ox + 1.5, 3.55, oz + 1.5);
       this.petHouseGroup.add(roof);
-      this.petHouseSpots.push({ x: ox + 1.5, z: oz + 1.5 });   // interior centre, where the pet naps
+      this.restSpots.push({ x: ox + 1.5, z: oz + 1.5, itemId: id });   // interior centre, where its pet naps
     });
   }
 
-  /** The interior spot of a pet house you're standing by (to send your pet to
-   *  rest), or null. */
-  getNearbyPetHouse(): { x: number; z: number } | null {
-    if (this.inCave || this.mode !== 'walk' || !this.pet) return null;
-    let best: { x: number; z: number } | null = null; let bestD = 3;
-    for (const s of this.petHouseSpots) {
-      const d = Math.hypot(s.x - this.position.x, s.z - this.position.z);
-      if (d < bestD) { bestD = d; best = s; }
+  /**
+   * The pet that can rest where you're standing, if any. A resting place belongs
+   * to one species — the parakeet's cage and perch, the cat's tower — so this
+   * pairs the spot you're by with a walking pet that actually suits it, rather
+   * than putting whichever pet is out into whichever house is nearest.
+   */
+  getNearbyRest(): { petId: string; petName: string; itemId: string; x: number; z: number } | null {
+    if (this.inCave || this.mode !== 'walk') return null;
+    let best: { petId: string; petName: string; itemId: string; x: number; z: number } | null = null;
+    let bestD = 3;
+    for (const spot of this.restSpots) {
+      const d = Math.hypot(spot.x - this.position.x, spot.z - this.position.z);
+      if (d >= bestD) continue;
+      const pet = this.pets.find((p) => !p.resting && petCanRestAt(spot.itemId, p.species));
+      if (!pet) continue;
+      bestD = d;
+      best = { petId: pet.id, petName: pet.name, itemId: spot.itemId, x: spot.x, z: spot.z };
     }
     return best;
   }
-  isPetResting() { return !!this.pet?.resting; }
+  /** How many of your pets are having a nap right now. */
+  restingCount() { return this.pets.filter((p) => p.resting).length; }
 
-  /** Send your pet to nap in the pet house you're by. */
-  restPet(): boolean {
-    const spot = this.getNearbyPetHouse();
-    if (!spot || !this.pet) return false;
-    this.pet.resting = true;
-    this.pet.restX = spot.x; this.pet.restZ = spot.z;
-    return true;
+  /** Send the pet that suits this spot off for a nap. Returns its name. */
+  restPet(): string | null {
+    const spot = this.getNearbyRest();
+    if (!spot) return null;
+    const pet = this.pets.find((p) => p.id === spot.petId);
+    if (!pet) return null;
+    pet.resting = true;
+    pet.restX = spot.x; pet.restZ = spot.z;
+    return pet.name;
   }
-  /** Wake the pet — it goes back to following you. */
-  wakePet() { if (this.pet) this.pet.resting = false; }
+  /** Wake every napping pet — they all come back to following you. */
+  wakePets() { for (const pet of this.pets) pet.resting = false; }
 
   /** The nearest chair/sofa you're standing by (to sit on), or null. */
   getNearbySeat() { return this.nearestFurniture(['chair', 'sofa'], 1.8); }
@@ -1285,7 +1321,7 @@ export class HouseEngine {
     for (const g of [this.blockGroup, this.doorGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup]) g.visible = false;
     this.neighbours.forEach((n) => { n.group.visible = false; if (n.houseGroup) n.houseGroup.visible = false; });
     this.hood.forEach((g) => { g.visible = false; });
-    if (this.pet) this.pet.group.visible = false;
+    for (const pet of this.pets) pet.group.visible = false;
     if (this.ladderMesh) this.ladderMesh.visible = false;
     this.caveGroup.visible = true;
     // Deep, dark cavern light + a torch that follows you.
@@ -1320,7 +1356,7 @@ export class HouseEngine {
     for (const g of [this.blockGroup, this.doorGroup, this.terrainGroup, this.landGroup, this.forageGroup, this.waterfallGroup, this.furnitureGroup, this.livestockGroup, this.pantryGroup]) g.visible = true;
     this.neighbours.forEach((n) => { n.group.visible = true; if (n.houseGroup) n.houseGroup.visible = true; });
     this.hood.forEach((g) => { g.visible = true; });
-    if (this.pet) this.pet.group.visible = true;
+    for (const pet of this.pets) pet.group.visible = true;
     this.applySky();   // day/night resumes and re-tints the sky next frame
     this.position.copy(this.caveReturn);
     this.velocity.set(0, 0, 0);
@@ -1738,6 +1774,10 @@ export class HouseEngine {
 
   private onPointerDown = (event: PointerEvent) => {
     if (this.mode === 'walk') {
+      this.lastPointer = { x: event.clientX, y: event.clientY };
+      // A finger looks around by dragging. Pointer lock doesn't exist on iPads,
+      // so without this there was no way at all to turn and look in walk mode.
+      if (event.pointerType === 'touch') { this.dragging = true; return; }
       if (!this.pointerLocked) this.renderer.domElement.requestPointerLock();
       return;
     }
@@ -1749,9 +1789,16 @@ export class HouseEngine {
 
   private onPointerMove = (event: PointerEvent) => {
     if (this.mode === 'walk') {
-      if (!this.pointerLocked) return;
-      this.yaw -= event.movementX * 0.0025;
-      this.pitch = THREE.MathUtils.clamp(this.pitch - event.movementY * 0.0025, -1.4, 1.4);
+      if (this.pointerLocked) {   // desktop: mouse-look while the pointer is captured
+        this.yaw -= event.movementX * 0.0025;
+        this.pitch = THREE.MathUtils.clamp(this.pitch - event.movementY * 0.0025, -1.4, 1.4);
+        return;
+      }
+      if (!this.dragging) return;   // phone / iPad: drag anywhere on the view to look
+      const dx = event.clientX - this.lastPointer.x, dy = event.clientY - this.lastPointer.y;
+      this.lastPointer = { x: event.clientX, y: event.clientY };
+      this.yaw -= dx * 0.006;
+      this.pitch = THREE.MathUtils.clamp(this.pitch - dy * 0.006, -1.4, 1.4);
       return;
     }
     const rect = this.renderer.domElement.getBoundingClientRect();
@@ -1778,6 +1825,7 @@ export class HouseEngine {
     window.addEventListener('keyup', this.onKeyUp);
     canvas.addEventListener('pointerdown', this.onPointerDown);
     window.addEventListener('pointerup', this.onPointerUp);
+    window.addEventListener('pointercancel', this.onPointerUp);
     canvas.addEventListener('pointermove', this.onPointerMove);
     canvas.addEventListener('wheel', this.onWheel, { passive: false });
     canvas.addEventListener('contextmenu', this.onContext);
@@ -1790,6 +1838,7 @@ export class HouseEngine {
     window.removeEventListener('keyup', this.onKeyUp);
     canvas.removeEventListener('pointerdown', this.onPointerDown);
     window.removeEventListener('pointerup', this.onPointerUp);
+    window.removeEventListener('pointercancel', this.onPointerUp);
     canvas.removeEventListener('pointermove', this.onPointerMove);
     canvas.removeEventListener('wheel', this.onWheel);
     canvas.removeEventListener('contextmenu', this.onContext);
@@ -2014,7 +2063,7 @@ export class HouseEngine {
     if (gs !== this.season) this.setSeason(gs);
     if (this.mode === 'walk') { this.walk(dt); this.checkForage(dt); this.checkGems(dt); this.moveWild(dt); this.checkChop(dt); }
     this.updateDoors(dt);
-    this.movePet(dt);
+    this.movePets(dt);
     // Keep the endless ground under you, and stream fresh hills as you roam.
     if (this.ground) this.ground.position.set(this.position.x, 0.99, this.position.z);
     if (Math.abs(this.position.x - this.terrainCenter.x) > LAND_STEP || Math.abs(this.position.z - this.terrainCenter.z) > LAND_STEP) this.streamLand();

@@ -2,8 +2,9 @@
  * Pets you adopt, feed and take walking.
  *
  * Each pet has a fullness (0–100) that slowly drops over time, so you have to
- * buy food and feed them. One pet at a time is your "active" companion — it
- * follows you around your house and the town market as a little animated buddy.
+ * buy food and feed them. You choose which of your pets come out with you — just
+ * the cat, just the dog, or both at once — and they follow you around your house
+ * and the town market as little animated buddies.
  *
  * Lives on-device (like coins) so it works signed-out too.
  */
@@ -32,12 +33,16 @@ export interface Pet { id: string; species: PetSpecies; name: string; fullness: 
 export interface PetsState {
   pets: Pet[];
   food: number;
-  activePetId: string | null;
+  /** The pets you've chosen to take walking — any mix of them, or none at all. */
+  walkingIds: string[];
   /** Pet-shop supplies you own (item id → count) — they show up in your house. */
   supplies: Record<string, number>;
   /** Dye colour per pet id (hex), recolouring your pet. */
   dye: Record<string, string>;
 }
+
+/** How many pets can be out at once — enough for a proper little parade. */
+export const MAX_WALKING = 4;
 
 const KEY = 'magic-islands-pets';
 let counter = 0;
@@ -50,14 +55,27 @@ function decayed(pet: Pet, now: number): number {
 
 export function loadPets(): PetsState {
   const now = Date.now();
-  let state: PetsState = { pets: [], food: 0, activePetId: null, supplies: {}, dye: {} };
+  let state: PetsState = { pets: [], food: 0, walkingIds: [], supplies: {}, dye: {} };
+  let legacyActive: string | null = null;
+  let hasWalkingIds = false;
   const raw = storage.get(KEY);
-  if (raw) { try { state = { ...state, ...(JSON.parse(raw) as PetsState) }; } catch { /* keep default */ } }
+  if (raw) {
+    try {
+      const saved = JSON.parse(raw) as PetsState & { activePetId?: string | null };
+      legacyActive = saved.activePetId ?? null;
+      // Note whether the SAVE had a walking list: the default one is already an
+      // array, so "is it an array" can't tell a pre-parade save from a new one.
+      hasWalkingIds = Array.isArray(saved.walkingIds);
+      state = { ...state, ...saved };
+    } catch { /* keep default */ }
+  }
   state.supplies = state.supplies ?? {};
   state.dye = state.dye ?? {};
   // Apply the hunger that ticked down while you were away.
   state.pets = (state.pets ?? []).map((p) => ({ ...p, fullness: decayed(p, now), fullnessAt: now }));
-  if (state.activePetId && !state.pets.some((p) => p.id === state.activePetId)) state.activePetId = state.pets[0]?.id ?? null;
+  // Saves from when only one pet could walk kept a single `activePetId`.
+  if (!hasWalkingIds) state.walkingIds = legacyActive ? [legacyActive] : [];
+  state.walkingIds = state.walkingIds.filter((id) => state.pets.some((p) => p.id === id)).slice(0, MAX_WALKING);
   return state;
 }
 
@@ -68,7 +86,7 @@ export function adoptPet(species: PetSpecies, name: string): PetsState {
   const state = loadPets();
   const pet: Pet = { id: uid(), species, name: name.trim() || PET_SPECIES[species].name, fullness: 80, fullnessAt: Date.now(), adoptedAt: Date.now() };
   state.pets.push(pet);
-  if (!state.activePetId) state.activePetId = pet.id;
+  if (!state.walkingIds.length) state.walkingIds = [pet.id];   // your first pet comes along straight away
   return save(state);
 }
 
@@ -83,23 +101,54 @@ export function feedPet(id: string): PetsState {
   return save(state);
 }
 
-export function setActivePet(id: string | null): PetsState { const state = loadPets(); state.activePetId = id; return save(state); }
+/** Choose exactly which pets come walking (ignores unknown ids, caps the parade). */
+export function setWalking(ids: string[]): PetsState {
+  const state = loadPets();
+  state.walkingIds = ids.filter((id) => state.pets.some((p) => p.id === id)).slice(0, MAX_WALKING);
+  return save(state);
+}
+
+/**
+ * Take one pet along, or leave it at home. Returns the new state plus whether it
+ * actually changed, so the panel can explain a full parade instead of silently
+ * doing nothing.
+ */
+export function toggleWalking(id: string): { state: PetsState; walking: boolean; full: boolean } {
+  const state = loadPets();
+  if (state.walkingIds.includes(id)) {
+    state.walkingIds = state.walkingIds.filter((x) => x !== id);
+    return { state: save(state), walking: false, full: false };
+  }
+  if (state.walkingIds.length >= MAX_WALKING) return { state, walking: false, full: true };
+  state.walkingIds = [...state.walkingIds, id];
+  return { state: save(state), walking: true, full: false };
+}
 export function renamePet(id: string, name: string): PetsState { const state = loadPets(); const p = state.pets.find((x) => x.id === id); if (p) p.name = name.slice(0, 20); return save(state); }
 export function releasePet(id: string): PetsState {
   const state = loadPets();
   state.pets = state.pets.filter((p) => p.id !== id);
-  if (state.activePetId === id) state.activePetId = state.pets[0]?.id ?? null;
+  state.walkingIds = state.walkingIds.filter((x) => x !== id);
   return save(state);
 }
 
-/** The companion that follows you into your house and the market (or null). */
-export function activePet(): Pet | null { const state = loadPets(); return state.pets.find((p) => p.id === state.activePetId) ?? null; }
+/**
+ * A pet out walking, ready to hand to a 3-D world. Deliberately the same shape as
+ * the engines' `ScenePetSpec` (in game/petMesh) — the game layer imports from
+ * here, so it can't be the other way round.
+ */
+export interface WalkingPet { id: string; species: PetSpecies; name: string; dye: string | null }
+
+/** The companions that follow you into your house and the market (maybe none). */
+export function walkingPets(): WalkingPet[] {
+  const state = loadPets();
+  return state.walkingIds
+    .map((id) => state.pets.find((p) => p.id === id))
+    .filter((p): p is Pet => !!p)
+    .map((p) => ({ id: p.id, species: p.species, name: p.name, dye: state.dye[p.id] ?? null }));
+}
+
 
 /** Buy a pet-shop supply (caller spends the coins) — it appears in your house. */
 export function buySupply(id: string): PetsState { const state = loadPets(); state.supplies[id] = (state.supplies[id] ?? 0) + 1; return save(state); }
 /** Dye a pet a colour (caller spends the coins). */
 export function dyePet(petId: string, colour: string): PetsState { const state = loadPets(); state.dye[petId] = colour; return save(state); }
-/** The dye colour of a pet, or null for its natural colour. */
-export function petDye(petId: string): string | null { return loadPets().dye[petId] ?? null; }
-/** The colour to draw the active pet in (its dye, or null). */
-export function activePetDye(): string | null { const s = loadPets(); return s.activePetId ? (s.dye[s.activePetId] ?? null) : null; }

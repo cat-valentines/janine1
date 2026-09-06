@@ -3,7 +3,7 @@ import { animateWalk, buildBody, emojiTexture, faceTexture, type Limbs } from '.
 import { DRAIN_IDLE, DRAIN_WALK, FOREST_X, MAX_ENERGY, RIVER_WIDTH, RIVER_X, STREET_WIDTH, STREET_Z, TOWN_D, TOWN_W, VENOM_DRAIN, VENOM_SECONDS, WORLD_D, WORLD_W, foodEnergy, forestCamps, townHouses, townShops, type TownShop } from './town';
 import { pixelTexture, shade, type PixelPattern } from './pixelTexture';
 import { buildPetMesh, makeLivePet, stepPet, type LivePet } from './petMesh';
-import type { PetSpecies } from '../lib/pets';
+import type { ScenePetSpec } from './petMesh';
 
 const EYE = 1.6;
 const HALF = 0.32;
@@ -49,9 +49,8 @@ interface EngineOptions {
   onGather: (supplies: Gathered) => void;
   /** Sell mode: the player gets their own market stand on the street. */
   selling?: boolean;
-  /** The pet you've set walking, to trot along the market with you (or null). */
-  petSpecies?: PetSpecies | null;
-  petDye?: string | null;
+  /** The pets you've set walking, to trot along the market with you (maybe none). */
+  pets?: ScenePetSpec[];
 }
 
 type ResourceKind = 'tree' | 'rock' | 'berry' | 'mushroom' | 'apple' | 'herb' | 'carrot' | 'crate' | 'nest';
@@ -82,7 +81,7 @@ export class TownEngine {
 
   private avatar: THREE.Group;
   private limbs: Limbs;
-  private pet: LivePet | null = null;
+  private pets: LivePet[] = [];
   private position = new THREE.Vector3(6, GROUND_Y, STREET_Z);
   private velocity = new THREE.Vector3();
   private yaw = -Math.PI / 2;
@@ -153,26 +152,26 @@ export class TownEngine {
     this.limbs = built.limbs;
     this.scene.add(this.avatar);
 
-    if (options.petSpecies) this.setPet(options.petSpecies, options.petDye);
+    if (options.pets?.length) this.setPets(options.pets);
     this.bind();
     this.loop();
   }
 
-  /** Set (or clear) the pet that trots along the market with you. */
-  setPet(species: PetSpecies | null, dye?: string | null) {
-    if (this.pet) {
-      this.scene.remove(this.pet.group);
-      this.pet.group.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose?.(); const mt = m.material as THREE.Material | undefined; mt?.dispose?.(); });
-      this.pet = null;
+  /** Set which of your pets trot along the market with you, each in its colour. */
+  setPets(list: ScenePetSpec[]) {
+    for (const pet of this.pets) {
+      this.scene.remove(pet.group);
+      pet.group.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose?.(); const mt = m.material as THREE.Material | undefined; mt?.dispose?.(); });
     }
-    if (!species) return;
-    this.pet = makeLivePet(buildPetMesh(species, dye), this.position.x + 1, this.position.z + 1);
-    this.scene.add(this.pet.group);
+    this.pets = list.slice(0, 4).map((spec, i) => {
+      const live = makeLivePet(buildPetMesh(spec.species, spec.dye), this.position.x + 1 + i * 0.6, this.position.z + 1, i);
+      this.scene.add(live.group);
+      return live;
+    });
   }
 
-  private movePet(dt: number) {
-    if (!this.pet) return;
-    stepPet(this.pet, this.position.x, this.position.z, this.yaw, dt, () => GROUND_Y, this.time);
+  private movePets(dt: number) {
+    for (const pet of this.pets) stepPet(pet, this.position.x, this.position.z, this.yaw, dt, () => GROUND_Y, this.time);
   }
 
   // ---- world -------------------------------------------------------------
@@ -864,6 +863,15 @@ export class TownEngine {
     return this.beds.find((bed) => Math.hypot(bed.x - this.position.x, bed.z - this.position.z) < 2.4);
   }
 
+  /**
+   * Pick / chop / fish whatever is in reach. On a phone you normally do this by
+   * tapping the world, but in finger-walk mode the pad covers that half of the
+   * screen, so it taps through to here instead.
+   */
+  pick() {
+    this.gather();
+  }
+
   sleep() {
     const bed = this.bedHere();
     if (!bed) return;
@@ -986,7 +994,7 @@ export class TownEngine {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this.time += dt;
     this.move(dt);
-    this.movePet(dt);
+    this.movePets(dt);
     this.checkSnakes();
     // The river drifts downstream and the fish bob along with it.
     if (this.river) {

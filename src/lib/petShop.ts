@@ -43,21 +43,39 @@ export const PET_SHOP: ShopItem[] = [
   { id: 'cushion', name: 'Soft Cushion', emoji: '🟢', price: 20, category: 'bed' },
   { id: 'basket', name: 'Wicker Basket', emoji: '🧺', price: 22, category: 'bed' },
   // pet houses
-  { id: 'doghouse', name: 'Doghouse', emoji: '🏠', price: 40, category: 'house' },
-  { id: 'cathouse', name: 'Cat Tower', emoji: '🏯', price: 45, category: 'house' },
-  { id: 'birdcage', name: 'Birdcage', emoji: '🐦', price: 35, category: 'house' },
-  { id: 'aquarium', name: 'Aquarium', emoji: '🐠', price: 48, category: 'house' },
-  { id: 'hutch', name: 'Little Hutch', emoji: '🏚️', price: 38, category: 'house' },
+  { id: 'doghouse', name: 'Doghouse', emoji: '🏠', price: 40, category: 'house', species: 'dog', blurb: 'A kennel only a dog will settle in.' },
+  { id: 'cathouse', name: 'Cat Tower', emoji: '🏯', price: 45, category: 'house', species: 'cat', blurb: 'A tower only a cat will curl up in.' },
+  { id: 'birdcage', name: 'Birdcage', emoji: '🐦', price: 35, category: 'house', species: 'parakeet', blurb: 'A cage only a bird will roost in.' },
+  { id: 'aquarium', name: 'Aquarium', emoji: '🐠', price: 48, category: 'house', species: 'turtle', blurb: 'A tank only a turtle will paddle in.' },
+  { id: 'hutch', name: 'Little Hutch', emoji: '🏚️', price: 38, category: 'house', species: 'hamster', blurb: 'A hutch only a hamster will burrow in.' },
   // species specials
   { id: 'scratch', name: 'Scratching Post', emoji: '🐈', price: 24, category: 'special', species: 'cat' },
   { id: 'chewbone', name: 'Big Chew Bone', emoji: '🦴', price: 16, category: 'special', species: 'dog' },
-  { id: 'perch', name: 'Swing Perch', emoji: '🪵', price: 18, category: 'special', species: 'parakeet' },
-  { id: 'baskrock', name: 'Basking Rock', emoji: '🪨', price: 20, category: 'special', species: 'turtle' },
+  { id: 'perch', name: 'Swing Perch', emoji: '🪵', price: 18, category: 'special', species: 'parakeet', blurb: 'Your bird roosts here for the night.' },
+  { id: 'baskrock', name: 'Basking Rock', emoji: '🪨', price: 20, category: 'special', species: 'turtle', blurb: 'Your turtle suns itself here.' },
   { id: 'wheel', name: 'Running Wheel', emoji: '🎡', price: 22, category: 'special', species: 'hamster' },
 ];
 
 export const shopItemById = (id: string) => PET_SHOP.find((i) => i.id === id);
 export const FOOD_CATEGORY: ShopCategory = 'food';
+
+/**
+ * Where a pet will actually settle down to rest. A parakeet roosts in the
+ * birdcage or on its perch — never in the cat tower — so each spot names the one
+ * species it suits, and the plain beds (which anybody can flop on) name none.
+ */
+export const RESTING_SPOTS: Record<string, PetSpecies | null> = {
+  doghouse: 'dog', cathouse: 'cat', birdcage: 'parakeet', aquarium: 'turtle', hutch: 'hamster',
+  perch: 'parakeet', baskrock: 'turtle',
+  bed: null, cushion: null, basket: null,
+};
+
+/** True if this pet can rest at that item (its own spot, or a bed anyone may use). */
+export function petCanRestAt(itemId: string, species: PetSpecies): boolean {
+  if (!(itemId in RESTING_SPOTS)) return false;
+  const only = RESTING_SPOTS[itemId];
+  return only === null || only === species;
+}
 
 /** Dye your pet any of these colours (or use the picker for custom). */
 export const DYE_PRICE = 15;

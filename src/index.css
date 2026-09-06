@@ -707,7 +707,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .shop-counter-item:hover:not(:disabled) { background: #fff6e0; border-color: var(--accent); }
 .shop-counter-item:disabled { cursor: not-allowed; filter: grayscale(.7); opacity: .6; }
 .shop-counter-hint { display: block; margin-top: 8px; color: var(--ink-soft); font-size: .66rem; text-align: center; }
-.energy-meter { position: absolute; top: 96px; left: 12px; display: grid; justify-items: center; gap: 4px; padding: 8px 7px; background: #1c2333d0; border: 2px solid #6f7f92; }
+.energy-meter { position: absolute; top: 96px; left: 12px; display: grid; justify-items: center; gap: 4px; padding: 8px 7px; background: #1c2333d0; border: 2px solid #6f7f92; pointer-events: none; }
 .energy-meter b { font-size: 1.1rem; }
 .energy-meter i { display: block; width: 16px; height: 84px; background: #2c3a4d; border: 2px solid #6f7f92; }
 .energy-meter s { display: block; width: 100%; margin-top: auto; background: #8fd39f; text-decoration: none; transition: height .3s ease; }
@@ -1094,9 +1094,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 
 /* On-screen D-pad + action buttons — only appear on touch devices (iPad/phone). */
 .keypad { display: none; }
-@media (hover: none) and (pointer: coarse) {
-  .keypad { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; justify-content: space-between; align-items: flex-end; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); pointer-events: none; }
-}
+.touch-device .keypad { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; justify-content: space-between; align-items: flex-end; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); pointer-events: none; }
 .keypad-dpad { display: grid; grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(3, 54px); gap: 6px; pointer-events: auto; }
 .keypad-dpad .kp-up { grid-column: 2; grid-row: 1; }
 .keypad-dpad .kp-left { grid-column: 1; grid-row: 2; }
@@ -1926,15 +1924,13 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 /* ---- Housekeeper phone controls: finger joystick, tap-to-toggle sneak, and a
    Buttons/Joystick switch. Touch devices only; desktop keeps keyboard + mouse. ---- */
 .joystick, .sneak-toggle, .escape-ctl-toggle { display: none; }
-@media (hover: none) and (pointer: coarse) {
-  .joystick { display: block; position: fixed; left: 22px; bottom: 26px; z-index: 41; width: 118px; height: 118px; border-radius: 50%; background: #12162488; border: 2px solid #ffffff40; touch-action: none; }
-  .joystick-knob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: #ffffffd8; box-shadow: 0 2px 6px #0006; pointer-events: none; }
-  .sneak-toggle { display: block; position: fixed; right: 16px; bottom: 152px; z-index: 42; padding: 10px 16px; border: 0; border-radius: 999px; background: #2a3550dd; color: #fff; font-weight: 850; font-size: .9rem; box-shadow: 0 3px 0 #00000055; }
-  .sneak-toggle.on { background: #5f8fd0; box-shadow: 0 3px 0 #2a4a80, 0 0 0 3px #5f8fd055; }
-  .escape-ctl-toggle { display: flex; position: fixed; right: 16px; bottom: 208px; z-index: 42; gap: 3px; padding: 3px; border-radius: 999px; background: #1c2333cc; }
-  .escape-ctl-toggle button { border: 0; border-radius: 999px; padding: 6px 11px; background: transparent; color: #cbd6ea; font-weight: 800; font-size: .74rem; }
-  .escape-ctl-toggle button.on { background: #5f8fd0; color: #fff; }
-}
+.touch-device .joystick { display: block; position: fixed; left: 22px; bottom: 26px; z-index: 41; width: 118px; height: 118px; border-radius: 50%; background: #12162488; border: 2px solid #ffffff40; touch-action: none; }
+.touch-device .joystick-knob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: #ffffffd8; box-shadow: 0 2px 6px #0006; pointer-events: none; }
+.touch-device .sneak-toggle { display: block; position: fixed; right: 16px; bottom: 152px; z-index: 42; padding: 10px 16px; border: 0; border-radius: 999px; background: #2a3550dd; color: #fff; font-weight: 850; font-size: .9rem; box-shadow: 0 3px 0 #00000055; }
+.touch-device .sneak-toggle.on { background: #5f8fd0; box-shadow: 0 3px 0 #2a4a80, 0 0 0 3px #5f8fd055; }
+.touch-device .escape-ctl-toggle { display: flex; position: fixed; right: 16px; bottom: 208px; z-index: 42; gap: 3px; padding: 3px; border-radius: 999px; background: #1c2333cc; }
+.touch-device .escape-ctl-toggle button { border: 0; border-radius: 999px; padding: 6px 11px; background: transparent; color: #cbd6ea; font-weight: 800; font-size: .74rem; }
+.touch-device .escape-ctl-toggle button.on { background: #5f8fd0; color: #fff; }
 
 /* ---- The co-op door: a pulsing call-to-action to join a friend's deeper level
    (or come back to your own). Shown on every device, not just touch. ---- */
@@ -1942,26 +1938,32 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .deeper-door-btn.back { background: #2a5540ee; color: #d6ffe8; box-shadow: 0 4px 0 #123a28, 0 0 0 3px #6fd0a066; }
 @keyframes doorPulse { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.05); } }
 
-/* ---- Market: choose joystick or buttons to walk; ⤴ picks/interacts (touch only). ---- */
+/* ---- Market: choose buttons, a joystick or your finger to walk; ⤴ picks/interacts. ---- */
 .control-mode-toggle, .joy-action { display: none; }
-@media (hover: none) and (pointer: coarse) {
-  .control-mode-toggle { display: block; position: fixed; left: 50%; bottom: 156px; transform: translateX(-50%); z-index: 42; padding: 8px 15px; border: 0; border-radius: 999px; background: #1c2333dd; color: #fff; font-weight: 850; font-size: .82rem; box-shadow: 0 3px 0 #00000055; -webkit-tap-highlight-color: transparent; }
-  .control-mode-toggle:active { transform: translateX(-50%) translateY(2px); box-shadow: 0 1px 0 #00000055; }
-  .joy-action { display: block; position: fixed; right: 22px; bottom: 40px; z-index: 41; min-width: 72px; height: 64px; padding: 0 18px; border: 0; border-radius: 18px; background: #b45f55ee; color: #fff; font-size: 1.4rem; font-weight: 800; touch-action: none; -webkit-user-select: none; user-select: none; box-shadow: 0 3px 0 #7d3a34; -webkit-tap-highlight-color: transparent; }
-  .joy-action:active { transform: translateY(2px); box-shadow: 0 1px 0 #7d3a34; }
-}
+.touch-device .control-mode-toggle { display: flex; position: fixed; left: 50%; bottom: 156px; transform: translateX(-50%); z-index: 42; gap: 3px; padding: 3px; border-radius: 999px; background: #1c2333dd; box-shadow: 0 3px 0 #00000055; }
+.touch-device .control-mode-toggle button { border: 0; border-radius: 999px; padding: 8px 13px; background: transparent; color: #cbd6ea; font-weight: 850; font-size: .78rem; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.touch-device .control-mode-toggle button.on { background: #5f8fd0; color: #fff; }
+
+/* Walk-with-your-finger: the left half of the world is a stick that appears
+   wherever you put your finger down. The right half is left free, so dragging
+   there still looks around and tapping there still picks things up. */
+.finger-pad { display: none; }
+.touch-device .finger-pad { display: block; position: absolute; left: 0; top: 0; bottom: 0; width: 50%; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+.finger-stick { position: absolute; width: 108px; height: 108px; margin: -54px 0 0 -54px; border-radius: 50%; background: #12162466; border: 2px solid #ffffff55; pointer-events: none; }
+.finger-stick i { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: #ffffffd8; box-shadow: 0 2px 6px #0006; }
+.finger-hint { position: absolute; left: 12px; bottom: 96px; padding: 7px 13px; border-radius: 999px; background: #1c2333c0; color: #cfdaea; font-size: .74rem; font-weight: 800; pointer-events: none; }
+.touch-device .joy-action { display: block; position: fixed; right: 22px; bottom: 40px; z-index: 41; min-width: 72px; height: 64px; padding: 0 18px; border: 0; border-radius: 18px; background: #b45f55ee; color: #fff; font-size: 1.4rem; font-weight: 800; touch-action: none; -webkit-user-select: none; user-select: none; box-shadow: 0 3px 0 #7d3a34; -webkit-tap-highlight-color: transparent; }
+.touch-device .joy-action:active { transform: translateY(2px); box-shadow: 0 1px 0 #7d3a34; }
 
 /* ---- Underwater Maze: choose finger joystick or buttons (touch only). ---- */
 .reef-ctl-toggle { display: none; }
 .reef-joy-slot { width: 148px; height: 148px; }
-@media (hover: none) and (pointer: coarse) {
-  .reef-ctl-toggle { display: flex; position: absolute; bottom: 178px; left: 50%; transform: translateX(-50%); z-index: 5; gap: 3px; padding: 3px; border-radius: 999px; background: #04263fcc; }
-  .reef-ctl-toggle button { border: 0; border-radius: 999px; padding: 6px 12px; background: transparent; color: #cfeaff; font-weight: 800; font-size: .74rem; cursor: pointer; }
-  .reef-ctl-toggle button.on { background: #2b93d6; color: #fff; }
-  /* the reef area doesn't reach the screen bottom (fact strip below), so pin the
-     joystick inside the stage to line up with the other controls */
-  .reef-stage .joystick { position: absolute; left: 16px; bottom: 16px; z-index: 5; }
-}
+.touch-device .reef-ctl-toggle { display: flex; position: absolute; bottom: 178px; left: 50%; transform: translateX(-50%); z-index: 5; gap: 3px; padding: 3px; border-radius: 999px; background: #04263fcc; }
+.touch-device .reef-ctl-toggle button { border: 0; border-radius: 999px; padding: 6px 12px; background: transparent; color: #cfeaff; font-weight: 800; font-size: .74rem; cursor: pointer; }
+.touch-device .reef-ctl-toggle button.on { background: #2b93d6; color: #fff; }
+/* the reef area doesn't reach the screen bottom (fact strip below), so pin the
+   joystick inside the stage to line up with the other controls */
+.touch-device .reef-stage .joystick { position: absolute; left: 16px; bottom: 16px; z-index: 5; }
 
 /* ===== Song Studio ===== */
 .song-page { min-height: 100vh; padding: 16px 14px 40px; background: linear-gradient(160deg, #1a1030, #2a1846 55%, #3a1e52); color: #f0e9ff; }
@@ -2132,6 +2134,10 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .pets-food-bar b { color: #a05a1e; }
 .pets-coins { margin-left: auto; }
 .pets-food-bar button { padding: 7px 12px; border: 0; border-radius: 999px; background: #64a263; color: #fff; font-weight: 850; font-size: .8rem; cursor: pointer; }
+/* Who's coming along — a summary plus a one-tap "everybody" switch. */
+.pets-walking-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border-radius: 12px; background: #eaf4e6; border: 2px solid #9ac48f; }
+.pets-walking-bar > span { flex: 1; min-width: 180px; color: #3a5a30; font-size: .82rem; }
+.pets-walking-bar button { padding: 8px 13px; border: 0; border-radius: 999px; background: #64a263; color: #fff; font-weight: 850; font-size: .78rem; cursor: pointer; }
 .pets-list { display: flex; flex-direction: column; gap: 8px; }
 .pet-card { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 14px; background: #fff; border: 2px solid #e5d8bf; }
 .pet-card.active { border-color: #64a263; box-shadow: 0 0 0 2px #64a26333; }
@@ -2178,6 +2184,13 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .petshop-emoji { font-size: 1.7rem; }
 .petshop-item b { color: #3a2a4a; font-size: .8rem; }
 .petshop-item em { color: #8a6faa; font-size: .64rem; font-style: normal; }
+/* An item only one species will use, when you haven't got that species yet. */
+.petshop-item u { color: #b0642a; font-size: .62rem; text-decoration: none; font-weight: 800; }
+.petshop-item.no-pet { border-style: dashed; border-color: #e0b48a; }
+/* Which pet the dye applies to, once you have more than one. */
+.petshop-whichpet { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 9px; }
+.petshop-whichpet button { padding: 6px 11px; border: 2px solid #e2d5f2; border-radius: 999px; background: #fff; color: #4a3060; font-weight: 800; font-size: .74rem; cursor: pointer; }
+.petshop-whichpet button.on { background: #7a4fb0; border-color: #7a4fb0; color: #fff; }
 .petshop-item i { font-style: normal; font-weight: 850; color: #7a4fb0; font-size: .76rem; }
 .petshop-dye { border-top: 1px dashed #d9c8ee; padding-top: 10px; }
 .petshop-dyes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -2515,3 +2528,139 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 @media (prefers-color-scheme: dark) {
   .chat-history { background: #33284a; color: #d8c3f0; }
 }
+
+/* ===== Chess ==============================================================
+   The board, the animal bots and the live lobby. The board is a plain CSS grid
+   of buttons so it works with a mouse and a finger alike, and the pieces are
+   Unicode glyphs — they stay crisp at any size and need no images. */
+
+.chess-pick .chess-header h1 { letter-spacing: .02em; }
+.chess-modes { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.chess-mode { display: grid; gap: 5px; padding: 20px 16px; border: 3px solid #5d5148; border-radius: 16px; background: #fffaf0; box-shadow: 6px 7px 0 #2b241d55; text-align: center; cursor: pointer; }
+.chess-mode.bots { background: linear-gradient(160deg, #fff3d6, #ffe0b8); }
+.chess-mode.live { background: linear-gradient(160deg, #dcefff, #c3ddf7); }
+.chess-mode-icon { font-size: 2.6rem; }
+.chess-mode strong { font-size: 1.08rem; color: #3a2c22; }
+.chess-mode small { color: #5c5148; font-size: .8rem; line-height: 1.45; }
+.chess-mode i { margin-top: 6px; color: var(--accent); font-style: normal; font-weight: 850; font-size: .82rem; }
+
+/* ---- the animal opponents ---- */
+.chess-bots { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); width: min(100% - 28px, 1080px); margin: 0 auto 40px; }
+.chess-bot-card { display: grid; justify-items: center; gap: 4px; padding: 16px 13px; border: 3px solid #5d5148; border-radius: 16px; background: #fffaf0f2; box-shadow: 6px 7px 0 #2b241d55; text-align: center; }
+.chess-bot-card strong { font-size: 1rem; color: #3a2c22; }
+.chess-bot-card em { color: var(--accent); font-style: normal; font-weight: 850; font-size: .78rem; }
+.chess-bot-card small { color: var(--ink-soft); font-size: .74rem; line-height: 1.45; min-height: 3.2em; }
+/* The bot's face: a pixel animal that bobs gently, and rocks while it thinks. */
+.chess-bot-face { position: relative; display: grid; place-items: center; width: 92px; height: 92px; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #ffffff, #efe4d2); border: 3px solid #5d5148; animation: chessBob 2.6s ease-in-out infinite; }
+.chess-bot-pixel { width: 68px; height: 68px; object-fit: contain; image-rendering: pixelated; }
+.chess-bot-emoji { position: absolute; right: -4px; bottom: -2px; font-size: 1.5rem; filter: drop-shadow(0 1px 1px #0004); }
+.chess-bot-face.thinking { animation: chessThink .7s ease-in-out infinite; }
+@keyframes chessBob { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-5px) scale(1.03); } }
+@keyframes chessThink { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg) translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) {
+  .chess-bot-face, .chess-bot-face.thinking { animation: none; }
+}
+.chess-difficulty { display: flex; gap: 2px; }
+.chess-difficulty i { color: #cabfae; font-style: normal; font-size: 1.05rem; line-height: 1; }
+.chess-difficulty i.on { color: var(--accent); }
+.chess-bot-play { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+.chess-bot-play button { padding: 8px 12px; border: 0; border-radius: 999px; background: #f3ece0; color: #3a2c22; border: 2px solid #5d5148; font-weight: 850; font-size: .76rem; cursor: pointer; }
+.chess-bot-play button.as-black { background: #3a3340; color: #f6f1e8; }
+
+/* ---- the live lobby ---- */
+.chess-lobby h2 { margin-bottom: 10px; font-size: 1.05rem; }
+.chess-nickname { display: grid; gap: 5px; margin-bottom: 14px; }
+.chess-nickname span { color: var(--ink-soft); font-size: .76rem; font-weight: 700; }
+.chess-nickname input { padding: 9px 12px; border: 2px solid #6b5e53; border-radius: 10px; background: #fff; }
+.chess-seekers { display: grid; gap: 8px; }
+.chess-seeker { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 2px solid #d8cbb8; border-radius: 12px; background: #fff; }
+.chess-seeker img { width: 38px; height: 38px; object-fit: contain; image-rendering: pixelated; }
+.chess-seeker strong { flex: 1; font-size: .92rem; }
+.chess-seeker button { padding: 8px 15px; border: 0; border-radius: 999px; background: var(--accent); color: #fff; font-weight: 850; font-size: .8rem; cursor: pointer; }
+.chess-seeker button:disabled { background: #b0a89e; cursor: default; }
+.chess-nobody { display: grid; justify-items: center; gap: 8px; padding: 18px 10px; text-align: center; }
+.chess-nobody > span { font-size: 3rem; }
+.chess-nobody h2 { margin: 0; }
+.chess-nobody p { max-width: 460px; color: var(--ink-soft); font-size: .84rem; line-height: 1.55; }
+.chess-nobody small { color: var(--ink-soft); font-size: .74rem; }
+.chess-alert-toggle { margin-top: 6px; padding: 12px 20px; border: 3px solid #5d5148; border-radius: 999px; background: #fff3d6; color: #3a2c22; font-weight: 850; font-size: .88rem; cursor: pointer; }
+.chess-alert-toggle.on { background: #cfe9c9; border-color: #4f7a45; }
+.chess-play-bots { padding: 10px 18px; border: 0; border-radius: 999px; background: #3a2c22; color: #ffe9c8; font-weight: 850; font-size: .82rem; cursor: pointer; }
+.chess-waiting, .chess-note { margin-top: 12px; padding: 9px 13px; border-radius: 10px; background: #f3ece0; color: #5c5148; font-size: .82rem; text-align: center; }
+.chess-invite { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 60; display: grid; gap: 9px; width: min(92vw, 360px); padding: 16px; border: 3px solid #5d5148; border-radius: 16px; background: #fffaf0; box-shadow: 0 10px 30px #0005; text-align: center; }
+.chess-invite p { font-size: .92rem; }
+.chess-invite div { display: flex; gap: 8px; }
+.chess-invite button { flex: 1; padding: 11px; border: 0; border-radius: 999px; font-weight: 850; cursor: pointer; }
+.chess-invite .yes { background: #4f7a45; color: #fff; }
+.chess-invite .no { background: #e6ddcf; color: #4a4038; }
+
+/* ---- the board ---- */
+.chess-page { min-height: 100vh; padding: 12px 12px 40px; }
+.chess-page .quest-top-row { width: min(100% - 8px, 1080px); margin: 0 auto 12px; }
+.chess-table { display: grid; gap: 14px; grid-template-columns: 200px minmax(0, 1fr) 200px; align-items: start; width: min(100% - 8px, 1080px); margin: 0 auto; }
+.chess-board-wrap { display: grid; gap: 10px; justify-items: center; }
+.chess-board { display: grid; grid-template-columns: repeat(8, 1fr); width: min(100%, 76vh); aspect-ratio: 1; border: 5px solid #5d5148; box-shadow: 8px 9px 0 #2b241d66; background: #f0d9b5; }
+.chess-board.frozen { cursor: default; }
+.chess-square { position: relative; display: grid; place-items: center; border: 0; padding: 0; background: #f0d9b5; cursor: pointer; transition: none; }
+.chess-square:hover { transform: none; }
+.chess-square.dark { background: #b58863; }
+.chess-square.last { box-shadow: inset 0 0 0 100px #f6e06a33; }
+.chess-square.selected { box-shadow: inset 0 0 0 4px #4f7a45; }
+.chess-square.can-take { box-shadow: inset 0 0 0 4px #c2452f; }
+.chess-square.in-check { background: #e07a6a; animation: chessCheck .7s ease-in-out infinite alternate; }
+@keyframes chessCheck { from { background: #e07a6a; } to { background: #f2a99c; } }
+.move-dot { width: 26%; height: 26%; border-radius: 50%; background: #3a2c2255; }
+.chess-piece { font-size: clamp(1.5rem, 6.4vw, 3rem); line-height: 1; user-select: none; }
+/* Outlined glyphs for both sides, so white pieces read on a light square and
+   black ones don't disappear into a dark one. */
+.chess-piece.white, .chess-promo .white, .chess-taken .white { color: #fffdf8; text-shadow: 0 0 1px #2b241d, 1px 1px 0 #2b241d, -1px 1px 0 #2b241d, 1px -1px 0 #2b241d, -1px -1px 0 #2b241d; }
+.chess-piece.black, .chess-promo .black, .chess-taken .black { color: #26221f; text-shadow: 0 0 1px #f6f1e8, 1px 1px 0 #f6f1e880; }
+.rank-mark, .file-mark { position: absolute; color: #2b241d88; font-size: .55rem; font-style: normal; font-weight: 850; }
+.rank-mark { top: 2px; left: 3px; }
+.file-mark { right: 3px; bottom: 1px; }
+.chess-status { padding: 9px 16px; border: 3px solid #5d5148; border-radius: 999px; background: #fffaf0; color: #3a2c22; font-weight: 800; font-size: .86rem; text-align: center; }
+.chess-status.over { background: #cfe9c9; border-color: #4f7a45; }
+.chess-promo { display: grid; gap: 8px; justify-items: center; padding: 13px; border: 3px solid #5d5148; border-radius: 14px; background: #fffaf0; }
+.chess-promo strong { font-size: .86rem; }
+.chess-promo div { display: flex; gap: 8px; }
+.chess-promo button { display: grid; justify-items: center; gap: 2px; padding: 8px 12px; border: 2px solid #5d5148; border-radius: 10px; background: #f3ece0; cursor: pointer; }
+.chess-promo span { font-size: 2rem; line-height: 1; }
+.chess-promo small { font-size: .62rem; color: var(--ink-soft); }
+
+/* ---- the two side panels ---- */
+.chess-player-card { display: grid; justify-items: center; gap: 5px; padding: 14px 11px; border: 3px solid #5d5148; border-radius: 16px; background: #fffaf0f2; box-shadow: 5px 6px 0 #2b241d55; text-align: center; }
+.chess-player-card strong { font-size: .9rem; }
+.chess-player-card em { color: var(--accent); font-style: normal; font-weight: 800; font-size: .72rem; }
+.chess-bubble { margin-top: 6px; padding: 8px 11px; border-radius: 12px 12px 12px 3px; background: #f3ece0; color: #4a4038; font-size: .74rem; line-height: 1.4; }
+.chess-side { display: grid; gap: 10px; }
+.chess-moves { padding: 12px; border: 3px solid #5d5148; border-radius: 16px; background: #fffaf0f2; box-shadow: 5px 6px 0 #2b241d55; }
+.chess-moves strong { display: block; margin-bottom: 6px; font-size: .82rem; }
+.chess-moves ol { display: flex; flex-wrap: wrap; gap: 3px 6px; max-height: 240px; overflow-y: auto; list-style: none; }
+.chess-moves li { padding: 1px 6px; border-radius: 6px; font-family: "Courier New", monospace; font-size: .74rem; font-weight: 700; }
+.chess-moves li.white-move { background: #f3ece0; color: #3a2c22; }
+.chess-moves li.black-move { background: #3a3340; color: #f6f1e8; }
+.chess-taken { display: flex; flex-wrap: wrap; gap: 1px; justify-content: center; font-size: 1.15rem; line-height: 1; }
+.chess-actions { display: grid; gap: 7px; }
+.chess-actions button { padding: 10px; border: 2px solid #5d5148; border-radius: 999px; background: #f3ece0; color: #3a2c22; font-weight: 850; font-size: .8rem; cursor: pointer; }
+.chess-actions button.again { background: #4f7a45; border-color: #35552f; color: #fff; }
+
+/* On a phone the side panels stack under the board, so the board stays big. */
+@media (max-width: 860px) {
+  .chess-table { grid-template-columns: minmax(0, 1fr); }
+  .chess-board { width: min(100%, 92vw); }
+  .chess-player-card { grid-template-columns: auto 1fr; justify-items: start; text-align: left; }
+  .chess-player-card .chess-bot-face { grid-row: span 3; width: 64px; height: 64px; }
+  .chess-player-card .chess-bot-pixel { width: 46px; height: 46px; }
+  .chess-bubble { grid-column: 2; }
+  .chess-moves ol { max-height: 96px; }
+}
+
+/* ---- the "someone wants to play" bell ---- */
+.chess-call { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 58; display: flex; align-items: center; gap: 11px; width: min(94vw, 400px); padding: 12px 14px; border: 3px solid #5d5148; border-radius: 16px; background: #fffaf0; box-shadow: 0 10px 30px #0005; animation: chessCallIn .3s ease-out; }
+@keyframes chessCallIn { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+.chess-call-icon { font-size: 1.9rem; }
+.chess-call div { flex: 1; display: grid; }
+.chess-call strong { font-size: .88rem; color: #3a2c22; }
+.chess-call small { color: var(--ink-soft); font-size: .72rem; }
+.chess-call .go { padding: 9px 14px; border: 0; border-radius: 999px; background: #4f7a45; color: #fff; font-weight: 850; font-size: .78rem; cursor: pointer; }
+.chess-call .shut { padding: 4px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-soft); font-size: .9rem; cursor: pointer; }

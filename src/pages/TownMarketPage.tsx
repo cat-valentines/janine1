@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { TownEngine, type TownSnapshot } from '../game/townEngine';
 import { forageById, forageKinds, sellPrice, shopById, townHouses, townShops } from '../game/town';
 import { characterAssets } from '../game/characters';
-import { activePet, activePetDye } from '../lib/pets';
-import { KeyPad } from '../components/KeyPad';
-import { Joystick } from '../components/Joystick';
+import { walkingPets } from '../lib/pets';
+import { FingerPad } from '../components/FingerPad';
+import { WalkControls, useWalkControls } from '../components/WalkControls';
 import { heartbeat, leaveGame, playersInGame } from '../lib/presence';
 import { supabase } from '../lib/supabase';
 import type { FoundPlayer } from '../lib/players';
@@ -13,10 +13,7 @@ import type { ShopItem } from '../shop/catalog';
 
 const CHAR_ICON: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷', parrot: '🦜', mila: '🐄', gabby: '🦒', amsaal: '🐥', misha: '🐄', joy: '🐾', melly: '🦭', martin: '🦔' };
 const charIcon = (id: string) => CHAR_ICON[id] ?? '🙂';
-// The joystick-mode "pick / interact" button fires the same Space key the games listen for.
-function fireKey(code: string, down: boolean) {
-  window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { code, key: code === 'Space' ? ' ' : code, bubbles: true }));
-}
+
 // A little stock every player's stall offers, so you can always buy from a neighbour.
 const RIVAL_GOODS: Array<{ id: string; price: number }> = [
   { id: 'berries', price: 4 }, { id: 'apple', price: 4 }, { id: 'fish', price: 8 }, { id: 'wood', price: 3 }, { id: 'mushroom', price: 4 },
@@ -48,8 +45,8 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
   const [storeOpen, setStoreOpen] = useState(true);
   // Which tab of your stand is showing: sell your goods, or eat your food.
   const [standTab, setStandTab] = useState<'sell' | 'eat'>('sell');
-  // How you walk on a phone: a thumb joystick, or the arrow buttons.
-  const [controls, setControls] = useState<'buttons' | 'joystick'>('buttons');
+  // How you walk on a phone or iPad: arrow buttons, a thumb joystick, or your finger.
+  const [controls, pickControls] = useWalkControls('market-controls');
   // On phones the panel is collapsed by default so it never hides the game.
   const [standOpen, setStandOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth > 700 : true));
   const [livePlayers, setLivePlayers] = useState<FoundPlayer[]>([]);
@@ -67,8 +64,7 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
       characterAsset: characterAssets[character],
       supplies: suppliesRef.current,
       selling: sellMode,
-      petSpecies: activePet()?.species ?? null,   // your pet comes to the market too
-      petDye: activePetDye(),
+      pets: walkingPets(),   // every pet you've set walking comes to the market too
       onUpdate: setSnapshot,
       onGather: (next) => gatherRef.current(next),
     });
@@ -168,6 +164,9 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
   return <main className="quest-page">
     <div className="quest-stage">
       <div className="quest-canvas" ref={mount} />
+      {/* Walk-with-your-finger. It lives here, before every panel, so the panels
+          and buttons still take taps where they overlap it. */}
+      {controls === 'finger' && <FingerPad onTap={() => engine.current?.pick()} hint="👆 Drag here to walk · drag the right side to look" />}
 
       <div className="quest-hud">
         <div className="quest-day"><strong>🪙 {coins} gold</strong><small>{shop ? `Inside ${shop.name}` : snapshot?.inForest ? 'In the forest' : 'Walking the street'}</small></div>
@@ -197,23 +196,8 @@ export function TownMarketPage({ character, coins, ownedItems, supplies, onGathe
       <button className="quest-full" onClick={goFullscreen}>⛶ Fullscreen</button>
       <button className="quest-leave" onClick={onBack}>← Leave</button>
 
-      {/* Phone controls: pick a joystick OR the arrow buttons to walk; ⤴ to pick/interact. */}
-      <button className="control-mode-toggle" onClick={() => setControls((c) => (c === 'buttons' ? 'joystick' : 'buttons'))}>
-        {controls === 'buttons' ? '🕹️ Use joystick' : '🎮 Use buttons'}
-      </button>
-      {controls === 'buttons'
-        ? <KeyPad dirs={['up', 'down', 'left', 'right']} actions={[{ codes: ['Space'], label: '⤴' }]} />
-        : <>
-            <Joystick />
-            <button
-              className="joy-action" aria-hidden="true"
-              onPointerDown={(e) => { e.preventDefault(); fireKey('Space', true); }}
-              onPointerUp={() => fireKey('Space', false)}
-              onPointerLeave={() => fireKey('Space', false)}
-              onPointerCancel={() => fireKey('Space', false)}
-              onContextMenu={(e) => e.preventDefault()}
-            >⤴</button>
-          </>}
+      {/* Touch controls: walk with the arrow buttons, a joystick, or your finger. */}
+      <WalkControls mode={controls} onPick={pickControls} actionLabel="Jump" />
 
       {snapshot?.message && <p className="quest-message">{snapshot.message}</p>}
       {!shop && snapshot?.target && <p className="gather-prompt">{

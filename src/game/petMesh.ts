@@ -9,12 +9,23 @@ export interface PetMesh {
   flyer: boolean;           // hovers + flaps instead of walking
 }
 
-/** A pet that's alive in a scene — its world position and little wander brain. */
-export interface LivePet extends PetMesh { x: number; z: number; yaw: number; phase: number; wanderT: number; tx: number; tz: number; resting: boolean; restX: number; restZ: number }
+/** One of your pets, as handed to a 3-D world: who it is, and what colour. */
+export interface ScenePetSpec { id: string; species: PetSpecies; name: string; dye: string | null }
 
-export function makeLivePet(mesh: PetMesh, x: number, z: number): LivePet {
-  return Object.assign(mesh, { x, z, yaw: 0, phase: 0, wanderT: 0, tx: x, tz: z, resting: false, restX: x, restZ: z });
+/** A pet that's alive in a scene — its world position and little wander brain. */
+export interface LivePet extends PetMesh {
+  x: number; z: number; yaw: number; phase: number; wanderT: number; tx: number; tz: number;
+  resting: boolean; restX: number; restZ: number;
+  /** Its place in the parade, so several pets walk beside each other, not inside each other. */
+  slot: number;
 }
+
+export function makeLivePet(mesh: PetMesh, x: number, z: number, slot = 0): LivePet {
+  return Object.assign(mesh, { x, z, yaw: 0, phase: 0, wanderT: 0, tx: x, tz: z, resting: false, restX: x, restZ: z, slot });
+}
+
+/** Where each pet walks relative to the spot behind you, so a parade fans out. */
+const FAN = [0, 0.85, -0.85, 1.7];
 
 /**
  * Move a pet like a real Minecraft animal: when its owner walks off it trots
@@ -42,8 +53,11 @@ export function stepPet(p: LivePet, px: number, pz: number, pyaw: number, dt: nu
   const toOwner = Math.hypot(px - p.x, pz - p.z);
   let tx: number, tz: number, speed: number;
   if (toOwner > 3.4) {
-    // Owner is getting away — trot to a spot just behind them.
-    tx = px + Math.sin(pyaw) * 1.2; tz = pz + Math.cos(pyaw) * 1.2;
+    // Owner is getting away — trot to a spot just behind them, each pet to its
+    // own side so a whole parade doesn't pile onto one square.
+    const side = FAN[p.slot % FAN.length];
+    tx = px + Math.sin(pyaw) * 1.2 + Math.cos(pyaw) * side;
+    tz = pz + Math.cos(pyaw) * 1.2 - Math.sin(pyaw) * side;
     speed = (p.flyer ? 6 : 5) * dt;
   } else {
     // Close by — wander to little random spots, pausing between, staying near you.

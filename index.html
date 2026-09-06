@@ -24,6 +24,29 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <!--
+      Touch controls (the D-pad, the joystick and the finger pad) used to be
+      switched on by a `(hover: none) and (pointer: coarse)` media query. An
+      iPad in Safari's default "Request Desktop Website" mode reports
+      hover:hover and pointer:fine, so that query was false and EVERY on-screen
+      control vanished — leaving no way to walk. So the app marks the page
+      `touch-device` here instead, from the things a browser cannot fake.
+    -->
+    <script>
+      (function () {
+        var el = document.documentElement;
+        function on() {
+          if ((' ' + el.className + ' ').indexOf(' touch-device ') < 0) el.className += ' touch-device';
+        }
+        try {
+          if (window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches) on();
+          // An iPad in desktop mode claims to be a Mac — but a real Mac reports 0 touch points.
+          else if ((navigator.maxTouchPoints || 0) > 0 && /Mac|iPad|iPhone|iPod/.test(navigator.userAgent)) on();
+          // Any other touchscreen (a Windows laptop, an Android tablet) turns them on at first touch.
+          window.addEventListener('touchstart', on, true);
+        } catch (e) { /* controls stay hidden rather than crashing the page */ }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

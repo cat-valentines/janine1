@@ -30,7 +30,7 @@ import { HouseBuilderPage } from './HouseBuilderPage';
 // three.js is ~500KB — load it only when a player actually opens their house.
 const HouseWorldPage = lazy(() => import('./HouseWorldPage').then((m) => ({ default: m.HouseWorldPage })));
 import { emptyWorld, normaliseWorld } from '../game/voxel';
-import { activePet, activePetDye, loadPets } from '../lib/pets';
+import { loadPets, walkingPets } from '../lib/pets';
 import { shopItemById } from '../lib/petShop';
 import { currentSeason } from '../game/terrain';
 import { islands } from '../game/islands';
@@ -60,6 +60,7 @@ import { ProveHumanPage } from './ProveHumanPage';
 import { MoreGamesPage } from './MoreGamesPage';
 import { SongStudioPage } from './SongStudioPage';
 import { SingStarPage } from './SingStarPage';
+const ChessPage = lazy(() => import('./ChessPage').then((m) => ({ default: m.ChessPage })));
 import type { GameId } from '../game/gameList';
 import { AccountSetupPage } from './AccountSetupPage';
 import { loadAccountState } from '../lib/players';
@@ -96,6 +97,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const humanOpen = path === '/play/human';
   const songOpen = path === '/play/song';
   const singOpen = path === '/play/sing';
+  const chessOpen = path === '/play/chess';
   const escapeRoomOpen = path === '/play/escaperoom';
   const medicineIsland = paramOf(path, '/play/medicine');
   const runnerIsland = paramOf(path, '/play/runner');
@@ -376,6 +378,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     if (id === 'human') navigate('/play/human');
     if (id === 'song') navigate('/play/song');
     if (id === 'singstar') navigate('/play/sing');
+    if (id === 'chess') navigate('/play/chess');
   };
 
   if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => home()} />;
@@ -390,6 +393,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   if (humanOpen) return <ProveHumanPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (songOpen) return <SongStudioPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (singOpen) return <SingStarPage onScore={(coins) => award(coins)} onBack={() => home()} />;
+  if (chessOpen) return <Suspense fallback={<main className="quest-pick chess-pick"><p className="world-loading">Setting up the board…</p></main>}><ChessPage onScore={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
   if (escapeRoomOpen) return <Suspense fallback={<main className="island-page"><p className="world-loading">Sailing to the island…</p></main>}><IslandWorldPage character={character} onScore={(coins) => { award(coins); setCompletedQuests((q) => q + 1); }} onBack={() => home()} /></Suspense>;
   if (gruitsOpen) return <GruitsPage onScore={(points) => award(Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;
@@ -411,8 +415,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     wood={wood}
     onWood={() => setWood((n) => n + 4)}
     onUseWood={() => setWood((n) => Math.max(0, n - 1))}
-    petSpecies={activePet()?.species ?? null}
-    petDye={activePetDye()}
+    pets={walkingPets()}
     petSupplies={Object.entries(loadPets().supplies).flatMap(([id, n]) => { const it = shopItemById(id); return it && it.category !== 'house' ? Array.from({ length: n as number }, () => id) : []; })}
     petHouses={Object.entries(loadPets().supplies).flatMap(([id, n]) => { const it = shopItemById(id); return it && it.category === 'house' ? Array.from({ length: n as number }, () => id) : []; })}
     hasLadder={hasLadder}
