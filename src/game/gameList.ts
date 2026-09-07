@@ -16,8 +16,10 @@ export interface GameCard {
 /**
  * Every game, in one place.
  *
- * The shelf on the front page and the More page both read this, so the two can
- * never drift apart and no game can quietly go missing from one of them.
+ * The "See all games" page and the in-app assistant read this list. The shelf of
+ * buttons on the front page does NOT — it is hand-written in SelectionPage, so
+ * that the big games can have their own colours and wording. **Adding a game
+ * means adding it in both places**, plus its route in `openGame`.
  */
 export const gameList: GameCard[] = [
   { id: 'tower', name: 'Tower Royal', icon: '🏰', kind: 'Adventure', blurb: 'Climb ten floors of a haunted tower, dodge the cats and duck the lasers.' },

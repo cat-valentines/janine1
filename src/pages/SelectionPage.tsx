@@ -500,6 +500,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
         <button className="friction-button" onClick={() => navigate('/play/friction')}>🧊 Slip &amp; Grip <span>→</span></button>
         <button className="song-button" onClick={() => navigate('/play/song')}>🎵 Song Studio <span>→</span></button>
         <button className="sing-button" onClick={() => navigate('/play/sing')}>🎤 Sing Star <span>→</span></button>
+        <button className="chess-button" onClick={() => navigate('/play/chess')}>♟️ Chess <span>→</span></button>
         <button className="human-button" onClick={() => navigate('/play/human')}>🤖 Prove You're Human <span>→</span></button>
       </div>
       <button className="more-button" onClick={() => navigate('/games')}>⊞ See all games <span>→</span></button>
