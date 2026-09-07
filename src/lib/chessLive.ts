@@ -119,8 +119,8 @@ export interface ChessMatch {
   /** Offer / accept a draw. */
   offerDraw: () => void;
   acceptDraw: () => void;
-  /** Say hello so both sides know the other arrived. */
-  hello: () => void;
+  /** Say hello so both sides know the other arrived — and who they are. */
+  hello: (character: string) => void;
   leave: () => void;
 }
 
@@ -135,7 +135,7 @@ export interface MatchHandlers {
   onDrawOffer: () => void;
   onDrawAccepted: () => void;
   /** They arrived, or they left. */
-  onHello: (name: string) => void;
+  onHello: (name: string, character: string) => void;
   onLeft: () => void;
 }
 
@@ -162,8 +162,8 @@ export function joinChessMatch(
     if (!mine((payload as { from?: string })?.from)) handlers.onDrawAccepted();
   });
   channel.on('broadcast', { event: 'hello' }, ({ payload }) => {
-    const p = payload as { from?: string; name?: string };
-    if (!mine(p?.from)) handlers.onHello(p?.name ?? 'your opponent');
+    const p = payload as { from?: string; name?: string; character?: string };
+    if (!mine(p?.from)) handlers.onHello(p?.name ?? 'your opponent', p?.character ?? '');
   });
   channel.on('broadcast', { event: 'bye' }, ({ payload }) => {
     if (!mine((payload as { from?: string })?.from)) handlers.onLeft();
@@ -178,7 +178,7 @@ export function joinChessMatch(
     resign: () => say('resign'),
     offerDraw: () => say('draw-offer'),
     acceptDraw: () => say('draw-accept'),
-    hello: () => say('hello'),
+    hello: (character) => say('hello', { character }),
     leave: () => { say('bye'); supabase.removeChannel(channel); },
   };
 }

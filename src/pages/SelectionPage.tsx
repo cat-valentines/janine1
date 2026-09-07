@@ -334,6 +334,10 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     const showUser = (metadata: Record<string, unknown>) => { setUsername(String(metadata.display_name ?? metadata.full_name ?? metadata.name ?? 'Island Player')); setAuthMode(null); };
     supabase.auth.getUser().then(({ data }) => { if (data.user) showUser(data.user.user_metadata); });
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Keep `signedIn` in step too: without this someone who signs up mid-game
+      // was still treated as a guest until they reloaded the page — so the very
+      // coins they signed up to keep would still have been withheld.
+      setSignedIn(!!session?.user);
       if (session?.user) showUser(session.user.user_metadata);
       else setUsername('');
     });
@@ -404,7 +408,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   if (humanOpen) return <ProveHumanPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (songOpen) return <SongStudioPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (singOpen) return <SingStarPage onScore={(coins) => award(coins)} onBack={() => home()} />;
-  if (chessOpen) return <Suspense fallback={<main className="quest-pick chess-pick"><p className="world-loading">Setting up the board…</p></main>}><ChessPage onScore={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
+  if (chessOpen) return <Suspense fallback={<main className="quest-pick chess-pick"><p className="world-loading">Setting up the board…</p></main>}><ChessPage character={character} signedIn={signedIn} onSignIn={() => setAuthMode('signup')} onScore={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
   if (fishingOpen) return <Suspense fallback={<main className="quest-pick fishing-pick"><p className="world-loading">Getting the boat ready…</p></main>}><FishingFrenzyPage onScore={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
   if (escapeRoomOpen) return <Suspense fallback={<main className="island-page"><p className="world-loading">Sailing to the island…</p></main>}><IslandWorldPage character={character} onScore={(coins) => { award(coins); setCompletedQuests((q) => q + 1); }} onBack={() => home()} /></Suspense>;
   if (gruitsOpen) return <GruitsPage onScore={(points) => award(Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;

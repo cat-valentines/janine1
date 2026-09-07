@@ -1,3 +1,4 @@
+import { CHESS_DRAW_COINS, CHESS_WIN_COINS, GUEST_NAME, chessPrize } from '../../src/lib/guestRules';
 import { initialState, legalMoves, playMove, capturedPieces, applyMove, type ChessState, type Move, type PieceType, type Square, type Piece, type Colour, positionKey } from '../../src/game/chess';
 
 function fromFen(fen: string): ChessState {
@@ -84,5 +85,25 @@ check('  ...and the missing pawns still count', capturedPieces(twoQueens).w.filt
 // Promotion really does put an extra queen on the board.
 const promo = applyMove(fromFen('8/4P3/8/8/8/8/8/K6k w - - 0 1'), { from: 12, to: 4, promotion: 'q' });
 check('promotion adds a queen', promo.board.filter((p) => p?.type === 'q' && p.colour === 'w').length, 1);
+
+// ---- what a finished game pays -------------------------------------------
+check('winning is worth 10 coins', CHESS_WIN_COINS, 10);
+check('a signed-in winner keeps them', chessPrize('win', true), { coins: 10, offerAccount: 0 });
+check('a signed-in draw pays less', chessPrize('draw', true), { coins: CHESS_DRAW_COINS, offerAccount: 0 });
+check('losing pays nothing', chessPrize('loss', true), { coins: 0, offerAccount: 0 });
+
+// A guest plays and wins the same game — the coins just have nowhere to go, so
+// they come back as an offer of an account rather than vanishing silently.
+check('a guest who wins gets no coins', chessPrize('win', false).coins, 0);
+check('  ...but is shown what an account would keep', chessPrize('win', false).offerAccount, 10);
+check('a guest who draws is offered those too', chessPrize('draw', false).offerAccount, CHESS_DRAW_COINS);
+check('a guest who loses is offered nothing', chessPrize('loss', false), { coins: 0, offerAccount: 0 });
+check('a guest is never paid AND offered', ['win', 'draw', 'loss'].every((r) => {
+  const prize = chessPrize(r as 'win', false);
+  return prize.coins === 0 || prize.offerAccount === 0;
+}), true);
+
+// Everyone without an account is called the same thing, and cannot change it.
+check('a player without an account is a Guest', GUEST_NAME, 'Guest');
 
 process.exit(bad ? 1 : 0);

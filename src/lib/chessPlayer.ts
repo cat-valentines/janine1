@@ -1,22 +1,30 @@
 /**
- * Who you are at the chess table.
+ * Who you are at the table.
  *
- * Signed-in players use their real account, but plenty of players here are
- * guests (schools block the Google sign-in, so guest play is the normal way in),
- * and a guest still needs a stable id and a name to be matched with. So a guest
- * gets a nickname and an id kept on their own device.
+ * Signing in gets you your own name and your prizes. Without an account you are
+ * simply **Guest** — everyone sees you that way, the name is not yours to change
+ * or keep, and a guest's winnings are not saved. That is deliberate: coins,
+ * medals and cups belong to an account, so there is a real reason to make one.
+ *
+ * A guest still gets a private id kept on their own device, so the lobby can
+ * tell two guests apart and send each of them the right moves.
  */
 import { storage } from './storage';
 import { supabase } from './supabase';
 import { loadLocalProfile } from './localProfile';
+import { GUEST_NAME } from './guestRules';
 
-export interface ChessPlayer { id: string; name: string; character: string; guest: boolean }
+export interface ChessPlayer {
+  id: string;
+  /** What everybody sees. Always "Guest" for someone without an account. */
+  name: string;
+  character: string;
+  guest: boolean;
+}
 
-const ID_KEY = 'chess-guest-id';
-const NAME_KEY = 'chess-guest-name';
+const ID_KEY = 'guest-player-id';
 
-const ANIMALS = ['Fox', 'Panda', 'Otter', 'Robin', 'Koala', 'Tiger', 'Puffin', 'Badger', 'Heron', 'Lynx'];
-
+/** A private id for this device — never shown, only used to route moves. */
 function guestId(): string {
   const saved = storage.get(ID_KEY);
   if (saved) return saved;
@@ -25,21 +33,7 @@ function guestId(): string {
   return made;
 }
 
-/** A guest's chosen nickname, or a friendly made-up one the first time. */
-export function guestName(): string {
-  const saved = storage.get(NAME_KEY);
-  if (saved) return saved;
-  const made = `${ANIMALS[Math.floor(Math.random() * ANIMALS.length)]}${Math.floor(Math.random() * 90) + 10}`;
-  storage.set(NAME_KEY, made);
-  return made;
-}
-
-export function setGuestName(name: string) {
-  const clean = name.trim().slice(0, 16);
-  if (clean) storage.set(NAME_KEY, clean);
-}
-
-/** Your identity for the lobby: your account if you have one, else this device. */
+/** Your identity for the lobby: your account if you have one, else a guest. */
 export async function chessPlayer(): Promise<ChessPlayer> {
   const character = loadLocalProfile().character;
   try {
@@ -50,5 +44,5 @@ export async function chessPlayer(): Promise<ChessPlayer> {
       if (name) return { id: user.id, name, character, guest: false };
     }
   } catch { /* signed out, or offline — play as a guest */ }
-  return { id: guestId(), name: guestName(), character, guest: true };
+  return { id: guestId(), name: GUEST_NAME, character, guest: true };
 }

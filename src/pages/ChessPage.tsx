@@ -7,15 +7,22 @@ import {
 } from '../game/chess';
 import { CHESS_BOTS, botChat, chooseMove, type ChessBot } from '../game/chessBot';
 import { joinChessLobby, joinChessMatch, type ChessLobby, type ChessMatch, type Seeker } from '../lib/chessLive';
-import { chessPlayer, guestName, setGuestName, type ChessPlayer } from '../lib/chessPlayer';
+import { chessPlayer, type ChessPlayer } from '../lib/chessPlayer';
+import { chessPrize, CHESS_WIN_COINS, type ChessResult } from '../lib/guestRules';
 import { chessAlertOn, setChessAlertOn } from '../lib/chessAlert';
 import { heartbeat, leaveGame } from '../lib/presence';
 import { characterAssets } from '../game/characters';
 import type { CharacterId } from '../game/types';
 
 interface ChessPageProps {
-  /** Coins for winning — the same reward every other game hands out. */
+  /** Your character, so your own picture sits at the board. */
+  character: CharacterId;
+  /** Coins for winning — only a signed-in player can keep them. */
   onScore: (coins: number) => void;
+  /** False for a guest: they play everything, but nothing is saved. */
+  signedIn: boolean;
+  /** Open the sign-up / log-in window, so a guest can keep what they win. */
+  onSignIn: () => void;
   onBack: () => void;
 }
 
@@ -29,10 +36,7 @@ type Opponent =
 /** Every move played, so the game can show a move list. */
 interface PlayedMove { text: string; colour: Colour }
 
-const WIN_COINS = 12;
-const DRAW_COINS = 4;
-
-export function ChessPage({ onScore, onBack }: ChessPageProps) {
+export function ChessPage({ character, onScore, signedIn, onSignIn, onBack }: ChessPageProps) {
   const [screen, setScreen] = useState<Screen>('menu');
   const [me, setMe] = useState<ChessPlayer | null>(null);
 
@@ -56,8 +60,11 @@ export function ChessPage({ onScore, onBack }: ChessPageProps) {
   const [waitingOn, setWaitingOn] = useState<string | null>(null);
   const [lobbyNote, setLobbyNote] = useState('');
   const [alertOn, setAlertOn] = useState(chessAlertOn);
-  const [nickname, setNickname] = useState(guestName);
   const [drawOffer, setDrawOffer] = useState(false);
+  /** The live opponent's character, so their own picture sits opposite you. */
+  const [oppCharacter, setOppCharacter] = useState<CharacterId | ''>('');
+  /** Set when a guest wins but has no account to keep the coins in. */
+  const [missedCoins, setMissedCoins] = useState(0);
 
   const lobby = useRef<ChessLobby | null>(null);
   const match = useRef<ChessMatch | null>(null);
@@ -111,19 +118,21 @@ export function ChessPage({ onScore, onBack }: ChessPageProps) {
     return () => { clearTimeout(timer); setThinking(false); };
   }, [screen, opponent, state, myColour, gameOver, record]);
 
-  // Coins, once, when a game finishes.
+  // Coins, once, when a game finishes. A guest wins the game just the same, but
+  // coins live on an account — so instead of the coins they get the offer of one.
   useEffect(() => {
     if (screen !== 'game' || rewarded) return;
-    if (ended) {
-      if (ended.won === true) { onScore(WIN_COINS); setRewarded(true); }
-      else if (ended.won === null) { onScore(DRAW_COINS); setRewarded(true); }
-      return;
-    }
-    if (!end.over) return;
-    if (end.result === 'checkmate') { if (end.winner === myColour) onScore(WIN_COINS); }
-    else onScore(DRAW_COINS);
+    let result: ChessResult;
+    if (ended) result = ended.won === true ? 'win' : ended.won === null ? 'draw' : 'loss';
+    else if (!end.over) return;
+    else if (end.result === 'checkmate') result = end.winner === myColour ? 'win' : 'loss';
+    else result = 'draw';
+
     setRewarded(true);
-  }, [screen, end, ended, myColour, onScore, rewarded]);
+    const prize = chessPrize(result, signedIn);
+    if (prize.coins > 0) onScore(prize.coins);
+    if (prize.offerAccount > 0) setMissedCoins(prize.offerAccount);
+  }, [screen, end, ended, myColour, onScore, rewarded, signedIn]);
 
   // Tell the server you're at the chess board, so other players can find you.
   useEffect(() => {
@@ -169,6 +178,7 @@ export function ChessPage({ onScore, onBack }: ChessPageProps) {
     setRewarded(false);
     setDrawOffer(false);
     setBubble('');
+    setMissedCoins(0);
     setMyColour(colour);
   };
 
@@ -208,11 +218,11 @@ export function ChessPage({ onScore, onBack }: ChessPageProps) {
       onResign: () => setEnded({ text: `${opponentName} resigned — you win! 🏆`, won: true }),
       onDrawOffer: () => setDrawOffer(true),
       onDrawAccepted: () => setEnded({ text: 'You both agreed a draw. 🤝', won: null }),
-      onHello: () => setLobbyNote(''),
+      onHello: (_name, theirCharacter) => { setLobbyNote(''); setOppCharacter((theirCharacter || '') as CharacterId | ''); },
       onLeft: () => setEnded({ text: `${opponentName} left the game.`, won: null }),
     });
-    match.current.hello();
-  }, [me, record]);
+    match.current.hello(character);
+  }, [me, record, character]);
 
   const startMatchRef = useRef(startMatch);
   startMatchRef.current = startMatch;
@@ -330,11 +340,14 @@ export function ChessPage({ onScore, onBack }: ChessPageProps) {
       </header>
 
       <section className="quest-pick-card chess-lobby">
-        {me?.guest && <label className="chess-nickname">
-          <span>Your name in the lobby</span>
-          <input value={nickname} maxLength={16} onChange={(e) => setNickname(e.target.value)}
-            onBlur={() => { setGuestName(nickname); chessPlayer().then(setMe); }} />
-        </label>}
+        {me?.guest && <div className="chess-guest-note">
+          <span>👤</span>
+          <div>
+            <strong>You are playing as Guest</strong>
+            <small>Everyone sees you as “Guest”, and a guest's name and coins are not saved. Make a free account to play under your own name and keep what you win.</small>
+          </div>
+          <button onClick={onSignIn}>Sign up</button>
+        </div>}
 
         {seekers.length > 0 ? <>
           <h2>{seekers.length} player{seekers.length === 1 ? '' : 's'} waiting</h2>
@@ -386,22 +399,45 @@ export function ChessPage({ onScore, onBack }: ChessPageProps) {
     </div>
 
     <div className="chess-table">
-      <aside className="chess-player-card them">
-        {botOpponent ? <>
-          <div className={`chess-bot-face ${thinking ? 'thinking' : ''}`}>
-            <img src={botOpponent.asset} alt="" className="chess-bot-pixel" />
-            <span className="chess-bot-emoji">{botOpponent.emoji}</span>
+      <div className="chess-players">
+        {/* Whoever you are playing, at the top, with their own picture. */}
+        <aside className="chess-player-card them">
+          {botOpponent ? <>
+            <div className={`chess-bot-face ${thinking ? 'thinking' : ''}`}>
+              <img src={botOpponent.asset} alt="" className="chess-bot-pixel" />
+              <span className="chess-bot-emoji">{botOpponent.emoji}</span>
+            </div>
+            <strong>{botOpponent.name}</strong>
+            <em>{botOpponent.level}</em>
+          </> : <>
+            <div className="chess-bot-face">
+              {/* Their picture arrives with their hello — until then, no picture
+                  at all rather than somebody else's character. */}
+              {oppCharacter
+                ? <img src={characterAssets[oppCharacter]} alt="" className="chess-bot-pixel" />
+                : <span className="chess-bot-waiting">♟️</span>}
+              <span className="chess-bot-emoji">{state.turn !== myColour ? '⏳' : '♟️'}</span>
+            </div>
+            <strong>{opponent?.kind === 'live' ? opponent.name : 'Your opponent'}</strong>
+            <em>{opponent?.kind === 'live' && opponent.name === 'Guest' ? 'Playing as a guest' : 'Live player'}</em>
+          </>}
+          <span className="chess-side-dot">{myColour === 'w' ? '⚫ Black' : '⚪ White'}</span>
+          <TakenPieces pieces={taken[myColour]} colour={myColour} />
+          {botOpponent && bubble && <p className="chess-bubble">{bubble}</p>}
+        </aside>
+
+        {/* And you, underneath, so both players are seen at the board. */}
+        <aside className="chess-player-card me">
+          <div className="chess-bot-face">
+            <img src={characterAssets[character]} alt="" className="chess-bot-pixel" />
+            <span className="chess-bot-emoji">{myTurn ? '👉' : '🙂'}</span>
           </div>
-          <strong>{botOpponent.name}</strong>
-          <em>{botOpponent.level}</em>
-          {bubble && <p className="chess-bubble">{bubble}</p>}
-        </> : <>
-          <div className="chess-bot-face"><span className="chess-bot-emoji">🌍</span></div>
-          <strong>{opponent?.kind === 'live' ? opponent.name : 'Your opponent'}</strong>
-          <em>Live player</em>
-        </>}
-        <TakenPieces pieces={taken[myColour]} colour={myColour} />
-      </aside>
+          <strong>{me?.name ?? 'You'}{me?.guest ? '' : ' (you)'}</strong>
+          <em>{me?.guest ? 'Guest — nothing is saved' : 'You'}</em>
+          <span className="chess-side-dot">{myColour === 'w' ? '⚪ White' : '⚫ Black'}</span>
+          <TakenPieces pieces={taken[other(myColour)]} colour={other(myColour)} />
+        </aside>
+      </div>
 
       <div className="chess-board-wrap">
         <ChessBoard
@@ -425,11 +461,17 @@ export function ChessPage({ onScore, onBack }: ChessPageProps) {
             {history.map((entry, i) => <li key={i} className={entry.colour === 'w' ? 'white-move' : 'black-move'}>{entry.text}</li>)}
           </ol>
         </div>
-        <TakenPieces pieces={taken[other(myColour)]} colour={other(myColour)} />
         {!gameOver && <div className="chess-actions">
           <button onClick={resign}>🏳️ Resign</button>
           {opponent?.kind === 'live' && <button onClick={() => match.current?.offerDraw()}>🤝 Offer a draw</button>}
         </div>}
+        {gameOver && missedCoins > 0 && <div className="chess-signup-prize">
+          <strong>🪙 {missedCoins} coins were waiting for you!</strong>
+          <small>Coins are kept on your account, and you are playing as a guest — so these could not be saved. Sign up (it is free) and every game you win after that keeps its coins.</small>
+          <button onClick={onSignIn}>Sign up / Log in</button>
+        </div>}
+        {gameOver && missedCoins === 0 && signedIn && end.over && end.result === 'checkmate' && end.winner === myColour
+          && <p className="chess-won-coins">🪙 +{CHESS_WIN_COINS} coins for the win!</p>}
         {gameOver && <div className="chess-actions">
           {botOpponent && <button className="again" onClick={() => startBotGame(botOpponent, myColour)}>↻ Play again</button>}
           <button onClick={quitGame}>Choose another opponent</button>
