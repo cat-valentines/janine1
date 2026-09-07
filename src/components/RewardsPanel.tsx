@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { loadRewards, setStreakHolderArmed, CONSUMABLES, type ConsumableKind } from '../lib/rewards';
+import { HONOURS, INSTA_PRIZES, MEDALS, placeIn } from '../lib/honours';
+import { supabase } from '../lib/supabase';
 
 /** Friendly relative time. */
 function ago(at: string) {
@@ -18,6 +20,11 @@ const ORDER: ConsumableKind[] = ['streakHolder'];
  */
 export function RewardsPanel() {
   const [state, setState] = useState(loadRewards);
+  // Your own name, so the honours board can point out the months you won.
+  const [me, setMe] = useState('');
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setMe((data.user?.user_metadata.display_name as string | undefined) ?? ''));
+  }, []);
   const toggleHolder = () => setState(setStreakHolderArmed(!state.streakHolderArmed));
   const hasSpringTrophy = state.cups.some((cup) => cup.season === 'spring');
   const hasSummerTrophy = state.cups.some((cup) => cup.season === 'summer');
@@ -63,15 +70,50 @@ export function RewardsPanel() {
     </section>
 
     <section className="rewards-section">
-      <h2>🏅 Summer 2026 medals</h2>
-      <p className="rewards-note">Finish the Summer 2026 leaderboard in 1st, 2nd, or 3rd place to earn the matching medal.</p>
+      <h2>🏅 Monthly medals <small>({state.medals.length} won)</small></h2>
+      <p className="rewards-note">
+        The top three players on the leaderboard win a medal <b>every single month</b>. Finish a whole
+        season in the top three and you take that season's <b>Champion Cup</b> as well.
+      </p>
       <div className="season-medals">
-        {[1, 2, 3].map((place) => <div className="season-medal locked-medal" key={place}>
-          <img src={`/assets/pixel-summer-medal-${place}.png`} alt={`Dimmed Summer 2026 ${place} place medal`} />
-          <strong>{place}{place === 1 ? 'st' : place === 2 ? 'nd' : 'rd'} Place</strong>
+        {state.medals.map((medal) => <div className="season-medal" key={medal.id}>
+          <img src={MEDALS[medal.place].art} alt={`${medal.label} ${MEDALS[medal.place].name} medal`} />
+          <strong>{MEDALS[medal.place].name}</strong>
+          <small>{medal.label}</small>
+        </div>)}
+        {state.medals.length === 0 && [1, 2, 3].map((place) => <div className="season-medal locked-medal" key={place}>
+          <img src={MEDALS[place as 1 | 2 | 3].art} alt={`Dimmed ${place} place medal`} />
+          <strong>{MEDALS[place as 1 | 2 | 3].name}</strong>
           <small>🔒 Not earned yet</small>
         </div>)}
       </div>
+    </section>
+
+    <section className="rewards-section">
+      <h2>📜 Roll of honour</h2>
+      <p className="rewards-note">Every month that has finished, and who was on the podium. Congratulations to all of them!</p>
+      {HONOURS.map((result) => {
+        const mine = placeIn(result, me);
+        return <div className={`honour-month ${mine ? 'yours' : ''}`} key={result.key}>
+          <div className="honour-head">
+            <strong>{result.label}</strong>
+            {result.endsSeason && <em>🏆 Season finale — the podium also took the Champion Cup</em>}
+          </div>
+          <ol className="honour-podium">
+            {result.podium.map((who, i) => {
+              const place = (i + 1) as 1 | 2 | 3;
+              const isMe = !!me && who.trim().toLowerCase() === me.trim().toLowerCase();
+              return <li key={who} className={isMe ? 'you' : ''}>
+                <span className="honour-medal">{MEDALS[place].icon}</span>
+                <strong>{who}{isMe ? ' (you)' : ''}</strong>
+                <small>{MEDALS[place].name}</small>
+                <i>{INSTA_PRIZES[place]}</i>
+              </li>;
+            })}
+          </ol>
+          {mine && <p className="honour-yours">🎉 Congratulations — you finished {MEDALS[mine].name.toLowerCase()} in {result.label}! Your medal is on the shelf above.</p>}
+        </div>;
+      })}
     </section>
 
     <section className="rewards-section">

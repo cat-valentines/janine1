@@ -38,11 +38,15 @@ export function seasonForMonth(month: number): SeasonInfo {
 }
 
 export interface Cup { id: string; season: SeasonInfo['key']; name: string; cup: string; vines: string; wonAt: string }
+/** A monthly medal: the top three of every month get one. */
+export interface Medal { id: string; monthKey: string; label: string; place: 1 | 2 | 3; wonAt: string }
 export interface HistoryItem { id: string; icon: string; text: string; at: string }
 export interface RewardNotice { id: string; icon: string; text: string; at: string }
 
 export interface RewardsState {
   cups: Cup[];
+  /** One for every month you finished in the top three. */
+  medals: Medal[];
   uses: Record<ConsumableKind, number>;
   /** Armed streak-holder — set while it is watching your streak. */
   streakHolderArmed: boolean;
@@ -55,6 +59,10 @@ export interface RewardsState {
   lastRewardMonth: string;
   /** One-time flag: unearned "welcome" potions have been cleared. */
   migrated: boolean;
+  /** Recorded months already handed to this player, so nothing is given twice. */
+  claimedHonours: string[];
+  /** Recorded months whose "congratulations" has already been announced here. */
+  announcedHonours: string[];
 }
 
 const KEY = 'magic-islands-rewards';
@@ -62,15 +70,24 @@ let counter = 0;
 const uid = (p: string) => `${p}-${Date.now().toString(36)}-${(counter += 1)}`;
 
 const empty = (): RewardsState => ({
-  cups: [], uses: { streakHolder: 0 },
+  cups: [], medals: [], uses: { streakHolder: 0 },
   streakHolderArmed: false, history: [], earnedSeasons: [], welcomed: false, notices: [], totalWon: 0,
-  lastRewardMonth: '', migrated: false,
+  lastRewardMonth: '', migrated: false, claimedHonours: [], announcedHonours: [],
 });
 
 export function loadRewards(): RewardsState {
   const raw = storage.get(KEY);
   if (!raw) return empty();
-  try { return { ...empty(), ...(JSON.parse(raw) as Partial<RewardsState>) }; } catch { return empty(); }
+  try {
+    // Saves from before medals existed have no `medals` array, so fill in
+    // anything missing rather than trusting the shape that was stored.
+    const saved = JSON.parse(raw) as Partial<RewardsState>;
+    const state = { ...empty(), ...saved };
+    state.medals = saved.medals ?? [];
+    state.claimedHonours = saved.claimedHonours ?? [];
+    state.announcedHonours = saved.announcedHonours ?? [];
+    return state;
+  } catch { return empty(); }
 }
 
 function save(state: RewardsState): RewardsState { storage.set(KEY, JSON.stringify(state)); return state; }
@@ -127,6 +144,7 @@ export function checkSeasonalReward(rank: number | null, year: number, month: nu
   // A new month has begun — settle the month that just CONCLUDED.
   state.lastRewardMonth = monthKey;
   if (rank === null || rank > 3) { save(state); return null; }
+  const place = rank as 1 | 2 | 3;
   const pm = month === 0 ? 11 : month - 1;
   const py = month === 0 ? year - 1 : year;
   const season = seasonForMonth(pm);
@@ -134,18 +152,90 @@ export function checkSeasonalReward(rank: number | null, year: number, month: nu
   // it began so the whole winter is ONE season (no double cup at New Year).
   const seasonYear = (season.key === 'winter' && pm <= 1) ? py - 1 : py;
   const seasonKey = `${season.key}-${seasonYear}`;
-  if (state.earnedSeasons.includes(seasonKey)) { save(state); return null; }
 
-  state.earnedSeasons.push(seasonKey);
-  const cup: Cup = { id: uid('cup'), season: season.key, name: `${season.name} Champion Cup`, cup: season.cup, vines: season.vines, wonAt: new Date().toISOString() };
-  state.cups.unshift(cup);
-  state.totalWon += 1;
-  logHistory(state, '🏆', `Won the ${cup.name} (leaderboard #${rank})`);
-  notice(state, '🏆', `🏆 You won the ${cup.name} for finishing #${rank} on the leaderboard! Plus a Streak Holder.`);
-  // A champion's Streak Holder — the ONLY way it's handed out.
-  grantConsumable(state, 'streakHolder', true);
+  // A medal EVERY month you finish top three…
+  const label = `${MONTH_NAMES[pm]} ${py}`;
+  const medal = grantMedal(state, `${py}-${pm + 1}`, label, place);
+  // …and the season's cup on top, the first time you close a season up there.
+  const cup = grantCup(state, seasonKey, season, seasonYear);
+
+  if (medal || cup) {
+    const won = [medal && `the ${label} ${PLACE_NAME[place]} place medal`, cup && `the ${cup.name}`]
+      .filter(Boolean).join(' and ');
+    notice(state, PLACE_ICON[place], `🎉 You finished #${rank} in ${label} and won ${won}!`);
+    // A champion's Streak Holder — the ONLY way it's handed out.
+    if (cup) grantConsumable(state, 'streakHolder', true);
+  }
   save(state);
   return cup;
+}
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+const PLACE_NAME: Record<1 | 2 | 3, string> = { 1: '1st', 2: '2nd', 3: '3rd' };
+const PLACE_ICON: Record<1 | 2 | 3, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
+
+/** Give a monthly medal, if this player hasn't already got that month's. */
+function grantMedal(state: RewardsState, monthKey: string, label: string, place: 1 | 2 | 3): Medal | null {
+  if (state.medals.some((m) => m.monthKey === monthKey)) return null;
+  const medal: Medal = { id: uid('medal'), monthKey, label, place, wonAt: new Date().toISOString() };
+  state.medals.unshift(medal);
+  state.totalWon += 1;
+  logHistory(state, PLACE_ICON[place], `Won the ${label} ${PLACE_NAME[place]} place medal`);
+  return medal;
+}
+
+/** Give a season's cup, if this player hasn't already won that season. */
+function grantCup(state: RewardsState, seasonKey: string, season: SeasonInfo, year: number): Cup | null {
+  if (state.earnedSeasons.includes(seasonKey)) return null;
+  state.earnedSeasons.push(seasonKey);
+  const cup: Cup = {
+    id: uid('cup'), season: season.key, name: `${season.name} Champion Cup`,
+    cup: season.cup, vines: season.vines, wonAt: new Date().toISOString(),
+  };
+  state.cups.unshift(cup);
+  state.totalWon += 1;
+  logHistory(state, '🏆', `Won the ${season.name} Champion Cup ${year}`);
+  return cup;
+}
+
+/**
+ * Hand a player a month they are recorded as having won: the medal for the
+ * month, and the season's cup if that month closed a season. Safe to call as
+ * often as you like — a month already claimed is skipped.
+ */
+export function claimHonour(args: {
+  monthKey: string; label: string; place: 1 | 2 | 3;
+  endsSeason: boolean; season: SeasonInfo; seasonKey: string; seasonYear: number;
+}): { medal: Medal | null; cup: Cup | null } {
+  const state = loadRewards();
+  if (state.claimedHonours.includes(args.monthKey)) return { medal: null, cup: null };
+  state.claimedHonours.push(args.monthKey);
+
+  const medal = grantMedal(state, args.monthKey, args.label, args.place);
+  const cup = args.endsSeason ? grantCup(state, args.seasonKey, args.season, args.seasonYear) : null;
+  if (medal || cup) {
+    const won = [medal && `the ${args.label} ${PLACE_NAME[args.place]} place medal`, cup && `the ${cup.name} ${args.seasonYear}`]
+      .filter(Boolean).join(' and ');
+    notice(state, PLACE_ICON[args.place], `🎉 Congratulations! You finished ${PLACE_NAME[args.place]} in ${args.label} and won ${won}.`);
+    // The champion's Streak Holder rides along with a cup, as it always has.
+    if (cup) grantConsumable(state, 'streakHolder', true);
+  }
+  save(state);
+  return { medal, cup };
+}
+
+/**
+ * Tell this player who won a month — the congratulations everybody sees, winner
+ * or not. Announced once per recorded month.
+ */
+export function announceHonour(monthKey: string, text: string): boolean {
+  const state = loadRewards();
+  if (state.announcedHonours.includes(monthKey)) return false;
+  state.announcedHonours.push(monthKey);
+  notice(state, '🏆', text);
+  save(state);
+  return true;
 }
 
 /** Use one charge of a consumable. Returns true if a charge was spent. */

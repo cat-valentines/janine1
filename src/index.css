@@ -2826,3 +2826,35 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
   .fishing-scores { top: auto; bottom: 8px; right: 8px; }
   .fishing-prompt { bottom: 128px; font-size: .76rem; }
 }
+
+/* ---- Roll of honour: who was on the podium each month ---- */
+.honour-month { margin-bottom: 12px; padding: 13px; border: 2px solid #d8cbb8; border-radius: 14px; background: #fff; }
+.honour-month.yours { border-color: #c9a227; background: #fffbe9; box-shadow: 0 0 0 3px #f2c94c33; }
+.honour-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 9px; }
+.honour-head strong { font-size: .98rem; color: #3a2c22; }
+.honour-head em { color: var(--accent); font-style: normal; font-weight: 800; font-size: .72rem; }
+.honour-podium { display: grid; gap: 6px; list-style: none; }
+.honour-podium li { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 8px 11px; border-radius: 10px; background: #f7f2e8; }
+.honour-podium li.you { background: #eef7ea; box-shadow: inset 0 0 0 2px #4f7a45; }
+.honour-medal { font-size: 1.4rem; }
+.honour-podium strong { font-size: .88rem; color: #3a2c22; }
+.honour-podium small { color: var(--ink-soft); font-size: .7rem; }
+.honour-podium i { flex: 1 1 100%; color: #7a5c19; font-style: normal; font-size: .7rem; }
+.honour-yours { margin-top: 9px; padding: 9px 12px; border-radius: 10px; background: #fff3d6; color: #6a4f14; font-size: .8rem; font-weight: 700; }
+
+/* ---- The champions card pinned to the top of the Insta feed ---- */
+.insta-champions { margin: 0 auto 14px; padding: 15px; border: 3px solid #c9a227; border-radius: 18px; background: linear-gradient(160deg, #fffbe9, #ffeec2); box-shadow: 6px 7px 0 #2b241d33; }
+.insta-champions.mine { border-color: #4f7a45; background: linear-gradient(160deg, #f0fbea, #d8f0cc); }
+.insta-champions header { display: flex; align-items: center; gap: 11px; margin-bottom: 11px; }
+.champ-cup { font-size: 2.3rem; }
+.insta-champions header div { display: grid; gap: 2px; }
+.insta-champions header strong { font-size: 1rem; color: #3a2c22; }
+.insta-champions header small { color: #6a5b48; font-size: .74rem; }
+.champ-podium { display: grid; gap: 7px; list-style: none; }
+.champ-podium li { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px; background: #ffffffcc; }
+.champ-podium li.you { background: #fff; box-shadow: inset 0 0 0 2px #4f7a45; }
+.champ-medal { font-size: 1.6rem; }
+.champ-podium div { display: grid; gap: 2px; }
+.champ-podium strong { font-size: .88rem; color: #3a2c22; }
+.champ-podium small { color: #6a5b48; font-size: .7rem; line-height: 1.35; }
+.champ-note { margin-top: 11px; padding: 9px 12px; border-radius: 10px; background: #ffffffbb; color: #5c4a2e; font-size: .78rem; line-height: 1.5; }

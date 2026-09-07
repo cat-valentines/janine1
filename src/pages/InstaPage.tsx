@@ -8,6 +8,7 @@ import {
 } from '../lib/insta';
 import { setSfxMuted, sfx, sfxMuted } from '../lib/sfx';
 import { supabase } from '../lib/supabase';
+import { InstaChampions } from '../components/InstaChampions';
 
 const avatar = (id: string) => characterAssets[id as CharacterId] ?? characterAssets.cottontail;
 
@@ -258,6 +259,9 @@ export function InstaPage({ username, character, signedIn, onNeedAccount, onBack
         <button className={tab === 'explore' ? 'on' : ''} onClick={() => { setTab('explore'); sfx('tap'); }}>🌍 Explore</button>
         <button className={tab === 'following' ? 'on' : ''} onClick={() => { setTab('following'); sfx('tap'); }}>👥 Following</button>
       </div>
+
+      {/* The month's champions, so the whole island sees who won. */}
+      {tab === 'explore' && <InstaChampions username={username} />}
 
       {posts === null && <p className="insta-empty">Loading…</p>}
       {posts && posts.length === 0 && <p className="insta-empty">{tab === 'following' ? 'Follow some players to see their posts here!' : 'No posts yet — be the first to share! 📷🎬'}</p>}

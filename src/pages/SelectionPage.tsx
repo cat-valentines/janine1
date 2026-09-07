@@ -36,6 +36,7 @@ import { currentSeason } from '../game/terrain';
 import { islands } from '../game/islands';
 import { getStars } from '../lib/escapeStars';
 import { checkSeasonalReward, purgeUnearnedRewards } from '../lib/rewards';
+import { settleHonours } from '../lib/honourDelivery';
 import { loadMyHouse, saveMyHouse } from '../lib/houses';
 import { HouseMarketPage } from './HouseMarketPage';
 // three.js is only needed once a survival round actually starts.
@@ -294,6 +295,13 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
 
   // Potions were never a free gift — clear any left over from the old welcome kit.
   useEffect(() => { purgeUnearnedRewards(); }, []);
+
+  // Months that have already finished are recorded in the roll of honour. Hand
+  // this player anything they won, and tell EVERYBODY who the champions were —
+  // both are safe to run on every open, and a guest hears about it too.
+  useEffect(() => {
+    settleHonours(username || '');
+  }, [username]);
 
   // Rewards are earned over time, settled at the END of a month: only when a new
   // month rolls over and you finished top-3 do you win that season's champion cup
