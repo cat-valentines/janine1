@@ -447,9 +447,29 @@ export function HouseWorldPage(props: HouseWorldPageProps) {
         <WalkControls mode={controls} onPick={pickControls} actionLabel="Jump" />
         <p className="world-help">Use the <b>arrow keys</b> — <b>↑↓</b> walk, <b>←→</b> turn · <b>Space</b> jump · walk into 🍎 <b>apples</b> for food, a 🌳 <b>tree trunk</b> to chop <b>wood</b> 🪵, or 💎 <b>crystals</b> to mine jewels.</p>
       </>}
+      {/* Turning the house round. It used to be a right-drag only, so on a
+          tablet you could never see any side but the one facing you. */}
+      {mode === 'build' && <div className="build-view-controls">
+        <div className="build-spin">
+          <button onClick={() => engine.current?.spinView(-Math.PI / 8)} aria-label="Turn the house left">⟲</button>
+          <strong>Turn</strong>
+          <button onClick={() => engine.current?.spinView(Math.PI / 8)} aria-label="Turn the house right">⟳</button>
+        </div>
+        <div className="build-sides">
+          {(['Front', 'Right', 'Back', 'Left'] as const).map((side, i) => (
+            <button key={side} onClick={() => engine.current?.faceSide(i as 0 | 1 | 2 | 3)}>{side}</button>
+          ))}
+        </div>
+        <div className="build-zoom">
+          <button onClick={() => engine.current?.tiltView(-0.18)} aria-label="Look from lower down">⬆️</button>
+          <button onClick={() => engine.current?.tiltView(0.18)} aria-label="Look from higher up">⬇️</button>
+          <button onClick={() => engine.current?.zoomView(-6)} aria-label="Move closer">➕</button>
+          <button onClick={() => engine.current?.zoomView(6)} aria-label="Move further away">➖</button>
+        </div>
+      </div>}
       {mode === 'build' && <p className="world-help">{erasing
         ? <>🧽 <b>Eraser on</b> — click any block to rub it out. Pick a block to build again.</>
-        : <>Click a face to place a block · <b>Shift+click</b> or the <b>🧽 Eraser</b> to rub out · <b>right-drag</b> to spin · <b>scroll</b> to zoom</>}</p>}
+        : <>Click a face to place a block · <b>Shift+click</b> or the <b>🧽 Eraser</b> to rub out · <b>drag</b> (or right-drag with a mouse) to turn the house round · <b>pinch</b> or <b>scroll</b> to zoom · or use the <b>Turn</b> buttons above</>}</p>}
     </div>
 
     {mode === 'build' && <section className="world-palette">

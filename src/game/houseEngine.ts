@@ -283,6 +283,11 @@ export class HouseEngine {
   private dragging = false;
   /** Last touch position, so a finger can drag to look around (iPads have no pointer lock). */
   private lastPointer = { x: 0, y: 0 };
+  /** Fingers on the screen right now: one spins the view, two pinch to zoom. */
+  private touches = new Map<number, { x: number; y: number }>();
+  private pinchGap = 0;
+  /** True once a press has moved far enough to be a drag rather than a tap. */
+  private dragMoved = false;
   private pointerLocked = false;
   private running = true;
   private clock = new THREE.Clock();
@@ -1781,11 +1786,43 @@ export class HouseEngine {
       if (!this.pointerLocked) this.renderer.domElement.requestPointerLock();
       return;
     }
-    if (event.button === 2) { this.dragging = true; return; }
+    // Building by touch: a finger DRAG spins the house round so you can build on
+    // any side, and a TAP places a block. Without this there was no way at all to
+    // turn the house on a tablet — you could only ever build the side facing you.
+    if (event.pointerType === 'touch') {
+      this.touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      this.lastPointer = { x: event.clientX, y: event.clientY };
+      this.dragMoved = false;
+      this.aimAt(event.clientX, event.clientY);
+      if (this.touches.size === 2) {
+        const [a, b] = [...this.touches.values()];
+        this.pinchGap = Math.hypot(a.x - b.x, a.y - b.y);
+      }
+      return;
+    }
+    if (event.button === 2) { this.dragging = true; this.lastPointer = { x: event.clientX, y: event.clientY }; return; }
     this.paint(event.shiftKey || event.button === 1);
   };
 
-  private onPointerUp = () => { this.dragging = false; };
+  private onPointerUp = (event?: PointerEvent) => {
+    if (event?.pointerType === 'touch') {
+      this.touches.delete(event.pointerId);
+      if (this.touches.size < 2) this.pinchGap = 0;
+      // A tap that never turned into a drag is a place (or an erase).
+      if (this.mode === 'build' && !this.dragMoved && this.touches.size === 0) {
+        this.aimAt(event.clientX, event.clientY);
+        this.paint(false);
+      }
+    }
+    this.dragging = false;
+  };
+
+  /** Point the block cursor at a screen position, for picking and painting. */
+  private aimAt(clientX: number, clientY: number) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    this.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  }
 
   private onPointerMove = (event: PointerEvent) => {
     if (this.mode === 'walk') {
@@ -1801,14 +1838,49 @@ export class HouseEngine {
       this.pitch = THREE.MathUtils.clamp(this.pitch - dy * 0.006, -1.4, 1.4);
       return;
     }
-    const rect = this.renderer.domElement.getBoundingClientRect();
-    this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    this.aimAt(event.clientX, event.clientY);
+
+    if (event.pointerType === 'touch' && this.touches.has(event.pointerId)) {
+      this.touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (this.touches.size >= 2) {
+        // Two fingers: pinch to move closer to the house or further away.
+        const [a, b] = [...this.touches.values()];
+        const gap = Math.hypot(a.x - b.x, a.y - b.y);
+        if (this.pinchGap) this.orbit.radius = THREE.MathUtils.clamp(this.orbit.radius + (this.pinchGap - gap) * 0.06, 8, 120);
+        this.pinchGap = gap;
+        this.dragMoved = true;
+        return;
+      }
+      const dx = event.clientX - this.lastPointer.x, dy = event.clientY - this.lastPointer.y;
+      this.lastPointer = { x: event.clientX, y: event.clientY };
+      if (Math.abs(dx) + Math.abs(dy) > 4) this.dragMoved = true;
+      if (!this.dragMoved) return;            // still might be a tap
+      this.spinView(-dx * 0.008);
+      this.tiltView(-dy * 0.008);
+      return;
+    }
+
     if (this.dragging) {
-      this.orbit.theta -= event.movementX * 0.006;
-      this.orbit.phi = THREE.MathUtils.clamp(this.orbit.phi - event.movementY * 0.006, 0.15, 1.5);
+      // Right-drag with a mouse. movementX is not filled in everywhere, so fall
+      // back to the difference in page position.
+      const dx = event.movementX || (event.clientX - this.lastPointer.x);
+      const dy = event.movementY || (event.clientY - this.lastPointer.y);
+      this.lastPointer = { x: event.clientX, y: event.clientY };
+      this.spinView(-dx * 0.006);
+      this.tiltView(-dy * 0.006);
     }
   };
+
+  // ---- turning the house round (build mode) --------------------------------
+
+  /** Spin the view around the house. Positive turns one way, negative the other. */
+  spinView(delta: number) { this.orbit.theta += delta; }
+  /** Look down on it from higher up, or from lower down. */
+  tiltView(delta: number) { this.orbit.phi = THREE.MathUtils.clamp(this.orbit.phi + delta, 0.15, 1.5); }
+  /** Move closer in or further out. */
+  zoomView(delta: number) { this.orbit.radius = THREE.MathUtils.clamp(this.orbit.radius + delta, 8, 120); }
+  /** Swing straight round to one side of the house, a quarter turn at a time. */
+  faceSide(quarter: 0 | 1 | 2 | 3) { this.orbit.theta = Math.PI / 4 + quarter * (Math.PI / 2); }
 
   private onWheel = (event: WheelEvent) => {
     if (this.mode !== 'build') return;
@@ -1865,7 +1937,10 @@ export class HouseEngine {
   }
 
   private paint(forceRemove: boolean) {
-    const hit = this.hovered ?? this.pick();
+    // Pick freshly rather than trusting the hover from the last frame: a tap on a
+    // tablet aims and places in the same instant, so the cached one would be
+    // wherever the previous tap was.
+    const hit = this.pick() ?? this.hovered;
     if (!hit) return;
     // Shift+click still erases, so the eraser is a convenience, not the only way.
     const remove = this.erasing || forceRemove;

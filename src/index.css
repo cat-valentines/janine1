@@ -2891,3 +2891,21 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .champ-podium strong { font-size: .88rem; color: #3a2c22; }
 .champ-podium small { color: #6a5b48; font-size: .7rem; line-height: 1.35; }
 .champ-note { margin-top: 11px; padding: 9px 12px; border-radius: 10px; background: #ffffffbb; color: #5c4a2e; font-size: .78rem; line-height: 1.5; }
+
+/* ---- Building: turning the house round ----
+   Rotating used to be a right-drag, which does not exist on a tablet — so you
+   could only ever build the side facing you. These work everywhere. */
+.build-view-controls { position: absolute; right: 12px; top: 12px; z-index: 45; width: 190px; display: grid; gap: 6px; padding: 9px 10px; border: 3px solid #533928; border-radius: 14px; background: #fff3cde8; box-shadow: 4px 5px 0 #2b241d55; }
+.build-spin { display: flex; align-items: center; gap: 8px; justify-content: center; }
+.build-spin strong { color: #4a3520; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; }
+.build-spin button { width: 42px; height: 38px; border: 2px solid #533928; border-radius: 10px; background: #ffe9b8; color: #4a3520; font-size: 1.25rem; font-weight: 900; cursor: pointer; }
+.build-sides { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.build-sides button { padding: 6px 4px; border: 2px solid #a9855a; border-radius: 8px; background: #fffaf0; color: #4a3520; font-size: .68rem; font-weight: 850; cursor: pointer; }
+.build-sides button:hover { background: #ffe9b8; }
+.build-zoom { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.build-zoom button { padding: 5px 4px; border: 2px solid #a9855a; border-radius: 8px; background: #fffaf0; font-size: .82rem; cursor: pointer; }
+@media (max-width: 640px) {
+  .build-view-controls { right: 6px; top: 6px; width: 160px; padding: 6px 7px; gap: 4px; }
+  .build-spin button { width: 36px; height: 32px; font-size: 1.05rem; }
+  .build-sides button { font-size: .6rem; padding: 5px 2px; }
+}
