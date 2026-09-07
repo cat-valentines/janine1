@@ -32,7 +32,7 @@ export function FishingFrenzyPage({ onScore, onBack }: FishingFrenzyPageProps) {
   const [result, setResult] = useState<{ banked: number; place: number; players: number; coins: number } | null>(null);
   const [controls, pickControls] = useWalkControls('fishing-controls');
 
-  const mount = useRef<HTMLCanvasElement>(null);
+  const mount = useRef<HTMLDivElement>(null);
   const engine = useRef<FishingEngine | null>(null);
   const live = useRef<FishingRoom | null>(null);
   const emoji = CHAR_EMOJI[(me?.name.length ?? 0) % CHAR_EMOJI.length];
@@ -98,13 +98,18 @@ export function FishingFrenzyPage({ onScore, onBack }: FishingFrenzyPageProps) {
     if (room) {
       joined = joinFishingRoom(room, { id: me.id, name: me.name, emoji }, {
         onPeers: (peers: FishingPeer[]) => created.setRivals(peers.map((p) => ({
-          id: p.id, name: p.name, emoji: p.emoji, x: p.x, y: p.y, banked: p.banked, hold: p.hold,
+          id: p.id, name: p.name, emoji: p.emoji, x: p.x, z: p.z, yaw: p.yaw, banked: p.banked, hold: p.hold,
         }))),
         onBrag: (name, text) => setShouts((list) => [`${name} ${text}`, ...list].slice(0, 4)),
       });
       live.current = joined;
     }
+    const resize = () => {
+      if (mount.current) created.resize(mount.current.clientWidth, mount.current.clientHeight);
+    };
+    window.addEventListener('resize', resize);
     return () => {
+      window.removeEventListener('resize', resize);
       created.dispose();
       engine.current = null;
       joined?.leave();
@@ -162,9 +167,9 @@ export function FishingFrenzyPage({ onScore, onBack }: FishingFrenzyPageProps) {
       <section className="fishing-guide">
         <h3>How to play</h3>
         <ol className="fishing-steps">
-          <li><b>🕹️ Sail out.</b> Arrow keys, or the on-screen controls on a tablet. The further up you go, the deeper the water.</li>
-          <li><b>🎣 Cast.</b> Get close to a fish — it gets a yellow ring — then press <b>Space</b> (or the ⤴ button).</li>
-          <li><b>🎯 Reel it in.</b> A marker sweeps along a bar. Press again to stop it in the <b>green</b>. Rare fish have a smaller green band.</li>
+          <li><b>🕹️ Sail out.</b> ⬆️ to go, ⬅️➡️ to steer — or the on-screen controls on a tablet. The further out you sail, the deeper and better the water.</li>
+          <li><b>🎣 Cast.</b> Near some fish, press <b>Space</b> — or just <b>tap the sea</b> on a tablet — to drop your rod in.</li>
+          <li><b>⚡ Strike!</b> Watch the float. The moment it dips and turns gold, press <b>Space</b> (or tap) again. A sardine gives you a second and a half; a kraken gives you half a second.</li>
           <li><b>💰 Sell.</b> Sail back down to the shore and your whole hold turns into money automatically.</li>
           <li><b>🐌 Mind the weight.</b> The more fish in your hold, the slower your boat sails — so a greedy trip takes much longer to bring home.</li>
           <li><b>⏰ Watch the clock.</b> {ROUND_SECONDS} seconds per round, and your hold only holds {HOLD_SIZE} fish. Anything still on the boat at the horn is lost.</li>
@@ -266,7 +271,6 @@ export function FishingFrenzyPage({ onScore, onBack }: FishingFrenzyPageProps) {
   }
 
   // ---- the round ----
-  const reel = snapshot?.reel ?? null;
   return <main className="fishing-page">
     <div className="quest-top-row">
       <button onClick={leave}>← Leave</button>
@@ -274,7 +278,7 @@ export function FishingFrenzyPage({ onScore, onBack }: FishingFrenzyPageProps) {
     </div>
 
     <div className="fishing-stage">
-      <canvas className="fishing-canvas" ref={mount} />
+      <div className="fishing-canvas" ref={mount} />
       {controls === 'finger' && <FingerPad
         hint="👆 Drag here to sail · tap to cast"
         onTap={() => { engine.current?.press(); engine.current?.release(); }}
@@ -301,24 +305,24 @@ export function FishingFrenzyPage({ onScore, onBack }: FishingFrenzyPageProps) {
           </div>)}
       </aside>}
 
-      {snapshot?.nearby && !reel && <p className="fishing-prompt">
-        {snapshot.nearby.emoji} <b>{snapshot.nearby.name}</b> · 🪙 {snapshot.nearby.price} — press <b>Space</b> to cast
-      </p>}
-      {snapshot?.atShore && (snapshot?.hold.length ?? 0) === 0 && !reel && <p className="fishing-prompt shore">🏠 At the shore. Sail up 🔼 into the deep water to find the good fish!</p>}
+      {snapshot?.rod === 'in' && snapshot.fishNear && <p className="fishing-prompt">🎣 Fish about — press <b>Space</b> (or tap) to cast</p>}
+      {snapshot?.rod === 'in' && !snapshot.fishNear && !snapshot.atShore && <p className="fishing-prompt quiet">No fish here — sail on and look for some</p>}
+      {snapshot?.rod === 'waiting' && <p className="fishing-prompt waiting">🎣 Waiting for a bite… watch the float</p>}
+      {snapshot?.atShore && (snapshot?.hold.length ?? 0) === 0 && snapshot?.rod === 'in'
+        && <p className="fishing-prompt shore">🏠 At the dock. Sail out into the deep water — the big fish are out there!</p>}
 
-      {reel && <div className="fishing-reel">
-        <strong>{reel.emoji} Reel in the {reel.fish}! Press again in the green.</strong>
-        <div className="reel-bar">
-          <i className="reel-band" style={{ left: `${reel.bandStart * 100}%`, width: `${reel.band * 100}%` }} />
-          <i className="reel-marker" style={{ left: `${reel.marker * 100}%` }} />
-        </div>
+      {/* A fish is ON. This is the whole game: strike now, or lose it. */}
+      {snapshot?.rod === 'biting' && snapshot.biting && <div className="fishing-strike">
+        <strong>{snapshot.biting.emoji} {snapshot.biting.name} — STRIKE!</strong>
+        <div className="strike-bar"><i style={{ width: `${snapshot.biteLeft * 100}%` }} /></div>
+        <small>Press <b>Space</b> or tap, quick!</small>
       </div>}
 
       {snapshot?.message && <p className="fishing-message">{snapshot.message}</p>}
       {shouts.length > 0 && <aside className="fishing-shouts">{shouts.map((text, i) => <span key={i}>{text}</span>)}</aside>}
 
       <WalkControls mode={controls} onPick={pickControls} actionLabel="Cast and reel" />
-      <p className="fishing-help">Arrow keys to sail · <b>Space</b> to cast, then <b>Space</b> again to reel · sail to the shore to sell</p>
+      <p className="fishing-help">⬆️ sail · ⬅️➡️ steer · <b>Space</b> (or tap) to cast, then again the moment it bites · sail back to the dock to sell</p>
     </div>
   </main>;
 }

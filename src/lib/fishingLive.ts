@@ -15,7 +15,9 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 /** Another player's boat, as last heard. */
 export interface FishingPeer {
   id: string; name: string; emoji: string;
-  x: number; y: number; banked: number; hold: number;
+  /** Where their boat is on the water, and which way it is pointing. */
+  x: number; z: number; yaw: number;
+  banked: number; hold: number;
   at: number;
 }
 
@@ -35,7 +37,7 @@ export function newRoomCode(): string {
 
 export interface FishingRoom {
   /** Shout where my boat is and what I've banked. */
-  send: (state: { x: number; y: number; banked: number; hold: number }) => void;
+  send: (state: { x: number; z: number; yaw: number; banked: number; hold: number }) => void;
   /** Tell the room I landed something worth shouting about. */
   brag: (text: string) => void;
   leave: () => void;

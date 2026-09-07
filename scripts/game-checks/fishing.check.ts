@@ -1,7 +1,7 @@
 import {
-  BOAT_SPEED, FISHING_BOTS, FISH_KINDS, HOLD_SIZE, ROUND_SECONDS, SEA_H, SHORE_Y,
-  atShore, boatSpeed, depthAt, fishById, fishForDepth, holdValue, payout, reelHit, reelWindow,
-  rollFish, sailSeconds, shouldSailHome, standings, type Rarity,
+  BOAT_SPEED, CAST_PATIENCE, FISHING_BOTS, FISH_KINDS, HOLD_SIZE, ROUND_SECONDS, SEA_D, SHORE_Z,
+  atShore, biteDelay, boatSpeed, catchWindow, depthAt, fishById, fishForDepth, holdValue, payout,
+  rollFish, sailSeconds, shouldSailHome, standings, struckInTime, type Rarity,
 } from '../../src/game/fishing';
 
 let bad = 0;
@@ -12,10 +12,10 @@ const check = (name: string, got: unknown, want: unknown) => {
 };
 
 // ---- the sea makes sense --------------------------------------------------
-check('the shore is at the bottom of the sea', SHORE_Y < SEA_H && SHORE_Y > SEA_H * 0.8, true);
-check('depth is 0 at the shore', depthAt(SHORE_Y), 0);
-check('depth is 1 at the very top', depthAt(0), 1);
-check('the shore counts as the shore', [atShore(SHORE_Y), atShore(SHORE_Y - 1)], [true, false]);
+check('the dock sits at the near end', SHORE_Z > 0 && SHORE_Z < SEA_D * 0.2, true);
+check('depth is 0 at the dock', depthAt(SHORE_Z), 0);
+check('depth is 1 at the far end', depthAt(SEA_D), 1);
+check('the dock counts as the shore', [atShore(SHORE_Z), atShore(SHORE_Z + 1)], [true, false]);
 
 // Rarer fish are worth more AND live further out — the whole risk/reward idea.
 const order: Rarity[] = ['common', 'good', 'rare', 'legendary'];
@@ -38,14 +38,27 @@ check('shallow water still has fish', fishForDepth(0).length > 0, true);
 check('deep water has the most choice', fishForDepth(1).length, FISH_KINDS.length);
 check('the deepest fish are only in the deep', fishForDepth(0).some((f) => f.rarity === 'legendary'), false);
 
-// ---- the reel bar is always winnable --------------------------------------
-const windows = FISH_KINDS.map((k) => reelWindow(k));
-check('every fish has a green band you can hit', windows.every((w) => w >= 0.12 && w <= 0.5), true);
-check('a kraken is harder than a sardine', reelWindow(fishById('kraken')!) < reelWindow(fishById('sardine')!), true);
-check('a press in the band lands the fish', reelHit(0.5, 0.4, 0.2), true);
-check('a press before the band misses', reelHit(0.39, 0.4, 0.2), false);
-check('a press after the band misses', reelHit(0.61, 0.4, 0.2), false);
-check('the band edges count as a hit', [reelHit(0.4, 0.4, 0.2), reelHit(0.6, 0.4, 0.2)], [true, true]);
+// ---- cast, wait, strike ----------------------------------------------------
+// The whole game is this: drop the line, watch the float, hit it the instant it
+// dips. Everyone can land a sardine; a kraken gives you barely half a second.
+const sardine = fishById('sardine')!;
+const kraken = fishById('kraken')!;
+check('a sardine gives you a fair moment', catchWindow(sardine) >= 1.2, true);
+check('a kraken gives you barely any', catchWindow(kraken) <= 0.6, true);
+check('but never less than half a second', FISH_KINDS.every((k) => catchWindow(k) >= 0.45), true);
+check('rarer fish always give you less time', FISH_KINDS.every((k) =>
+  FISH_KINDS.every((o) => o.difficulty >= k.difficulty || catchWindow(o) >= catchWindow(k))), true);
+
+check('striking the moment it bites lands it', struckInTime(sardine, 0), true);
+check('striking inside the window lands it', struckInTime(sardine, catchWindow(sardine) - 0.01), true);
+check('striking too late loses it', struckInTime(sardine, catchWindow(sardine) + 0.01), false);
+check('the last instant still counts', struckInTime(kraken, catchWindow(kraken)), true);
+
+// The wait before a bite: never instant, never longer than your patience.
+const waits = FISH_KINDS.map((k) => [biteDelay(k, () => 0), biteDelay(k, () => 0.999)]);
+check('a bite never comes instantly', waits.every(([soonest]) => soonest > 0.5), true);
+check('and always inside one cast', waits.every(([, longest]) => longest < CAST_PATIENCE), true);
+check('rarer fish keep you waiting longer', biteDelay(kraken, () => 0) > biteDelay(sardine, () => 0), true);
 
 // ---- the hold --------------------------------------------------------------
 check('an empty hold is worth nothing', holdValue([]), 0);
@@ -55,10 +68,10 @@ check('an unknown fish is worth nothing', holdValue(['boot']), 0);
 // ---- when to sail home -----------------------------------------------------
 check('an empty boat never runs home', shouldSailHome([], 100, 5), false);
 check('a full hold always runs home', shouldSailHome(new Array(HOLD_SIZE).fill('sardine'), 100, 999), true);
-const farOut = 40;
+const farOut = SEA_D - 10;
 check('with plenty of time it keeps fishing', shouldSailHome(['shark'], farOut, ROUND_SECONDS), false);
 check('with only the sail time left it runs', shouldSailHome(['shark'], farOut, sailSeconds(farOut) + 1), true);
-check('sailing home from the shore is instant', sailSeconds(SHORE_Y), 0);
+check('sailing home from the dock is instant', sailSeconds(SHORE_Z), 0);
 check('an empty boat sails at full speed', boatSpeed(0), BOAT_SPEED);
 
 // A heavy boat is a slow boat — the decision the whole game turns on.
@@ -69,8 +82,8 @@ check('the slowdown has a floor', boatSpeed(HOLD_SIZE * 3), BOAT_SPEED * 0.55);
 
 // The run home from the deep has to be a real slice of the round, or "race back
 // to shore" means nothing. Empty it is brisk; loaded it really costs you.
-const emptyRun = sailSeconds(0, 0);
-const ladenRun = sailSeconds(0, HOLD_SIZE);
+const emptyRun = sailSeconds(SEA_D, 0);
+const ladenRun = sailSeconds(SEA_D, HOLD_SIZE);
 console.log(`      (run home from the deep: ${emptyRun.toFixed(1)}s empty, ${ladenRun.toFixed(1)}s full)`);
 check('the run home from the deep is worth dreading', ladenRun > 6, true);
 check('  ...and a full boat is far slower than an empty one', ladenRun > emptyRun * 1.5, true);
@@ -109,8 +122,7 @@ check('only the bravest can reach a kraken', FISHING_BOTS.filter((b) => b.daring
 // ---- the fish that get put in the sea --------------------------------------
 let shallowRoll = true;
 for (let i = 0; i < 400; i += 1) {
-  const kind = rollFish(0.1);
-  if (kind.minDepth > 0.1) shallowRoll = false;
+  if (rollFish(0.1).minDepth > 0.1) shallowRoll = false;
 }
 check('shallow water never spawns a deep fish', shallowRoll, true);
 const deepRolls = Array.from({ length: 600 }, () => rollFish(1).rarity);

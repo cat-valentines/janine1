@@ -2806,7 +2806,8 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .fishing-clock.low { background: #b03a3a; color: #ffe0e0; animation: fishClock .8s ease-in-out infinite alternate; }
 @keyframes fishClock { from { transform: scale(1); } to { transform: scale(1.08); } }
 .fishing-stage { position: relative; width: min(100% - 8px, 1000px); margin: 0 auto; }
-.fishing-canvas { display: block; width: 100%; height: auto; border: 5px solid #5d5148; border-radius: 6px; box-shadow: 8px 9px 0 #00000055; background: #1d6a9c; touch-action: none; }
+.fishing-canvas { position: relative; width: 100%; aspect-ratio: 16 / 10; max-height: 78vh; overflow: hidden; border: 5px solid #5d5148; border-radius: 6px; box-shadow: 8px 9px 0 #00000055; background: #8fd6ff; touch-action: none; }
+.fishing-canvas canvas { display: block; width: 100%; height: 100%; }
 
 .fishing-hud { position: absolute; top: 10px; left: 10px; display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; max-width: 62%; pointer-events: none; }
 .fishing-hold, .fishing-bank { padding: 8px 11px; border: 2px solid #7fb8d0; border-radius: 12px; background: #0b2438cc; color: #eaf6fb; }
@@ -2827,11 +2828,15 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .fishing-prompt.shore { border-color: #8ff0a8; color: #dcffe4; }
 .fishing-message { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 11px 20px; border: 3px solid #f6e06a; border-radius: 14px; background: #0b2438e8; color: #fff6c8; font-weight: 850; font-size: .95rem; text-align: center; pointer-events: none; }
 
-.fishing-reel { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: grid; gap: 7px; width: min(90%, 460px); padding: 13px 16px; border: 3px solid #f6e06a; border-radius: 16px; background: #0b2438f0; text-align: center; pointer-events: none; }
-.fishing-reel strong { color: #fff6c8; font-size: .88rem; }
-.reel-bar { position: relative; height: 30px; border: 2px solid #7fb8d0; border-radius: 8px; background: #12496e; overflow: hidden; }
-.reel-band { position: absolute; top: 0; bottom: 0; background: linear-gradient(180deg, #8ff0a8, #4faf6a); }
-.reel-marker { position: absolute; top: -3px; bottom: -3px; width: 6px; margin-left: -3px; border-radius: 3px; background: #fff; box-shadow: 0 0 8px #fff; }
+/* A fish is ON — the one moment the whole game turns on, so it is loud. */
+.fishing-strike { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: grid; gap: 7px; width: min(90%, 430px); padding: 14px 18px; border: 4px solid #f6e06a; border-radius: 18px; background: #0b2438f2; text-align: center; pointer-events: none; animation: strikePulse .32s ease-in-out infinite alternate; }
+@keyframes strikePulse { from { box-shadow: 0 0 0 0 #f6e06a66; } to { box-shadow: 0 0 26px 6px #f6e06a55; } }
+.fishing-strike strong { color: #fff6c8; font-size: 1.1rem; letter-spacing: .02em; }
+.fishing-strike small { color: #d9f0fb; font-size: .78rem; }
+.strike-bar { height: 16px; border: 2px solid #7fb8d0; border-radius: 8px; background: #12496e; overflow: hidden; }
+.strike-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ff8f6a, #f6e06a); transition: width .05s linear; }
+.fishing-prompt.waiting { border-color: #7fb8d0; color: #d9f0fb; }
+.fishing-prompt.quiet { border-color: #4a6b80; color: #9fc4d8; }
 
 .fishing-shouts { position: absolute; left: 10px; bottom: 74px; display: grid; gap: 4px; max-width: 54%; pointer-events: none; }
 .fishing-shouts span { padding: 5px 10px; border-radius: 999px; background: #0b2438cc; color: #d9f0fb; font-size: .72rem; }

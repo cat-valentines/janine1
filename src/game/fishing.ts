@@ -21,7 +21,7 @@ export interface FishKind {
   price: number;
   /** How far out it lives, 0 = at the shore, 1 = the far deep. */
   minDepth: number;
-  /** How small the green band on the reel bar is — rarer fish are harder. */
+  /** 0–1. Rarer fish keep you waiting longer and give you less time to strike. */
   difficulty: number;
   /** How fast it swims about the sea. */
   speed: number;
@@ -52,28 +52,34 @@ export const RARITY_LABEL: Record<Rarity, string> = {
 
 // ---- the sea --------------------------------------------------------------
 
-/** The playing area, in game units. The shore is the strip along the bottom. */
-export const SEA_W = 960;
-export const SEA_H = 620;
-/** Anything below this line counts as being at the shore, where you sell. */
-export const SHORE_Y = SEA_H - 74;
-export const BOAT_SPEED = 132;
+/**
+ * The sea, in metres. It runs from the shore (z = 0) out to the deep (z = SEA_D),
+ * and SEA_W wide. The shore is where you sell; the far end is where the good
+ * fish are.
+ */
+export const SEA_W = 150;
+export const SEA_D = 150;
+/** Closer to shore than this and you are at the dock, where the fish are sold. */
+export const SHORE_Z = 12;
+export const BOAT_SPEED = 15;
+/** How fast the boat turns, in radians a second. */
+export const TURN_SPEED = 2.1;
 /** How many fish fit in the hold before you have to go and sell. */
 export const HOLD_SIZE = 8;
 /** How long a round lasts, in seconds. */
 export const ROUND_SECONDS = 150;
-/** You must be this close to a fish to cast at it. */
-export const CAST_RANGE = 62;
-/** How long the reel marker takes to sweep the bar once, in seconds. */
-export const REEL_SWEEP = 1.15;
+/** How close a fish has to be for your line to tempt it. */
+export const CAST_RANGE = 6.5;
+/** How long a cast waits with nothing biting before you may as well reel in. */
+export const CAST_PATIENCE = 7;
 
-/** How deep the water is at a y position: 0 at the shore, 1 at the top. */
-export function depthAt(y: number): number {
-  return Math.max(0, Math.min(1, (SHORE_Y - y) / SHORE_Y));
+/** How deep the water is out there: 0 at the shore, 1 at the far end. */
+export function depthAt(z: number): number {
+  return Math.max(0, Math.min(1, (z - SHORE_Z) / (SEA_D - SHORE_Z)));
 }
 
-/** True when the boat is close enough to shore to sell its catch. */
-export const atShore = (y: number) => y >= SHORE_Y;
+/** True when the boat is close enough to the dock to sell its catch. */
+export const atShore = (z: number) => z <= SHORE_Z;
 
 /** What a hold of fish is worth if you get it home. */
 export function holdValue(hold: string[]): number {
@@ -81,17 +87,27 @@ export function holdValue(hold: string[]): number {
 }
 
 /**
- * The green band on the reel bar, as a fraction of the whole bar. Rarer fish
- * give you a smaller window, so a kraken really is harder to land than a
- * sardine — but never so small that it stops being fair.
+ * How long a fish takes to find your line, in seconds. A sardine is on it almost
+ * at once; a kraken makes you wait. A little randomness stops it being a
+ * metronome, so you have to actually watch the float.
  */
-export function reelWindow(kind: FishKind): number {
-  return Math.max(0.12, 0.46 - kind.difficulty * 0.4);
+export function biteDelay(kind: FishKind, random = Math.random): number {
+  const base = 0.7 + kind.difficulty * 2.6;
+  return base + random() * 1.1;
 }
 
-/** Did that press land the fish? `marker` and the band are both 0–1. */
-export function reelHit(marker: number, bandStart: number, band: number): boolean {
-  return marker >= bandStart && marker <= bandStart + band;
+/**
+ * How long you have to strike once it bites. This is the whole skill of the
+ * game: everybody can catch a sardine, but a kraken gives you barely half a
+ * second, so the deep water is a real test of nerve.
+ */
+export function catchWindow(kind: FishKind): number {
+  return Math.max(0.45, 1.5 - kind.difficulty * 1.2);
+}
+
+/** Did you strike in time? `since` is seconds since the fish bit. */
+export function struckInTime(kind: FishKind, since: number): boolean {
+  return since >= 0 && since <= catchWindow(kind);
 }
 
 /**
@@ -130,21 +146,21 @@ export function boatSpeed(holdCount: number): number {
   return BOAT_SPEED * Math.max(0.55, 1 - holdCount * 0.055);
 }
 
-/** Seconds to sail from a y position back to the shore, carrying that much. */
-export const sailSeconds = (y: number, holdCount = 0) =>
-  Math.max(0, (SHORE_Y - y) / boatSpeed(holdCount));
+/** Seconds to sail home from that far out, carrying that much. */
+export const sailSeconds = (z: number, holdCount = 0) =>
+  Math.max(0, (z - SHORE_Z) / boatSpeed(holdCount));
 
 /**
  * Should a boat stop fishing and run for the shore? Yes when the hold is full,
  * and yes when there is only just enough time left to get home — losing a full
  * hold to the horn is the worst thing that can happen to you.
  */
-export function shouldSailHome(hold: string[], y: number, secondsLeft: number): boolean {
+export function shouldSailHome(hold: string[], z: number, secondsLeft: number): boolean {
   if (!hold.length) return false;
   if (hold.length >= HOLD_SIZE) return true;
   // Judged with the hold you are actually carrying, because that is what slows
   // you down — a heavy boat has to set off for home sooner.
-  return secondsLeft <= sailSeconds(y, hold.length) + 2.5;
+  return secondsLeft <= sailSeconds(z, hold.length) + 2.5;
 }
 
 // ---- the animal skippers you race ----------------------------------------
