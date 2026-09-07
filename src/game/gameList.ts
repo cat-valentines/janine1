@@ -1,6 +1,6 @@
 export type GameId =
   | 'tower' | 'hunger' | 'medicine' | 'runner' | 'drive'
-  | 'riddle' | 'pong' | 'fruit' | 'escape' | 'connector' | 'underwater' | 'blockup' | 'truthdare' | 'pi' | 'tongue' | 'friction' | 'human' | 'song' | 'singstar' | 'chess';
+  | 'riddle' | 'pong' | 'fruit' | 'escape' | 'connector' | 'underwater' | 'blockup' | 'truthdare' | 'pi' | 'tongue' | 'friction' | 'human' | 'song' | 'singstar' | 'chess' | 'fishing';
 
 export interface GameCard {
   id: GameId;
@@ -41,6 +41,7 @@ export const gameList: GameCard[] = [
   { id: 'song', name: 'Song Studio', icon: '🎵', kind: 'Arcade', blurb: 'Make your own original songs! Pick a genre and mood to generate a fresh beat, let the AI write lyrics, record your voice over it, then save it, download it, or make it public for people to hear on your profile. Everything is 100% yours — post it anywhere.', learn: 'How music is built — beats, bass, chords and melody — and how to write song lyrics.' },
   { id: 'singstar', name: 'Sing Star', icon: '🎤', kind: 'Arcade', blurb: 'A singing trainer! Listen to a tune, then sing it back — the game hears your voice through the mic and scores how close your pitch is, karaoke-style. All original tunes in fun pop styles.', learn: 'Ear training and pitch — how to hear a note and match it with your voice.' },
   { id: 'chess', name: 'Chess', icon: '♟️', kind: 'Puzzle', blurb: 'Real chess, with every real rule. Play six cute animal bots — from a chick who just learned the moves to a grandmaster tiger — or match up with a live player who is online right now.', learn: 'How to play chess properly: how each piece moves, check and checkmate, castling, en passant and promotion.' },
+  { id: 'fishing', name: 'Fishing Frenzy', icon: '🎣', kind: 'Arcade', blurb: 'Sail out, land the rarest fish you can — squid, sharks, even a kraken — then race back to shore to sell them before the horn. Play an animal skipper, a room of friends, or everybody who is on the water right now.', learn: 'Weighing up risk and reward: the further out you sail the better the fish, but nothing counts until you get it home.' },
   { id: 'human', name: "Prove You're Human", icon: '🤖', kind: 'Puzzle', blurb: 'Chat your way past a suspicious robot gatekeeper. Convince it you\'re a REAL human — say human stuff like feelings, memories and jokes — to open the next of 200 gates. It gets much harder the deeper you go!' },
 ];
 

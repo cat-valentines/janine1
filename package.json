@@ -14,7 +14,7 @@
     "keep-awake:setup": "node scripts/setup-keep-awake.mjs",
     "ai:secret": "supabase secrets set",
     "ai:deploy": "supabase functions deploy ai",
-    "check:chess": "node scripts/check-chess.mjs"
+    "check:games": "node scripts/check-games.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

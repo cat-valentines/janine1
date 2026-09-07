@@ -576,7 +576,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .games-sign { width: fit-content; margin: 6px auto 0; padding: 3px 14px; background: #fffaf0e8; border: 3px solid #6c5c4f; box-shadow: 3px 3px 0 #423b3566; color: #4f4054; font-family: "Courier New", monospace; font-size: .8rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
 
 /* The game shelf: one pill per game, same size, stacked, deepest green first. */
-.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .blockup-button, .truthdare-button, .pi-button, .tongue-button, .friction-button, .song-button, .sing-button, .chess-button, .human-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
+.power-button, .hunger-button, .medicine-button, .runner-button, .drive-button, .riddle-button, .pong-button, .gruits-button, .escape-button, .connector-button, .underwater-button, .blockup-button, .truthdare-button, .pi-button, .tongue-button, .friction-button, .song-button, .sing-button, .chess-button, .fishing-button, .human-button, .more-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; padding: 14px 28px; border: 0; border-radius: 999px; color: white; font-weight: 800; cursor: pointer; }
 
 /* Game shelf as small two-column buttons (emoji + name kept, arrow hidden). */
 .game-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; width: min(100%, 460px); margin: 10px auto 14px; }
@@ -607,6 +607,8 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .sing-button span { margin: 0; }
 .chess-button { background: linear-gradient(120deg, #6b5a48, #33291f); box-shadow: 0 7px 0 #221a12; }
 .chess-button span { margin: 0; }
+.fishing-button { background: linear-gradient(120deg, #35a7c8, #1d6a9c); box-shadow: 0 7px 0 #12496e; }
+.fishing-button span { margin: 0; }
 .human-button { background: linear-gradient(120deg, #5a6b82, #33465c); box-shadow: 0 7px 0 #22303f; }
 .human-button span { margin: 0; }
 
@@ -2713,3 +2715,114 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .chess-rule div { display: grid; gap: 3px; }
 .chess-rule strong { color: #3a2c22; font-size: .86rem; }
 .chess-rule small { color: #5c5148; font-size: .76rem; line-height: 1.5; }
+
+/* ===== Fishing Frenzy =====================================================
+   A top-down sea on a canvas: deep water at the top, the selling shore along
+   the bottom. The HUD floats over it, and the reel bar is the one thing that
+   has to be readable at a glance while a fish is on the line. */
+
+.fishing-modes { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.fishing-mode { display: grid; gap: 5px; padding: 20px 16px; border: 3px solid #5d5148; border-radius: 16px; background: #fffaf0; box-shadow: 6px 7px 0 #2b241d55; text-align: center; cursor: pointer; }
+.fishing-mode.bots { background: linear-gradient(160deg, #fff0d6, #ffd9b0); }
+.fishing-mode.friends { background: linear-gradient(160deg, #e6f0ff, #c7dcff); }
+.fishing-mode.everyone { background: linear-gradient(160deg, #d3f0f8, #a5dceb); }
+.fishing-mode-icon { font-size: 2.6rem; }
+.fishing-mode strong { font-size: 1.05rem; color: #24333f; }
+.fishing-mode small { color: #4a5a66; font-size: .79rem; line-height: 1.45; min-height: 3.6em; }
+.fishing-mode i { margin-top: 5px; color: #1d6a9c; font-style: normal; font-weight: 850; font-size: .82rem; }
+
+.fishing-guide { width: min(100% - 28px, 1080px); margin: 18px auto 40px; padding: 18px; border: 3px solid #5d5148; border-radius: 16px; background: #fffaf0f2; box-shadow: 6px 7px 0 #2b241d55; }
+.fishing-guide h3 { margin: 16px 0 9px; color: #24333f; font-size: 1rem; }
+.fishing-guide h3:first-child { margin-top: 0; }
+.fishing-steps { display: grid; gap: 7px; padding-left: 20px; color: #4a4038; font-size: .84rem; line-height: 1.55; }
+.fishing-species { display: grid; gap: 9px; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+.fishing-species-card { display: grid; justify-items: center; gap: 1px; padding: 9px 6px; border: 2px solid #d8cbb8; border-radius: 12px; background: #fff; text-align: center; }
+.fishing-species-card > span { font-size: 1.7rem; }
+.fishing-species-card strong { color: #24333f; font-size: .76rem; }
+.fishing-species-card em { font-style: normal; font-weight: 850; font-size: .62rem; }
+.fishing-species-card i { color: #7a5c19; font-style: normal; font-weight: 850; font-size: .74rem; }
+.fishing-species-card small { color: var(--ink-soft); font-size: .6rem; }
+
+.fishing-bots { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(212px, 1fr)); width: min(100% - 28px, 1080px); margin: 0 auto 40px; }
+.fishing-bot-card { display: grid; justify-items: center; gap: 4px; padding: 16px 13px; border: 3px solid #5d5148; border-radius: 16px; background: #fffaf0f2; box-shadow: 6px 7px 0 #2b241d55; text-align: center; }
+.fishing-bot-card strong { color: #24333f; font-size: .98rem; }
+.fishing-bot-card em { color: #1d6a9c; font-style: normal; font-weight: 850; font-size: .76rem; }
+.fishing-bot-card small { color: var(--ink-soft); font-size: .74rem; line-height: 1.45; min-height: 3em; }
+.fishing-bot-card button { margin-top: 6px; padding: 10px 16px; border: 0; border-radius: 999px; background: #1d6a9c; color: #fff; font-weight: 850; font-size: .8rem; cursor: pointer; }
+.fishing-bot-card.all { background: linear-gradient(160deg, #fff3d6, #ffdca8); }
+.fishing-bot-card.all button { background: #b45f55; }
+
+.fishing-room { display: grid; gap: 16px; }
+.fishing-code-box { display: grid; justify-items: center; gap: 7px; padding: 16px; border: 3px dashed #1d6a9c; border-radius: 14px; background: #eaf6fb; text-align: center; }
+.fishing-code-box small { color: var(--ink-soft); font-size: .76rem; font-weight: 700; }
+.fishing-code { font-family: "Courier New", monospace; font-size: 2.6rem; font-weight: 900; letter-spacing: .18em; color: #12496e; }
+.fishing-code-box p { max-width: 420px; color: #4a5a66; font-size: .8rem; line-height: 1.5; }
+.fishing-go { margin-top: 4px; padding: 12px 22px; border: 0; border-radius: 999px; background: #1d6a9c; color: #fff; font-weight: 850; cursor: pointer; }
+.fishing-join { display: grid; justify-items: center; gap: 7px; padding: 14px; border: 2px solid #d8cbb8; border-radius: 14px; background: #fff; }
+.fishing-join small { color: var(--ink-soft); font-size: .76rem; font-weight: 700; }
+.fishing-join input { width: 160px; padding: 10px; border: 2px solid #6b5e53; border-radius: 10px; font-family: "Courier New", monospace; font-size: 1.6rem; font-weight: 900; letter-spacing: .2em; text-align: center; text-transform: uppercase; }
+.fishing-join button { padding: 10px 18px; border: 0; border-radius: 999px; background: #4f7a45; color: #fff; font-weight: 850; font-size: .82rem; cursor: pointer; }
+.fishing-join button:disabled { background: #b0a89e; cursor: default; }
+.fishing-waiting { padding: 10px 13px; border-radius: 10px; background: #eaf6fb; color: #24333f; font-size: .82rem; text-align: center; }
+.fishing-waiting b { color: #1d6a9c; text-decoration: underline; cursor: pointer; }
+
+/* ---- the round ---- */
+.fishing-page { min-height: 100vh; padding: 10px 10px 30px; background: #0b2438; }
+.fishing-page .quest-top-row { width: min(100% - 8px, 1000px); margin: 0 auto 8px; }
+.fishing-clock { padding: 6px 14px; border-radius: 999px; background: #12496e; color: #d9f0fb; font-weight: 850; }
+.fishing-clock.low { background: #b03a3a; color: #ffe0e0; animation: fishClock .8s ease-in-out infinite alternate; }
+@keyframes fishClock { from { transform: scale(1); } to { transform: scale(1.08); } }
+.fishing-stage { position: relative; width: min(100% - 8px, 1000px); margin: 0 auto; }
+.fishing-canvas { display: block; width: 100%; height: auto; border: 5px solid #5d5148; border-radius: 6px; box-shadow: 8px 9px 0 #00000055; background: #1d6a9c; touch-action: none; }
+
+.fishing-hud { position: absolute; top: 10px; left: 10px; display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; max-width: 62%; pointer-events: none; }
+.fishing-hold, .fishing-bank { padding: 8px 11px; border: 2px solid #7fb8d0; border-radius: 12px; background: #0b2438cc; color: #eaf6fb; }
+.fishing-hold strong, .fishing-bank strong { display: block; font-size: .78rem; }
+.fishing-hold > div { display: flex; flex-wrap: wrap; gap: 1px; margin: 3px 0; font-size: 1.05rem; min-height: 1.2em; }
+.fishing-hold small { color: #9fc4d8; font-size: .66rem; }
+.fishing-hold em { color: #f6e06a; font-style: normal; font-size: .68rem; font-weight: 800; }
+.fishing-bank b { font-size: 1.15rem; color: #f6e06a; }
+
+.fishing-scores { position: absolute; top: 10px; right: 10px; display: grid; gap: 3px; padding: 8px 10px; border: 2px solid #7fb8d0; border-radius: 12px; background: #0b2438cc; color: #eaf6fb; pointer-events: none; }
+.fishing-scores > div { display: flex; align-items: center; gap: 6px; font-size: .74rem; }
+.fishing-scores b { width: 14px; color: #9fc4d8; }
+.fishing-scores strong { flex: 1; font-weight: 700; }
+.fishing-scores i { font-style: normal; font-weight: 850; color: #f6e06a; }
+.fishing-scores .you strong, .fishing-scores .you i { color: #8ff0a8; }
+
+.fishing-prompt { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); padding: 8px 16px; border: 2px solid #f6e06a; border-radius: 999px; background: #0b2438dd; color: #fff6c8; font-weight: 800; font-size: .84rem; white-space: nowrap; pointer-events: none; }
+.fishing-prompt.shore { border-color: #8ff0a8; color: #dcffe4; }
+.fishing-message { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 11px 20px; border: 3px solid #f6e06a; border-radius: 14px; background: #0b2438e8; color: #fff6c8; font-weight: 850; font-size: .95rem; text-align: center; pointer-events: none; }
+
+.fishing-reel { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: grid; gap: 7px; width: min(90%, 460px); padding: 13px 16px; border: 3px solid #f6e06a; border-radius: 16px; background: #0b2438f0; text-align: center; pointer-events: none; }
+.fishing-reel strong { color: #fff6c8; font-size: .88rem; }
+.reel-bar { position: relative; height: 30px; border: 2px solid #7fb8d0; border-radius: 8px; background: #12496e; overflow: hidden; }
+.reel-band { position: absolute; top: 0; bottom: 0; background: linear-gradient(180deg, #8ff0a8, #4faf6a); }
+.reel-marker { position: absolute; top: -3px; bottom: -3px; width: 6px; margin-left: -3px; border-radius: 3px; background: #fff; box-shadow: 0 0 8px #fff; }
+
+.fishing-shouts { position: absolute; left: 10px; bottom: 74px; display: grid; gap: 4px; max-width: 54%; pointer-events: none; }
+.fishing-shouts span { padding: 5px 10px; border-radius: 999px; background: #0b2438cc; color: #d9f0fb; font-size: .72rem; }
+.fishing-help { margin: 9px auto 0; max-width: 700px; color: #9fc4d8; font-size: .74rem; text-align: center; }
+
+.fishing-results { display: grid; justify-items: center; gap: 12px; text-align: center; }
+.fishing-results h1 { font-size: 1.5rem; }
+.fishing-earned { color: #4a4038; font-size: .95rem; }
+.fishing-table { display: grid; gap: 5px; width: min(100%, 420px); list-style: none; }
+.fishing-table li { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 2px solid #d8cbb8; border-radius: 10px; background: #fff; font-size: .86rem; }
+.fishing-table li.you { border-color: #4f7a45; background: #eef7ea; }
+.fishing-table b { width: 18px; color: var(--ink-soft); }
+.fishing-table strong { flex: 1; text-align: left; }
+.fishing-table i { font-style: normal; font-weight: 850; color: #7a5c19; }
+.fishing-again { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.fishing-again button { padding: 11px 18px; border: 2px solid #5d5148; border-radius: 999px; background: #f3ece0; color: #3a2c22; font-weight: 850; font-size: .84rem; cursor: pointer; }
+.fishing-again button:first-child { background: #1d6a9c; border-color: #12496e; color: #fff; }
+
+/* On the sea there is nothing to look around at, so a finger can steer from
+   anywhere on the water rather than just the left half. */
+.touch-device .fishing-stage .finger-pad { width: 100%; }
+
+@media (max-width: 760px) {
+  .fishing-hud { max-width: 96%; }
+  .fishing-scores { top: auto; bottom: 8px; right: 8px; }
+  .fishing-prompt { bottom: 128px; font-size: .76rem; }
+}

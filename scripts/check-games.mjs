@@ -1,7 +1,8 @@
 /**
- * Checks the chess rules, the bots and the live-move protocol.
+ * Checks the rules and balance of the games that have them written down:
+ * chess (rules, bots, live moves, the beginner's guide) and Fishing Frenzy.
  *
- *   npm run check:chess
+ *   npm run check:games
  *
  * The headline test is "perft": it counts every legal sequence of moves from
  * known positions and compares against the numbers the chess world publishes.
@@ -16,8 +17,8 @@ import { readdir, rm } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
-const CHECK_DIR = 'scripts/chess-checks';
-const OUT_DIR = 'node_modules/.chess-checks';
+const CHECK_DIR = 'scripts/game-checks';
+const OUT_DIR = 'node_modules/.game-checks';
 
 const files = (await readdir(CHECK_DIR)).filter((name) => name.endsWith('.check.ts')).sort();
 await build({
@@ -40,5 +41,5 @@ for (const file of files) {
   if (run.status !== 0) failed += 1;
 }
 await rm(OUT_DIR, { recursive: true, force: true });
-console.log(failed ? '\nSome chess checks failed.' : '\nAll chess checks passed.');
+console.log(failed ? '\nSome game checks failed.' : '\nAll game checks passed.');
 process.exit(failed ? 1 : 0);

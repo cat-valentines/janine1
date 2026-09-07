@@ -61,6 +61,7 @@ import { MoreGamesPage } from './MoreGamesPage';
 import { SongStudioPage } from './SongStudioPage';
 import { SingStarPage } from './SingStarPage';
 const ChessPage = lazy(() => import('./ChessPage').then((m) => ({ default: m.ChessPage })));
+const FishingFrenzyPage = lazy(() => import('./FishingFrenzyPage').then((m) => ({ default: m.FishingFrenzyPage })));
 import type { GameId } from '../game/gameList';
 import { AccountSetupPage } from './AccountSetupPage';
 import { loadAccountState } from '../lib/players';
@@ -98,6 +99,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const songOpen = path === '/play/song';
   const singOpen = path === '/play/sing';
   const chessOpen = path === '/play/chess';
+  const fishingOpen = path === '/play/fishing';
   const escapeRoomOpen = path === '/play/escaperoom';
   const medicineIsland = paramOf(path, '/play/medicine');
   const runnerIsland = paramOf(path, '/play/runner');
@@ -379,6 +381,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     if (id === 'song') navigate('/play/song');
     if (id === 'singstar') navigate('/play/sing');
     if (id === 'chess') navigate('/play/chess');
+    if (id === 'fishing') navigate('/play/fishing');
   };
 
   if (moreOpen) return <MoreGamesPage onPlay={openGame} onBack={() => home()} />;
@@ -394,6 +397,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   if (songOpen) return <SongStudioPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (singOpen) return <SingStarPage onScore={(coins) => award(coins)} onBack={() => home()} />;
   if (chessOpen) return <Suspense fallback={<main className="quest-pick chess-pick"><p className="world-loading">Setting up the board…</p></main>}><ChessPage onScore={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
+  if (fishingOpen) return <Suspense fallback={<main className="quest-pick fishing-pick"><p className="world-loading">Getting the boat ready…</p></main>}><FishingFrenzyPage onScore={(coins) => award(coins)} onBack={() => home()} /></Suspense>;
   if (escapeRoomOpen) return <Suspense fallback={<main className="island-page"><p className="world-loading">Sailing to the island…</p></main>}><IslandWorldPage character={character} onScore={(coins) => { award(coins); setCompletedQuests((q) => q + 1); }} onBack={() => home()} /></Suspense>;
   if (gruitsOpen) return <GruitsPage onScore={(points) => award(Math.max(1, Math.round(points / 10)))} onBack={() => home()} />;
   if (pongOpen) return <PingPongPage character={character} inviteLink={inviteLink} onInvite={createFriendChallenge} onBack={() => home()} />;
@@ -501,6 +505,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
         <button className="song-button" onClick={() => navigate('/play/song')}>🎵 Song Studio <span>→</span></button>
         <button className="sing-button" onClick={() => navigate('/play/sing')}>🎤 Sing Star <span>→</span></button>
         <button className="chess-button" onClick={() => navigate('/play/chess')}>♟️ Chess <span>→</span></button>
+        <button className="fishing-button" onClick={() => navigate('/play/fishing')}>🎣 Fishing Frenzy <span>→</span></button>
         <button className="human-button" onClick={() => navigate('/play/human')}>🤖 Prove You're Human <span>→</span></button>
       </div>
       <button className="more-button" onClick={() => navigate('/games')}>⊞ See all games <span>→</span></button>
