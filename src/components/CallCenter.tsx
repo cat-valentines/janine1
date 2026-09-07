@@ -5,6 +5,7 @@ import {
   RTC_CONFIG, joinChannel, leaveChannel, logMissedCall, newCallId, sendSignal, signalUser, type CallSignal,
 } from '../lib/calls';
 import { callTone, startRing, stopRing } from '../lib/sfx';
+import { askToNotify, flashTitle, notify, stopFlashTitle } from '../lib/appNotify';
 
 type Status = 'idle' | 'calling' | 'incoming' | 'connecting' | 'active';
 interface CallMeta { callId: string; peerId: string; peerName: string; incoming: boolean; video: boolean }
@@ -39,8 +40,21 @@ export function CallCenter() {
   const remoteVideo = useRef<HTMLVideoElement | null>(null);
   const localVideo = useRef<HTMLVideoElement | null>(null);
   const remoteStream = useRef<MediaStream | null>(null);
+  /** Closes the pop-up notification once the call is answered or gone. */
+  const ringNotice = useRef<(() => void) | null>(null);
   const meRef = useRef(me);
   meRef.current = me;
+
+  /**
+   * Stop shouting: the sound, the flashing tab title and the pop-up all go
+   * together, so a call can never keep ringing after it is over.
+   */
+  const hushRing = () => {
+    stopRing();
+    stopFlashTitle();
+    ringNotice.current?.();
+    ringNotice.current = null;
+  };
 
   // Wire the audio/video streams into their elements (re-runs on render so the refs
   // are always current, even though the overlay mounts after state updates).
@@ -62,7 +76,7 @@ export function CallCenter() {
   const cleanup = () => {
     if (ringTimeout.current !== null) { clearTimeout(ringTimeout.current); ringTimeout.current = null; }
     if (tick.current !== null) { clearInterval(tick.current); tick.current = null; }
-    stopRing();
+    hushRing();
     local.current?.getTracks().forEach((t) => t.stop());
     local.current = null;
     if (pc.current) { try { pc.current.close(); } catch { /* already closed */ } pc.current = null; }
@@ -147,7 +161,12 @@ export function CallCenter() {
     if (sig.ev === 'ring') {
       if (status !== 'idle' || call.current) { signalUser(sig.from, { ev: 'hangup', reason: 'busy', callId: sig.callId, from: meRef.current?.id ?? '' }); return; }
       call.current = { callId: sig.callId, peerId: sig.from, peerName: sig.fromName || 'a friend', incoming: true, video: !!sig.video };
-      setPeerName(call.current.peerName); setVideo(!!sig.video); setErr(''); setStatus('incoming'); startRing();
+      const who = call.current.peerName;
+      setPeerName(who); setVideo(!!sig.video); setErr(''); setStatus('incoming'); startRing();
+      // Ring the tab as well as the speaker: the title flashes so a background
+      // tab is visibly ringing, and a notification reaches you outside the page.
+      flashTitle(`📞 ${who} is calling…`);
+      ringNotice.current = notify(`📞 ${who} is calling`, 'Tap to come back and answer.', 'friend-call');
     } else if (sig.ev === 'hangup') {
       const c = call.current;
       if (c && sig.callId === c.callId && !c.incoming) { setErr(sig.reason === 'busy' ? `${c.peerName} is busy right now.` : `${c.peerName} declined.`); cleanup(); }
@@ -171,6 +190,9 @@ export function CallCenter() {
     if (!meRef.current) { setErr('Log in to call your friends.'); return; }
     if (status !== 'idle' || call.current) return;
     setErr('');
+    // Ask now, while we have a tap to ask during, so that next time somebody
+    // rings YOU it can pop up even when the tab is in the background.
+    askToNotify().catch(() => undefined);
     const id = newCallId();
     call.current = { callId: id, peerId, peerName: name, incoming: false, video: wantVideo };
     setPeerName(name); setVideo(wantVideo); setStatus('calling');
@@ -202,7 +224,7 @@ export function CallCenter() {
 
   const acceptCall = async () => {
     const c = call.current; if (!c) return;
-    stopRing(); setStatus('connecting');
+    hushRing(); setStatus('connecting');
     try {
       shared.current = await joinChannel(`call-${c.callId}`, (s) => onSharedRef.current(s));
       setupPeer();
@@ -215,7 +237,7 @@ export function CallCenter() {
 
   const declineCall = () => {
     const c = call.current; if (!c) return;
-    stopRing();
+    hushRing();
     signalUser(c.peerId, { ev: 'hangup', reason: 'decline', callId: c.callId, from: meRef.current?.id ?? '' });
     cleanup();
   };

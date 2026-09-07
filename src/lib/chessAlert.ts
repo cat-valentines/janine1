@@ -12,6 +12,7 @@
  */
 import { supabase } from './supabase';
 import { storage } from './storage';
+import { askToNotify, notify } from './appNotify';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 const KEY = 'chess-alert';
@@ -27,18 +28,12 @@ export const chessAlertOn = (): boolean => storage.get(KEY) === '1';
  */
 export async function setChessAlertOn(on: boolean): Promise<void> {
   storage.set(KEY, on ? '1' : '0');
-  if (!on) return;
-  try {
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') await Notification.requestPermission();
-  } catch { /* some browsers refuse outside a gesture — the banner still shows */ }
+  if (on) await askToNotify();
 }
 
 /** Show a real browser notification, if the player allowed them. */
 export function notifyOutsideApp(title: string, body: string) {
-  try {
-    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-    new Notification(title, { body, icon: '/apple-touch-icon.png', tag: 'chess-live' });
-  } catch { /* never let a notification break the app */ }
+  notify(title, body, 'chess-live');
 }
 
 /**

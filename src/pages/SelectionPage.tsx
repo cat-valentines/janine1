@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState, useRef } from 'react';
 import { ChallengeRoom } from '../components/ChallengeRoom';
 import { Leaderboard } from '../components/Leaderboard';
 import { PlayersDirectory } from '../components/PlayersDirectory';
@@ -37,6 +37,8 @@ import { islands } from '../game/islands';
 import { getStars } from '../lib/escapeStars';
 import { checkSeasonalReward, purgeUnearnedRewards } from '../lib/rewards';
 import { settleHonours } from '../lib/honourDelivery';
+import { flashTitle, notify, pageHidden, stopFlashTitle } from '../lib/appNotify';
+import { sfx } from '../lib/sfx';
 import { loadMyHouse, saveMyHouse } from '../lib/houses';
 import { HouseMarketPage } from './HouseMarketPage';
 // three.js is only needed once a survival round actually starts.
@@ -271,6 +273,32 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
 
   const makeGuestReal = () => { ensureGuestAccount(); };
 
+  /**
+   * A message that lands while you are reading something else should still
+   * reach you: a soft ping, a flashing tab title, and a pop-up outside the page
+   * if you have allowed them. The first pull only records what is already
+   * there, so opening the app never announces old messages.
+   */
+  const seenNotifIds = useRef<Set<string> | null>(null);
+  const announceNew = (items: NotificationItem[]) => {
+    if (!seenNotifIds.current) { seenNotifIds.current = new Set(items.map((i) => i.id)); return; }
+    const fresh = items.filter((item) => !seenNotifIds.current!.has(item.id));
+    seenNotifIds.current = new Set(items.map((i) => i.id));
+    if (!fresh.length) return;
+    sfx('follow');
+    if (!pageHidden()) return;   // you are looking at it — the 🔔 is enough
+    const first = fresh[0];
+    flashTitle(fresh.length > 1 ? `💬 ${fresh.length} new` : '💬 New message');
+    notify(fresh.length > 1 ? `${fresh.length} new notifications` : 'Magical Islands', first.text, 'island-notif');
+  };
+  // Looking at the page again clears the flashing title.
+  useEffect(() => {
+    const seen = () => { if (!pageHidden()) stopFlashTitle(); };
+    document.addEventListener('visibilitychange', seen);
+    window.addEventListener('focus', seen);
+    return () => { document.removeEventListener('visibilitychange', seen); window.removeEventListener('focus', seen); };
+  }, []);
+
   useEffect(() => {
     // Dev-only: lets the headless test push real-shaped notifications in.
     if (import.meta.env.DEV) (window as unknown as { __notifTest: unknown }).__notifTest = { setNotifs, setSignedIn };
@@ -278,7 +306,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     // Refresh on a timer so a friend's text lights up the 🔔 (and the Friends dot).
     const pull = () => supabase.auth.getUser().then(({ data }) => {
       if (!data.user || stop) return;
-      loadNotifications(data.user.id).then((items) => { if (!stop) setNotifs(items); }).catch(() => undefined);
+      loadNotifications(data.user.id).then((items) => { if (!stop) { announceNew(items); setNotifs(items); } }).catch(() => undefined);
       loadIncomingLatest(data.user.id).then((map) => { if (!stop) setMsgLatest(map); }).catch(() => undefined);
       loadGroupLatest(data.user.id).then((map) => { if (!stop) setGroupLatest(map); }).catch(() => undefined);
     });
