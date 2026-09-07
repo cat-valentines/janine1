@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChessBoard, PromotionPicker, TakenPieces } from '../components/ChessBoard';
+import { ChessGuide } from '../components/ChessGuide';
 import {
   capturedPieces, initialState, inCheck, kingSquare, legalMoves, moveToText, movesFrom, outcome, other, playMove,
   type ChessState, type Colour, type Move, type PieceType,
@@ -286,6 +287,9 @@ export function ChessPage({ onScore, onBack }: ChessPageProps) {
           </button>
         </div>
       </section>
+
+      {/* Everything a brand-new player needs, right under the two choices. */}
+      <ChessGuide />
     </main>;
   }
 

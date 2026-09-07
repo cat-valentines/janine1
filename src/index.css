@@ -2601,9 +2601,9 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .chess-page .quest-top-row { width: min(100% - 8px, 1080px); margin: 0 auto 12px; }
 .chess-table { display: grid; gap: 14px; grid-template-columns: 200px minmax(0, 1fr) 200px; align-items: start; width: min(100% - 8px, 1080px); margin: 0 auto; }
 .chess-board-wrap { display: grid; gap: 10px; justify-items: center; }
-.chess-board { display: grid; grid-template-columns: repeat(8, 1fr); width: min(100%, 76vh); aspect-ratio: 1; border: 5px solid #5d5148; box-shadow: 8px 9px 0 #2b241d66; background: #f0d9b5; }
+.chess-board { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); width: min(100%, 76vh); aspect-ratio: 1; border: 5px solid #5d5148; box-shadow: 8px 9px 0 #2b241d66; background: #f0d9b5; }
 .chess-board.frozen { cursor: default; }
-.chess-square { position: relative; display: grid; place-items: center; border: 0; padding: 0; background: #f0d9b5; cursor: pointer; transition: none; }
+.chess-square { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; aspect-ratio: 1; border: 0; padding: 0; background: #f0d9b5; cursor: pointer; transition: none; }
 .chess-square:hover { transform: none; }
 .chess-square.dark { background: #b58863; }
 .chess-square.last { box-shadow: inset 0 0 0 100px #f6e06a33; }
@@ -2612,7 +2612,11 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .chess-square.in-check { background: #e07a6a; animation: chessCheck .7s ease-in-out infinite alternate; }
 @keyframes chessCheck { from { background: #e07a6a; } to { background: #f2a99c; } }
 .move-dot { width: 26%; height: 26%; border-radius: 50%; background: #3a2c2255; }
-.chess-piece { font-size: clamp(1.5rem, 6.4vw, 3rem); line-height: 1; user-select: none; }
+.chess-piece { font-size: clamp(1.3rem, 5.8vw, 2.8rem); line-height: 1; user-select: none; }
+@supports (font-size: 1cqi) {
+  .chess-board { container-type: inline-size; }
+  .chess-piece { font-size: 9.2cqi; }
+}
 /* Outlined glyphs for both sides, so white pieces read on a light square and
    black ones don't disappear into a dark one. */
 .chess-piece.white, .chess-promo .white, .chess-taken .white { color: #fffdf8; text-shadow: 0 0 1px #2b241d, 1px 1px 0 #2b241d, -1px 1px 0 #2b241d, 1px -1px 0 #2b241d, -1px -1px 0 #2b241d; }
@@ -2649,7 +2653,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 /* On a phone the side panels stack under the board, so the board stays big. */
 @media (max-width: 860px) {
   .chess-table { grid-template-columns: minmax(0, 1fr); }
-  .chess-board { width: min(100%, 92vw); }
+  .chess-board { width: min(100%, 92vw, 68vh); }
   .chess-player-card { grid-template-columns: auto 1fr; justify-items: start; text-align: left; }
   .chess-player-card .chess-bot-face { grid-row: span 3; width: 64px; height: 64px; }
   .chess-player-card .chess-bot-pixel { width: 46px; height: 46px; }
@@ -2666,3 +2670,46 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .chess-call small { color: var(--ink-soft); font-size: .72rem; }
 .chess-call .go { padding: 9px 14px; border: 0; border-radius: 999px; background: #4f7a45; color: #fff; font-weight: 850; font-size: .78rem; cursor: pointer; }
 .chess-call .shut { padding: 4px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-soft); font-size: .9rem; cursor: pointer; }
+
+/* ---- "New to chess?" — the beginner's guide under the two play options ---- */
+.chess-guide { width: min(100% - 28px, 1080px); margin: 0 auto 40px; }
+.chess-guide-open { display: flex; align-items: center; gap: 12px; width: 100%; padding: 15px 18px; border: 3px solid #5d5148; border-radius: 16px; background: #fff3d6; box-shadow: 6px 7px 0 #2b241d55; text-align: left; cursor: pointer; }
+.chess-guide-open > span { font-size: 2rem; }
+.chess-guide-open div { flex: 1; display: grid; gap: 2px; }
+.chess-guide-open strong { color: #3a2c22; font-size: 1rem; }
+.chess-guide-open small { color: #5c5148; font-size: .78rem; line-height: 1.4; }
+.chess-guide-open i { font-style: normal; font-size: .9rem; color: #5c5148; }
+.chess-guide-body { margin-top: 12px; padding: 18px; border: 3px solid #5d5148; border-radius: 16px; background: #fffaf0f2; box-shadow: 6px 7px 0 #2b241d55; }
+.chess-guide-body h3 { margin: 20px 0 10px; color: #3a2c22; font-size: 1rem; }
+.chess-guide-body h3:first-of-type { margin-top: 6px; }
+.chess-guide-goal, .chess-guide-end { padding: 12px 14px; border-radius: 12px; background: #f3ece0; color: #4a4038; font-size: .85rem; line-height: 1.6; }
+.chess-guide-end { margin-top: 18px; background: #dff0da; }
+
+.chess-guide-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(238px, 1fr)); }
+.chess-guide-card { display: grid; gap: 8px; padding: 13px; border: 2px solid #d8cbb8; border-radius: 14px; background: #fff; }
+.chess-guide-card header { display: flex; align-items: center; gap: 10px; }
+.chess-guide-card header div { display: grid; }
+.chess-guide-card strong { color: #3a2c22; font-size: .95rem; }
+.chess-guide-card em { color: var(--accent); font-style: normal; font-weight: 800; font-size: .72rem; }
+.guide-glyph { font-size: 2.3rem; line-height: 1; }
+.guide-glyph.white { color: #fffdf8; text-shadow: 0 0 1px #2b241d, 1px 1px 0 #2b241d, -1px 1px 0 #2b241d, 1px -1px 0 #2b241d, -1px -1px 0 #2b241d; }
+.guide-moves { color: #4a4038; font-size: .8rem; line-height: 1.5; }
+.guide-tip { color: var(--ink-soft); font-size: .75rem; line-height: 1.5; }
+
+/* The little demonstration board — same eight-by-eight grid as the real one. */
+.chess-mini { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); width: min(100%, 200px); aspect-ratio: 1; margin: 0 auto; border: 3px solid #5d5148; }
+.mini-square { position: relative; display: grid; place-items: center; aspect-ratio: 1; min-width: 0; background: #f0d9b5; }
+.mini-square.dark { background: #b58863; }
+.mini-square.home { box-shadow: inset 0 0 0 2px #4f7a45; }
+.mini-square.take { box-shadow: inset 0 0 0 2px #c2452f; }
+.mini-square b { font-size: 1.05rem; line-height: 1; }
+.mini-square b.white { color: #fffdf8; text-shadow: 0 0 1px #2b241d, 1px 1px 0 #2b241d, -1px 1px 0 #2b241d, 1px -1px 0 #2b241d, -1px -1px 0 #2b241d; }
+.mini-square b.black { color: #26221f; }
+.mini-square i { width: 34%; height: 34%; border-radius: 50%; background: #3a2c2266; }
+
+.chess-rules { display: grid; gap: 9px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.chess-rule { display: flex; gap: 10px; padding: 11px 13px; border: 2px solid #d8cbb8; border-radius: 12px; background: #fff; }
+.chess-rule > span { font-size: 1.5rem; line-height: 1.1; }
+.chess-rule div { display: grid; gap: 3px; }
+.chess-rule strong { color: #3a2c22; font-size: .86rem; }
+.chess-rule small { color: #5c5148; font-size: .76rem; line-height: 1.5; }
