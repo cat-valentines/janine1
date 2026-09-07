@@ -1,5 +1,6 @@
 import { HONOURS, MEDALS, honoursFor, latestHonours, placeIn, podiumLine, seasonKeyOf, seasonOf, seasonYearOf } from '../../src/lib/honours';
-import { loadRewards } from '../../src/lib/rewards';
+import { SEASONS, cupArt, loadRewards } from '../../src/lib/rewards';
+import { existsSync } from 'node:fs';
 import { congratulations, deliverHonours, settleHonours } from '../../src/lib/honourDelivery';
 
 // Rewards live in localStorage, so give the checks one.
@@ -98,5 +99,24 @@ check('every place has a medal picture', [1, 2, 3].every((p) => MEDALS[p as 1 | 
 check('honoursFor finds the month for a winner', honoursFor('cat').map((e) => e.result.key), ['2026-8']);
 check('honoursFor finds nothing for a stranger', honoursFor('stranger').length, 0);
 check('a blank name finds nothing', honoursFor('   ').length, 0);
+
+// ---- the trophies are real pictures, not emoji ------------------------------
+// A won cup must show the painted pixel trophy. It used to drop to a plain 🏆
+// the moment it was earned, which looked like a downgrade for winning.
+for (const season of Object.values(SEASONS)) {
+  const file = `public${season.art}`;
+  if (!existsSync(file)) { bad += 1; console.log(`FAIL  ${season.name}'s trophy picture is missing: ${file}`); }
+}
+check('every season has its trophy picture on disk', true, true);
+check('a won cup asks for the pixel art', cupArt('summer'), '/assets/pixel-summer-trophy.png');
+check('  ...for every season', Object.keys(SEASONS).map((k) => cupArt(k as 'summer')).every((a) => a.endsWith('-trophy.png')), true);
+check('an unknown season still gets a picture', cupArt('nonsense' as 'summer').endsWith('.png'), true);
+
+// The medals are pictures too.
+for (const place of [1, 2, 3] as const) {
+  const file = `public${MEDALS[place].art}`;
+  if (!existsSync(file)) { bad += 1; console.log(`FAIL  the ${MEDALS[place].name} medal picture is missing: ${file}`); }
+}
+check('every medal has its picture on disk', true, true);
 
 process.exit(bad ? 1 : 0);

@@ -20,14 +20,21 @@ export const CONSUMABLES: Record<ConsumableKind, ConsumableInfo> = {
   streakHolder: { kind: 'streakHolder', icon: '🧊', name: 'Streak Holder', desc: 'Holds your streak for up to 2 days if you forget to play. Activate it, then it saves you automatically.', usesPerGrant: 5 },
 };
 
-/** Seasonal cups — the trophy you win for topping the leaderboard that season. */
-export interface SeasonInfo { key: 'spring' | 'summer' | 'autumn' | 'winter'; name: string; cup: string; vines: string }
+/**
+ * Seasonal cups — the trophy you win for topping the leaderboard that season.
+ * `art` is the painted pixel trophy, which is what a cup should always look
+ * like: the emoji is only a fallback for somewhere a picture cannot go.
+ */
+export interface SeasonInfo { key: 'spring' | 'summer' | 'autumn' | 'winter'; name: string; cup: string; vines: string; art: string }
 export const SEASONS: Record<SeasonInfo['key'], SeasonInfo> = {
-  spring: { key: 'spring', name: 'Spring', cup: '🏆', vines: '🌱🌷🌿' },
-  summer: { key: 'summer', name: 'Summer', cup: '🏆', vines: '🌻🌸🍃' },
-  autumn: { key: 'autumn', name: 'Autumn', cup: '🏆', vines: '🍁🍂🌾' },
-  winter: { key: 'winter', name: 'Winter', cup: '🏆', vines: '❄️🎄⛄' },
+  spring: { key: 'spring', name: 'Spring', cup: '🏆', vines: '🌱🌷🌿', art: '/assets/pixel-spring-trophy.png' },
+  summer: { key: 'summer', name: 'Summer', cup: '🏆', vines: '🌻🌸🍃', art: '/assets/pixel-summer-trophy.png' },
+  autumn: { key: 'autumn', name: 'Autumn', cup: '🏆', vines: '🍁🍂🌾', art: '/assets/pixel-autumn-trophy.png' },
+  winter: { key: 'winter', name: 'Winter', cup: '🏆', vines: '❄️🎄⛄', art: '/assets/pixel-winter-trophy.png' },
 };
+
+/** The pixel trophy for a season — cups saved before the art existed included. */
+export const cupArt = (season: SeasonInfo['key']) => SEASONS[season]?.art ?? SEASONS.summer.art;
 
 /** Which season a month falls in (northern-hemisphere seasons). */
 export function seasonForMonth(month: number): SeasonInfo {

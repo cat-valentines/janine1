@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { loadRewards, setStreakHolderArmed, CONSUMABLES, type ConsumableKind } from '../lib/rewards';
+import { loadRewards, setStreakHolderArmed, cupArt, CONSUMABLES, type ConsumableKind } from '../lib/rewards';
 import { HONOURS, INSTA_PRIZES, MEDALS, placeIn } from '../lib/honours';
 import { supabase } from '../lib/supabase';
 
@@ -60,8 +60,11 @@ export function RewardsPanel() {
           <span className="trophy-year">2026</span>
           <small>🔒 Not earned yet · Finish top 3</small>
         </div>}
-          {state.cups.map((cup) => <div className={`reward-cup ${cup.season}`} key={cup.id}>
-            <div className="reward-cup-art"><span className="cup-vines">{cup.vines}</span><span className="cup-icon">{cup.cup}</span></div>
+          {state.cups.map((cup) => <div className={`reward-cup won ${cup.season}`} key={cup.id}>
+            <div className="reward-cup-art">
+              <img src={cupArt(cup.season)} alt={cup.name} />
+              <span className="cup-vines">{cup.vines}</span>
+            </div>
             <strong>{cup.name}</strong>
             <span className="trophy-year">{new Date(cup.wonAt).getFullYear()}</span>
             <small>Won {ago(cup.wonAt)}</small>
@@ -76,7 +79,7 @@ export function RewardsPanel() {
         season in the top three and you take that season's <b>Champion Cup</b> as well.
       </p>
       <div className="season-medals">
-        {state.medals.map((medal) => <div className="season-medal" key={medal.id}>
+        {state.medals.map((medal) => <div className="season-medal won" key={medal.id}>
           <img src={MEDALS[medal.place].art} alt={`${medal.label} ${MEDALS[medal.place].name} medal`} />
           <strong>{MEDALS[medal.place].name}</strong>
           <small>{medal.label}</small>

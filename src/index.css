@@ -2227,8 +2227,11 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .reward-cup.autumn { border-color: #e6b98a; background: #fff6ec; }
 .reward-cup-art { position: relative; height: 78px; display: grid; place-items: center; }
 .reward-cup-art .cup-icon { font-size: 3.4rem; filter: drop-shadow(0 3px 2px #0002); }
-.reward-cup-art .cup-vines { position: absolute; bottom: 2px; font-size: 1.15rem; letter-spacing: 2px; }
+.reward-cup-art .cup-vines { position: absolute; bottom: -2px; font-size: 1.05rem; letter-spacing: 2px; }
 .reward-cup-art img { width: 92px; height: 92px; object-fit: contain; image-rendering: pixelated; }
+.reward-cup.won { border-style: solid; border-color: #e0b33a; box-shadow: 0 8px 20px #0000001f, 0 0 0 3px #f2c94c44; }
+.reward-cup.won .reward-cup-art img { filter: drop-shadow(0 3px 3px #0003); }
+.reward-cup.won strong { color: #4a3a12; }
 .locked-trophy { border-style: dashed; background: #f2f0e9; }
 .locked-trophy .reward-cup-art img { opacity: .42; filter: grayscale(.72); }
 .locked-trophy strong, .locked-trophy small { color: #777481; }
@@ -2236,7 +2239,11 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .trophy-year { display: block; margin: 3px 0 2px; color: #8b6d2c; font: 900 .82rem "Courier New", monospace; }
 .reward-cup small { color: #7a749a; }
 .season-medals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.season-medal { display: grid; justify-items: center; gap: 4px; padding: 12px 8px; text-align: center; background: #fffdf5; border: 3px dashed #d8cda9; border-radius: 16px; }
+.season-medal { display: grid; justify-items: center; gap: 4px; padding: 12px 8px; text-align: center; background: #fffdf5; border: 3px solid #e0b33a; border-radius: 16px; box-shadow: 0 0 0 3px #f2c94c33; }
+.season-medal.won strong { color: #4a3a12; }
+.season-medal.won small { color: #7a6320; }
+.locked-medal { border-style: dashed; border-color: #d8cda9; background: #f2f0e9; box-shadow: none; }
+.locked-medal img { opacity: .42; filter: grayscale(.72); }
 .season-medal img { width: 100%; max-width: 150px; aspect-ratio: 1; object-fit: contain; image-rendering: pixelated; }
 .locked-medal img { opacity: .42; filter: grayscale(.72); }
 .season-medal strong { font-size: .9rem; color: #6f687d; }
