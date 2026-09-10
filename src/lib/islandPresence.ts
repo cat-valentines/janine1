@@ -43,6 +43,7 @@ export function joinIslandPresence(
 ): PresenceHandle {
   const channel: RealtimeChannel = supabase.channel('island-presence', { config: { broadcast: { self: false } } });
   const players = new Map<string, OnlinePlayer>();
+  let settle: ReturnType<typeof setTimeout> | null = null;
   const emit = () => onPlayers([...players.values()].sort((a, b) => a.name.localeCompare(b.name)));
   let place = '';
   let icon = '';
@@ -71,6 +72,11 @@ export function joinIslandPresence(
     if (status !== 'SUBSCRIBED') return;
     channel.send({ type: 'broadcast', event: 'who', payload: { id: self.id } });
     shout();
+    // Report the list once the "who is there?" answers have had time to come
+    // back — even if it turns out to be empty. Without this, an island with
+    // nobody else on it never reports at all, and the panel would sit on
+    // "Looking…" for ever instead of honestly saying they are not online.
+    settle = setTimeout(emit, 1200);
   });
 
   const shouting = setInterval(shout, SHOUT_MS);
@@ -91,10 +97,52 @@ export function joinIslandPresence(
     leave: () => {
       clearInterval(shouting);
       clearInterval(sweep);
+      if (settle) clearTimeout(settle);
       channel.send({ type: 'broadcast', event: 'gone', payload: { id: self.id } });
       supabase.removeChannel(channel);
     },
   };
+}
+
+// ---- one join for the whole app --------------------------------------------
+
+/**
+ * The live list, kept in one place.
+ *
+ * Exactly one part of the app joins the presence channel (PresenceCenter, at the
+ * root) and everything else reads the list from here. Two subscriptions to one
+ * Realtime topic in a single client is a fault this app has hit twice already:
+ * the second one quietly receives nothing.
+ *
+ * A new reader is handed the current list straight away, so opening the Friends
+ * panel does not have to wait several seconds to find out who is around.
+ */
+let latest: OnlinePlayer[] = [];
+let joined = false;
+const readers = new Set<(players: OnlinePlayer[]) => void>();
+
+/** Called by the one joiner whenever the list changes. */
+export function publishOnline(players: OnlinePlayer[]) {
+  latest = players;
+  joined = true;
+  readers.forEach((read) => read(players));
+}
+
+/** True once the app has actually joined and heard back at least once. */
+export const presenceReady = () => joined;
+
+/** Read the live list. Returns a stop function. */
+export function watchOnline(read: (players: OnlinePlayer[]) => void): () => void {
+  readers.add(read);
+  read(latest);
+  return () => { readers.delete(read); };
+}
+
+/** Forget everything — used when signing out, so a stale list cannot linger. */
+export function clearOnline() {
+  latest = [];
+  joined = false;
+  readers.forEach((read) => read([]));
 }
 
 /** What to say about a friend, given the live list. Never guesses. */

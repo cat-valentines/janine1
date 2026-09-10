@@ -2929,6 +2929,7 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .friend-where { display: flex; align-items: center; gap: 11px; margin: 8px 0 4px; padding: 11px 13px; border: 2px solid #d8cbb8; border-radius: 12px; background: #fff; }
 .friend-where.on { border-color: #4f7a45; background: #f2faf0; }
 .friend-where.off { border-style: dashed; background: #f5f3ef; }
+.friend-where.checking { border-style: dashed; border-color: #9ab4c8; background: #f0f6fa; }
 .friend-where > span { font-size: 1.7rem; }
 .friend-where div { display: grid; gap: 2px; }
 .friend-where strong { color: #3a2c22; font-size: .88rem; }

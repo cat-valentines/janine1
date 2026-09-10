@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { joinIslandPresence, type PresenceHandle } from '../lib/islandPresence';
+import { clearOnline, joinIslandPresence, publishOnline, type PresenceHandle } from '../lib/islandPresence';
 import { placeAtPath } from '../game/gameRoutes';
 import { useRoute } from '../lib/router';
 
@@ -18,16 +18,43 @@ export function PresenceCenter() {
 
   useEffect(() => {
     let dead = false;
+
+    const join = (user: { id: string; name: string }) => {
+      handle.current?.leave();
+      // The one join for the whole app: it says where you are, AND keeps the
+      // list of everybody else where the Friends panel can read it.
+      handle.current = joinIslandPresence({ id: user.id, name: user.name, character: '' }, publishOnline);
+      const where = placeAtPath(window.location.pathname);
+      handle.current.update(where?.name ?? '', where?.icon ?? '');
+    };
+
+    const nameOf = (metadata: Record<string, unknown>) => (metadata.display_name as string | undefined) ?? '';
+
     supabase.auth.getUser().then(({ data }) => {
       const user = data.user;
       if (!user || dead) return;
-      const name = (user.user_metadata.display_name as string | undefined) ?? '';
-      if (!name) return;
-      handle.current = joinIslandPresence({ id: user.id, name, character: '' }, () => undefined);
-      const where = placeAtPath(window.location.pathname);
-      handle.current.update(where?.name ?? '', where?.icon ?? '');
+      const name = nameOf(user.user_metadata);
+      if (name) join({ id: user.id, name });
     });
-    return () => { dead = true; handle.current?.leave(); handle.current = null; };
+
+    // Sign in part-way through and presence follows. Without this, anyone who
+    // signed in after the app loaded was never announced at all — so friends
+    // saw them as "not on Magical Islands" the whole time they were playing.
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (dead) return;
+      const user = session?.user;
+      const name = user ? nameOf(user.user_metadata) : '';
+      if (user && name) join({ id: user.id, name });
+      else { handle.current?.leave(); handle.current = null; clearOnline(); }
+    });
+
+    return () => {
+      dead = true;
+      sub.subscription.unsubscribe();
+      handle.current?.leave();
+      handle.current = null;
+      clearOnline();
+    };
   }, []);
 
   useEffect(() => {

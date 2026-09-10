@@ -7,7 +7,7 @@ import { inviteLink, inviteTargets, gameTargets, type InviteTarget } from '../ga
 import { SelfieStudio } from './SelfieStudio';
 import { FriendMap } from './FriendMap';
 import { LOCATION_REQUEST_MARK, declineLocationNow, friendRule, setSharingOn, shareLocationNow, sharingOn } from '../lib/friendLocation';
-import { joinIslandPresence, whereIsFriend, type OnlinePlayer } from '../lib/islandPresence';
+import { presenceReady, watchOnline, whereIsFriend, type OnlinePlayer } from '../lib/islandPresence';
 import { supabase } from '../lib/supabase';
 
 const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷', parrot: '🦜', mila: '🐄', gabby: '🦒', amsaal: '🐥', misha: '🐄', joy: '🐾', melly: '🦭', martin: '🦔' };
@@ -97,13 +97,10 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [friends, initialFriendId, openedInitial]);
 
-  // While the panel is open, join the island's presence channel — that is what
-  // makes "what are they playing?" a live answer from their own app.
-  useEffect(() => {
-    if (!userId) return;
-    const handle = joinIslandPresence({ id: userId, name: myName, character: '' }, setOnline);
-    return () => { handle.leave(); setOnline([]); };
-  }, [userId, myName]);
+  // Read the live list the app already keeps. It must NOT join the channel
+  // itself: the app root is already on it, and a second subscription to the same
+  // topic in one browser quietly receives nothing.
+  useEffect(() => watchOnline(setOnline), []);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -379,12 +376,20 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
 
           {/* Live, from their own app — never a stale row in a table. */}
           {whereOpen && (() => {
+            // Until the app has heard back from the island at least once, say so
+            // rather than claiming they are offline.
+            if (!presenceReady()) {
+              return <div className="friend-where checking">
+                <span>⏳</span>
+                <div><strong>Looking…</strong><small>Checking who is on the island right now.</small></div>
+              </div>;
+            }
             const where = whereIsFriend(online, selected.id);
             return <div className={`friend-where ${where.online ? 'on' : 'off'}`}>
               <span>{where.icon}</span>
               <div>
                 <strong>{where.text}</strong>
-                <small>{where.online ? 'Right now — this updates as they move about.' : 'They are not in the app at the moment.'}</small>
+                <small>{where.online ? 'Right now — this updates as they move about.' : 'They only show up here while they have the app open.'}</small>
               </div>
             </div>;
           })()}
