@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { listenForLocationAsks, listenForLocationReplies, type LocationAsk, type LocationReply, type Precision, type Spot } from '../lib/friendLocation';
+import {
+  LIVE_MINUTES, listenForLocationAsks, listenForLocationReplies, setFriendRule, startLiveShare,
+  type LiveShare, type LocationAsk, type LocationReply, type Precision, type Spot,
+} from '../lib/friendLocation';
 import { publishLocationReply } from '../lib/locationBus';
 import { SpotMap } from './SpotMap';
 import { flashTitle, notify, stopFlashTitle } from '../lib/appNotify';
@@ -36,6 +39,12 @@ export function LocationCenter() {
   const [note, setNote] = useState('');
   /** A friend shared with you when you had no map open — shown as its own card. */
   const [shared, setShared] = useState<{ name: string; spot: Spot; how: Precision } | null>(null);
+  /** After pressing Share: which of the two are you sending? */
+  const [choosing, setChoosing] = useState(false);
+  /** A live share you have running, so there is always a way to stop it. */
+  const [live, setLive] = useState<LiveShare | null>(null);
+  const liveRef = useRef<LiveShare | null>(null);
+  liveRef.current = live;
   const answer = useRef<((choice: 'yes' | 'no') => void) | null>(null);
   /** True while a map is open and already showing answers itself. */
   const mapWatching = useRef(false);
@@ -44,6 +53,8 @@ export function LocationCenter() {
   const expiry = useRef<number | null>(null);
   /** Ids of your accepted friends — a request from anybody else is ignored. */
   const friendIds = useRef<Set<string>>(new Set());
+  /** Who you are, for starting a share once you have answered. */
+  const meRef = useRef({ id: '', name: '' });
 
   /** Stop shouting: the ring, the tab title and the pop-up all go together. */
   const hush = () => {
@@ -60,6 +71,7 @@ export function LocationCenter() {
     answer.current = null;
     setPending(null);
     setOpen(false);
+    setChoosing(false);
   };
 
   useEffect(() => {
@@ -72,6 +84,7 @@ export function LocationCenter() {
     };
 
     const listen = async (user: { id: string; name: string }) => {
+      meRef.current = user;
       stop?.();
       await loadFriends();
       if (dead) return;
@@ -97,9 +110,16 @@ export function LocationCenter() {
           flashTitle(`📍 ${incoming.name} wants your location`);
           closeNotice.current = notify(
             '📍 Location request',
-            `${incoming.name} is asking where you are. Tap to choose.`,
+            `${incoming.name} is asking where you are. Tap to answer in your chat.`,
             'loc-ask',
-            () => { stopRing(); stopFlashTitle(); setOpen(true); },   // tapping it opens the choice
+            () => {
+              // Take them to the chat with that friend, where the request is
+              // waiting with Share / Not share on it.
+              stopRing();
+              stopFlashTitle();
+              window.dispatchEvent(new CustomEvent('open-friend-chat', { detail: { id: incoming.from } }));
+              setOpen(true);
+            },
           );
           expiry.current = window.setTimeout(() => clearRequest(), EXPIRE_MS);
         })();
@@ -146,6 +166,7 @@ export function LocationCenter() {
 
     return () => {
       dead = true;
+      liveRef.current?.stop();
       stop?.();
       stopReplies?.();
       sub.subscription.unsubscribe();
@@ -162,11 +183,41 @@ export function LocationCenter() {
     return () => clearTimeout(id);
   }, [note]);
 
-  const choose = (choice: 'yes' | 'no') => {
-    answer.current?.(choice);
+  /** No thanks — nothing is read from the device at all. */
+  const refuse = () => {
+    answer.current?.('no');
     const who = pending?.name ?? 'them';
     clearRequest();
-    setNote(choice === 'no' ? `You said no — nothing was shared with ${who}.` : `📍 Shared your location with ${who}.`);
+    setNote(`You said no — nothing was shared with ${who}.`);
+  };
+
+  /**
+   * You pressed Share, then picked how much. That choice is also remembered for
+   * this friend, so next time it is already what you meant — and it stays
+   * separate for every friend.
+   */
+  const shareAs = (how: Precision) => {
+    const friend = pending;
+    if (!friend) return;
+    setFriendRule(friend.from, how);
+    answer.current = null;   // the live share sends it, not the one-shot reply
+    clearRequest();
+    liveRef.current?.stop();
+    const started = startLiveShare(
+      { id: meRef.current.id, name: meRef.current.name },
+      { id: friend.from, name: friend.name },
+      how,
+      (why) => { setNote(why); setLive(null); },
+    );
+    setLive(started);
+    setNote(`📍 Sharing ${how === 'exact' ? 'your exact spot' : 'your area'} with ${friend.name} for ${LIVE_MINUTES} minutes.`);
+  };
+
+  const stopLive = () => {
+    liveRef.current?.stop();
+    const who = liveRef.current?.friendName ?? 'them';
+    setLive(null);
+    setNote(`🛑 Stopped sharing with ${who}.`);
   };
 
   const openChoice = () => { hush(); setOpen(true); };
@@ -196,10 +247,19 @@ export function LocationCenter() {
             ? '📌 You have set them to see your exact spot. You can change that in Where are they? → My location sharing.'
             : '🏘️ They only get your rough area, not your doorstep.'}
         </p>
-        <div className="loc-ask-buttons">
-          <button className="once" onClick={() => choose('yes')}>📍 Share my location</button>
-          <button className="no" onClick={() => choose('no')}>No thanks</button>
-        </div>
+        {!choosing
+          ? <div className="loc-ask-buttons">
+            <button className="once" onClick={() => setChoosing(true)}>📍 Share</button>
+            <button className="no" onClick={refuse}>Not share</button>
+          </div>
+          : <>
+            <p className="loc-rule-hint">How much should {pending.name} see?</p>
+            <div className="loc-ask-buttons two">
+              <button className="exact" onClick={() => shareAs('exact')}>📌 Exact spot</button>
+              <button className="area" onClick={() => shareAs('area')}>🏘️ Just my area</button>
+            </div>
+            <button className="loc-back" onClick={() => setChoosing(false)}>← Back</button>
+          </>}
       </div>
     </div>}
 
@@ -212,6 +272,16 @@ export function LocationCenter() {
         </div>
         <SpotMap name={shared.name} spot={shared.spot} how={shared.how} />
       </div>
+    </div>}
+
+    {/* A live share always has a visible way out. */}
+    {live && <div className="loc-live">
+      <span className="loc-live-dot" />
+      <div>
+        <strong>Sharing live with {live.friendName}</strong>
+        <small>{live.precision === 'exact' ? 'Your exact spot' : 'Your area'} · stops on its own at {new Date(live.until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+      </div>
+      <button onClick={stopLive}>Stop</button>
     </div>}
 
     {note && <p className="loc-note">{note}</p>}

@@ -3018,3 +3018,24 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .chat-loc-buttons button:disabled { opacity: .6; cursor: default; }
 .chat-loc-done { margin-top: 4px; color: #2f5a26; font-style: normal; font-weight: 800; font-size: .78rem; }
 .chat-loc-sent { opacity: .85; font-style: italic; }
+
+/* ---- Share, then choose how much ---- */
+.loc-ask-buttons.two { grid-template-columns: 1fr 1fr; }
+.loc-ask-buttons .exact { background: #b45f55; color: #fff; }
+.loc-ask-buttons .area { background: #4f7a45; color: #fff; }
+.loc-back { margin-top: 6px; padding: 7px 14px; border: 0; border-radius: 999px; background: transparent; color: var(--ink-soft); font-weight: 800; font-size: .76rem; cursor: pointer; }
+.chat-loc-buttons .yes.area { background: #3f7a8f; }
+
+/* ---- A live share: always visible, always stoppable ---- */
+.loc-live { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 69; display: flex; align-items: center; gap: 11px; width: min(94vw, 400px); padding: 11px 14px; border: 3px solid #4f7a45; border-radius: 16px; background: #fffaf0; box-shadow: 0 10px 30px #0006; }
+.loc-live div { flex: 1; display: grid; gap: 2px; }
+.loc-live strong { color: #2f5a26; font-size: .86rem; }
+.loc-live small { color: var(--ink-soft); font-size: .72rem; }
+.loc-live button { padding: 9px 16px; border: 0; border-radius: 999px; background: #b0553f; color: #fff; font-weight: 850; font-size: .8rem; cursor: pointer; }
+.loc-live-dot { width: 11px; height: 11px; border-radius: 50%; background: #4f7a45; animation: locPulse 1.2s ease-in-out infinite; }
+@keyframes locPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(1.35); } }
+.loc-live-badge { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px; background: #f2faf0; color: #2f5a26; font-size: .78rem; font-weight: 800; }
+@media (prefers-reduced-motion: reduce) { .loc-live-dot { animation: none; } }
+
+/* ---- Request location, right at the top where you look first ---- */
+.loc-request-top { width: 100%; padding: 13px 16px; border: 0; border-radius: 999px; background: #4f7a45; color: #fff; font-weight: 850; font-size: .9rem; cursor: pointer; }

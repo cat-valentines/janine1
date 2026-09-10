@@ -135,7 +135,12 @@ export function readSpot(): Promise<Spot> {
 // ---- the request, over each player's own channel ----------------------------
 
 export type LocationReply =
-  | { ev: 'spot'; from: string; name: string; spot: Spot; precision: Precision }
+  | {
+    ev: 'spot'; from: string; name: string; spot: Spot; precision: Precision;
+    /** When a live share is running, the moment it stops by itself. */
+    liveUntil?: number;
+  }
+  | { ev: 'stopped'; from: string; name: string }
   | { ev: 'no'; from: string; name: string }
   | { ev: 'off'; from: string; name: string }
   | { ev: 'trouble'; from: string; name: string; why: string };
@@ -240,6 +245,73 @@ export async function askFriendForLocation(self: { id: string; name: string }, f
   await sendTo(askTopic(friend.id), { from: self.id, name: self.name } satisfies LocationAsk);
 }
 
+// ---- sharing live, for a while ---------------------------------------------
+
+/** How long a live share runs before it stops on its own. */
+export const LIVE_MINUTES = 10;
+/** How often a live share sends a fresh position. */
+const LIVE_EVERY_MS = 8000;
+
+export interface LiveShare {
+  friendId: string;
+  friendName: string;
+  /** When it stops by itself. */
+  until: number;
+  precision: Precision;
+  stop: () => void;
+}
+
+/**
+ * Share where you are, live, for a few minutes.
+ *
+ * A single position is a snapshot; this keeps it honest as you move, which is
+ * what "see them on the map" means. It stops by itself after {@link LIVE_MINUTES},
+ * and can be stopped at any moment — there is always a visible way out, because
+ * a share you have forgotten about is the thing to avoid.
+ */
+export function startLiveShare(
+  self: { id: string; name: string },
+  friend: { id: string; name: string },
+  how: Precision,
+  onTrouble?: (why: string) => void,
+): LiveShare {
+  const until = Date.now() + LIVE_MINUTES * 60_000;
+  let timer: ReturnType<typeof setInterval> | null = null;
+  let stopped = false;
+
+  const tick = async () => {
+    if (stopped) return;
+    if (Date.now() >= until) { live.stop(); return; }
+    try {
+      const spot = blur(await readSpot(), how);
+      await sendTo(replyTopic(friend.id), {
+        ev: 'spot', from: self.id, name: self.name, spot, precision: how, liveUntil: until,
+      } satisfies LocationReply);
+    } catch (error) {
+      onTrouble?.((error as Error).message);
+      live.stop();
+    }
+  };
+
+  const live: LiveShare = {
+    friendId: friend.id,
+    friendName: friend.name,
+    until,
+    precision: how,
+    stop: () => {
+      if (stopped) return;
+      stopped = true;
+      if (timer) clearInterval(timer);
+      timer = null;
+      void sendTo(replyTopic(friend.id), { ev: 'stopped', from: self.id, name: self.name });
+    },
+  };
+
+  void tick();
+  timer = setInterval(() => void tick(), LIVE_EVERY_MS);
+  return live;
+}
+
 /**
  * Say yes to a request you found in the chat, rather than to a live one.
  *
@@ -251,14 +323,14 @@ export async function askFriendForLocation(self: { id: string; name: string }, f
 export async function shareLocationNow(
   self: { id: string; name: string },
   friendId: string,
+  how: Precision = friendRule(friendId) === 'exact' ? 'exact' : 'area',
 ): Promise<'sent' | 'blocked' | 'off' | { trouble: string }> {
   if (!sharingOn()) return 'off';
-  const rule = friendRule(friendId);
-  if (rule === 'never') return 'blocked';
+  if (friendRule(friendId) === 'never') return 'blocked';
   const me = { from: self.id, name: self.name };
   try {
-    const spot = blur(await readSpot(), rule);
-    await sendTo(replyTopic(friendId), { ev: 'spot', ...me, spot, precision: rule } satisfies LocationReply);
+    const spot = blur(await readSpot(), how);
+    await sendTo(replyTopic(friendId), { ev: 'spot', ...me, spot, precision: how } satisfies LocationReply);
     return 'sent';
   } catch (error) {
     return { trouble: (error as Error).message };

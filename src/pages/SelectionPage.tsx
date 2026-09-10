@@ -324,6 +324,19 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   // Potions were never a free gift — clear any left over from the old welcome kit.
   useEffect(() => { purgeUnearnedRewards(); }, []);
 
+  // Tapping a location request notification lands you in that friend's chat,
+  // where the request is waiting with its own Share / Not share.
+  useEffect(() => {
+    const open = (event: Event) => {
+      const id = (event as CustomEvent<{ id: string }>).detail?.id;
+      if (!id) return;
+      setPendingFriend(id);
+      setFriendsOpen(true);
+    };
+    window.addEventListener('open-friend-chat', open);
+    return () => window.removeEventListener('open-friend-chat', open);
+  }, []);
+
   // Months that have already finished are recorded in the roll of honour. Hand
   // this player anything they won, and tell EVERYBODY who the champions were —
   // both are safe to run on every open, and a guest hears about it too.

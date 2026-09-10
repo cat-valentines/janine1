@@ -15,7 +15,7 @@ import { SpotMap } from './SpotMap';
  * position or shows an old one, because no old one is kept anywhere.
  */
 
-type Stage = 'idle' | 'asking' | 'shown' | 'refused' | 'off' | 'quiet' | 'trouble';
+type Stage = 'idle' | 'asking' | 'shown' | 'refused' | 'off' | 'quiet' | 'trouble' | 'ended';
 
 interface FriendMapProps {
   me: { id: string; name: string };
@@ -31,6 +31,8 @@ export function FriendMap({ me, friend, onClose }: FriendMapProps) {
   const [spot, setSpot] = useState<Spot | null>(null);
   const [how, setHow] = useState<Precision>('area');
   const [why, setWhy] = useState('');
+  /** While they are sharing live, when it runs out by itself. */
+  const [liveUntil, setLiveUntil] = useState(0);
   const timer = useRef<number | null>(null);
 
   // Answers arrive through the app-wide listener, so this map just watches for
@@ -46,10 +48,17 @@ export function FriendMap({ me, friend, onClose }: FriendMapProps) {
     const off = onLocationReply((reply: LocationReply) => {
       if (reply.from !== friend.id) return;
       if (timer.current) clearTimeout(timer.current);
-      if (reply.ev === 'spot') { setSpot(reply.spot); setHow(reply.precision); setStage('shown'); }
+      if (reply.ev === 'spot') {
+        // Every fresh position from a live share lands here, so the map keeps up
+        // with them rather than showing where they were when they said yes.
+        setSpot(reply.spot);
+        setHow(reply.precision);
+        setLiveUntil(reply.liveUntil ?? 0);
+        setStage('shown');
+      } else if (reply.ev === 'stopped') setStage('ended');
       else if (reply.ev === 'no') setStage('refused');
       else if (reply.ev === 'off') setStage('off');
-      else { setWhy(reply.why); setStage('trouble'); }
+      else if (reply.ev === 'trouble') { setWhy(reply.why); setStage('trouble'); }
     });
     return () => { off(); if (timer.current) clearTimeout(timer.current); };
   }, [friend.id]);
@@ -73,12 +82,13 @@ export function FriendMap({ me, friend, onClose }: FriendMapProps) {
           <button className="loc-close" onClick={onClose} aria-label="Close">×</button>
         </div>
 
+        <button className="loc-request-top" onClick={ask}>📍 Request location from {friend.name}</button>
+
         {stage === 'idle' && <div className="loc-stage">
           <p>
-            Ask <b>{friend.name}</b> where they are. They will be asked first, and they can say no —
-            you will only ever see a place if they say yes. Nothing is saved.
+            They will be asked first, and they choose — no, their area, or their exact spot. You only
+            ever see a place if they say yes, and nothing is saved anywhere.
           </p>
-          <button className="loc-go" onClick={ask}>📍 Ask {friend.name} to share</button>
         </div>}
 
         {stage === 'asking' && <div className="loc-stage">
@@ -87,9 +97,17 @@ export function FriendMap({ me, friend, onClose }: FriendMapProps) {
         </div>}
 
         {stage === 'shown' && spot && <>
+          {liveUntil > Date.now() && <p className="loc-live-badge">
+            <span className="loc-live-dot" /> Live — moving with them until {new Date(liveUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>}
           <SpotMap name={friend.name} spot={spot} how={how} />
-          <button className="loc-again" onClick={ask}>↻ Ask again for their spot now</button>
+          <button className="loc-again" onClick={ask}>↻ Ask again</button>
         </>}
+
+        {stage === 'ended' && <div className="loc-stage">
+          <p>🛑 {friend.name} stopped sharing. That is up to them — you can always ask again.</p>
+          <button className="loc-again" onClick={ask}>📍 Ask again</button>
+        </div>}
 
         {stage === 'refused' && <div className="loc-stage">
           <p>🙅 {friend.name} said no this time. That is completely up to them.</p>

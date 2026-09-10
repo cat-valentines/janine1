@@ -6,7 +6,7 @@ import { acceptFriend, addFriend, changeUsername, isTakenError, isUsernameFree, 
 import { inviteLink, inviteTargets, gameTargets, type InviteTarget } from '../game/inviteTargets';
 import { SelfieStudio } from './SelfieStudio';
 import { FriendMap } from './FriendMap';
-import { LOCATION_REQUEST_MARK, declineLocationNow, friendRule, setSharingOn, shareLocationNow, sharingOn } from '../lib/friendLocation';
+import { LIVE_MINUTES, LOCATION_REQUEST_MARK, declineLocationNow, setFriendRule, setSharingOn, sharingOn, startLiveShare, type Precision } from '../lib/friendLocation';
 import { presenceReady, watchOnline, whereIsFriend, type OnlinePlayer } from '../lib/islandPresence';
 import { supabase } from '../lib/supabase';
 
@@ -605,55 +605,63 @@ function ChatLocationAsk({ me, friend, onDone }: {
   friend: { id: string; name: string };
   onDone: (note: string) => void;
 }) {
-  const [busy, setBusy] = useState<'' | 'yes' | 'no'>('');
+  const [choosing, setChoosing] = useState(false);
   const [answered, setAnswered] = useState('');
-  const rule = friendRule(friend.id);
 
-  const yes = async () => {
-    // Saying yes here IS the decision to share, so if sharing is switched off
-    // this offers to turn it on rather than sending them away to find a setting
-    // — with the same warning it always shows before the first time.
+  /** Share, then say how much — the same two steps as the pop-up. */
+  const share = () => {
+    // Saying share here IS the decision, so if sharing is switched off this
+    // offers to turn it on rather than sending them away to find a setting —
+    // with the same warning it always shows before the first time.
     if (!sharingOn()) {
       const sure = window.confirm(
         'Are you sure you want to share your location with players?\n\n'
         + 'Only friends can ask, and you get to say yes or no every single time. '
         + 'Your location is never saved anywhere — it is sent straight to the friend who asked.\n\n'
-        + 'You can press Stop sharing whenever you like.',
+        + 'You can press Stop whenever you like.',
       );
       if (!sure) { onDone('Nothing was shared.'); return; }
       setSharingOn(true);
     }
-    setBusy('yes');
-    const result = await shareLocationNow(me, friend.id);
-    setBusy('');
-    if (result === 'sent') { setAnswered(`📍 Shared with ${friend.name}.`); onDone(`📍 Shared your location with ${friend.name}.`); }
-    else if (result === 'off') onDone('Location sharing is switched off.');
-    else if (result === 'blocked') onDone(`You have set ${friend.name} to see nothing. Change that in 📍 Where are they?`);
-    else onDone(result.trouble);
+    setChoosing(true);
   };
+
+  const shareAs = (how: Precision) => {
+    // Remembered for this friend, so it stays different for every person.
+    setFriendRule(friend.id, how);
+    startLiveShare(me, friend, how, (trouble) => onDone(trouble));
+    setChoosing(false);
+    setAnswered(`📍 Sharing ${how === 'exact' ? 'your exact spot' : 'your area'} with ${friend.name} for ${LIVE_MINUTES} minutes.`);
+    onDone(`📍 Sharing live with ${friend.name} — stop it any time from the banner.`);
+  };
+
   const no = async () => {
-    setBusy('no');
     await declineLocationNow(me, friend.id).catch(() => undefined);
-    setBusy('');
+    setChoosing(false);
     setAnswered(`You said no to ${friend.name}.`);
     onDone(`You said no — nothing was shared with ${friend.name}.`);
   };
 
   return <div className="chat-loc-ask">
     <strong>📍 {friend.name} asked where you are</strong>
-    <small>
-      {rule === 'never'
-        ? `You have set ${friend.name} to see nothing at all.`
-        : rule === 'exact'
-          ? `If you say yes they see your exact spot.`
-          : `If you say yes they see roughly what part of town you are in — not your doorstep.`}
-    </small>
     {answered
       ? <em className="chat-loc-done">{answered}</em>
-      : <div className="chat-loc-buttons">
-        <button className="yes" disabled={!!busy} onClick={yes}>{busy === 'yes' ? 'Sharing…' : '📍 Yes, share'}</button>
-        <button className="no" disabled={!!busy} onClick={no}>{busy === 'no' ? '…' : 'No'}</button>
-      </div>}
+      : !choosing
+        ? <>
+          <small>They only see it if you say yes, and you choose how much.</small>
+          <div className="chat-loc-buttons">
+            <button className="yes" onClick={share}>📍 Share</button>
+            <button className="no" onClick={no}>Not share</button>
+          </div>
+        </>
+        : <>
+          <small>How much should {friend.name} see?</small>
+          <div className="chat-loc-buttons">
+            <button className="yes" onClick={() => shareAs('exact')}>📌 Exact spot</button>
+            <button className="yes area" onClick={() => shareAs('area')}>🏘️ Just my area</button>
+            <button className="no" onClick={() => setChoosing(false)}>←</button>
+          </div>
+        </>}
   </div>;
 }
 

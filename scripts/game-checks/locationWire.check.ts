@@ -132,4 +132,30 @@ check('a blocked friend cannot be answered yes at all', friendRule('blocked'), '
 setSharingOn(false);
 check('and with sharing off, nothing can be sent', sharingOn(), false);
 
+// ---- choosing how much at the moment you share ------------------------------
+// Sharing is now two steps: Share, then Exact spot or Just my area. Whichever
+// you pick is remembered for THAT friend, so it stays different per person.
+const { LIVE_MINUTES } = await import('../../src/lib/friendLocation');
+
+setFriendRule('ana', 'area');
+setFriendRule('ben', 'area');
+setFriendRule('ana', 'exact');          // picking "exact spot" for Ana only
+check('choosing exact is remembered for that friend', friendRule('ana'), 'exact');
+check('  ...and leaves the other friend alone', friendRule('ben'), 'area');
+setFriendRule('ana', 'area');           // and it can be taken back down
+check('and it can be changed again later', friendRule('ana'), 'area');
+
+// A live share has to stop by itself — a share you forgot about is the danger.
+check('a live share is bounded', LIVE_MINUTES > 0 && LIVE_MINUTES <= 30, true);
+
+// What the viewer is sent tells them it is live, and when it ends.
+const liveReply = { ev: 'spot', from: 'ana', name: 'Ana', spot: real, precision: 'area', liveUntil: Date.now() + 60_000 };
+check('a live position says when it runs out', liveReply.liveUntil > Date.now(), true);
+const oneOff = { ev: 'spot', from: 'ana', name: 'Ana', spot: real, precision: 'area' } as { liveUntil?: number };
+check('a one-off position does not pretend to be live', oneOff.liveUntil, undefined);
+
+// Stopping is its own message, so the map can say so rather than going stale.
+const stopped = { ev: 'stopped', from: 'ana', name: 'Ana' };
+check('stopping is told to the friend watching', stopped.ev, 'stopped');
+
 process.exit(bad ? 1 : 0);
