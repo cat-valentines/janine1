@@ -1,6 +1,6 @@
 import {
-  allowList, allowsAlways, blur, clearAllowList, distanceWords, kmBetween, mapEmbedUrl, mapLinkUrl,
-  precision, setAlwaysAllow, setPrecision, setSharingOn, sharingOn, type Spot,
+  blur, distanceWords, kmBetween, mapEmbedUrl, mapLinkUrl,
+  precision, setPrecision, setSharingOn, sharingOn, type Spot,
 } from '../../src/lib/friendLocation';
 import { placeAtPath } from '../../src/game/gameRoutes';
 import { whereIsFriend, type OnlinePlayer } from '../../src/lib/islandPresence';
@@ -24,26 +24,18 @@ const spot = (lat: number, lng: number, accuracy = 8): Spot => ({ lat, lng, accu
 // The most important line here. A child who never touches these settings must
 // never be shareable, whatever anybody asks.
 check('sharing starts switched off', sharingOn(), false);
-check('nobody is on the always-allow list', allowList(), []);
-check('and no particular friend is either', allowsAlways('friend-1'), false);
 
+// Share and Stop sharing are the whole of it — the one lasting setting, and it
+// can always be taken straight back.
 setSharingOn(true);
-check('you can switch it on', sharingOn(), true);
+check('Share switches it on', sharingOn(), true);
 setSharingOn(false);
-check('and straight back off again', sharingOn(), false);
-
-// ---- the always-allow list -------------------------------------------------
-setAlwaysAllow('friend-1', true);
-check('a friend can be always-allowed', allowsAlways('friend-1'), true);
-check('  ...without allowing anyone else', allowsAlways('friend-2'), false);
-setAlwaysAllow('friend-1', true);
-check('saying it twice does not duplicate', allowList(), ['friend-1']);
-setAlwaysAllow('friend-2', true);
-setAlwaysAllow('friend-1', false);
-check('one can be taken back', allowList(), ['friend-2']);
-clearAllowList();
-check('and the whole list can be emptied', allowList(), []);
-check('  ...which really revokes them', allowsAlways('friend-2'), false);
+check('Stop sharing switches it straight back off', sharingOn(), false);
+setSharingOn(true);
+setSharingOn(true);
+check('pressing Share twice changes nothing', sharingOn(), true);
+setSharingOn(false);
+check('and off stays off', sharingOn(), false);
 
 // ---- how exact ---------------------------------------------------------------
 check('it defaults to the rough area, not the doorstep', precision(), 'area');

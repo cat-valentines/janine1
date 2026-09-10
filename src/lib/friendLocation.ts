@@ -8,13 +8,13 @@
  *    is read from the device at the moment it is asked for and sent straight to
  *    the one friend who asked. Nobody can look up where you were yesterday,
  *    because nowhere knows.
- *  - **You must ask, and they must say yes.** A request goes to your friend and
- *    they choose: allow once, always allow, or no.
+ *  - **You must ask, and they must say yes — every single time.** There is no
+ *    standing permission that could be granted once and forgotten about. The
+ *    only lasting setting is the off switch.
  *  - **Friends only**, and your friend has to be online — their own app is what
  *    answers, so nothing happens behind their back.
- *  - **You can take it back at any time.** Sharing has an off switch, and the
- *    "always allow" list can be emptied whenever you like. Both live on your own
- *    device, not on a server.
+ *  - **You can take it back at any time.** One button stops it, and the setting
+ *    lives on your own device, not on a server.
  *  - **How exact is your choice.** It defaults to roughly your neighbourhood,
  *    not your doorstep, and you can turn on the exact spot if you want to.
  *
@@ -31,7 +31,6 @@ export interface Spot { lat: number; lng: number; accuracy: number; at: number }
 export type Precision = 'area' | 'exact';
 
 const ON_KEY = 'loc-sharing-on';
-const ALLOW_KEY = 'loc-allow-list';
 const PRECISION_KEY = 'loc-precision';
 
 // ---- your own settings (kept on your device only) --------------------------
@@ -43,18 +42,6 @@ export function precision(): Precision {
   return storage.get(PRECISION_KEY) === 'exact' ? 'exact' : 'area';
 }
 export const setPrecision = (value: Precision) => storage.set(PRECISION_KEY, value);
-
-/** Friends you have said "always allow" to. */
-export function allowList(): string[] {
-  try { return JSON.parse(storage.get(ALLOW_KEY) ?? '[]') as string[]; } catch { return []; }
-}
-export const allowsAlways = (friendId: string) => allowList().includes(friendId);
-export function setAlwaysAllow(friendId: string, allow: boolean) {
-  const list = allowList().filter((id) => id !== friendId);
-  if (allow) list.push(friendId);
-  storage.set(ALLOW_KEY, JSON.stringify(list));
-}
-export const clearAllowList = () => storage.set(ALLOW_KEY, '[]');
 
 // ---- rounding off ----------------------------------------------------------
 
@@ -139,10 +126,8 @@ const channelFor = (userId: string) => `loc-${userId}`;
  */
 export interface IncomingAsk {
   ask: LocationAsk;
-  /** True when this friend is already on your always-allow list. */
-  alreadyAllowed: boolean;
-  /** Answer it. Nothing is sent until this is called. */
-  reply: (choice: 'once' | 'always' | 'no') => void;
+  /** Answer it. Nothing is read or sent until this is called. */
+  reply: (choice: 'yes' | 'no') => void;
 }
 
 export function listenForLocationAsks(
@@ -165,10 +150,8 @@ export function listenForLocationAsks(
     // caller can check they really are a friend first, whatever the answer.
     onAsk({
       ask,
-      alreadyAllowed: allowsAlways(ask.from),
       reply: (choice) => void (async () => {
         if (choice === 'no') { await send(ask.from, { ev: 'no', ...me }); return; }
-        if (choice === 'always') setAlwaysAllow(ask.from, true);
         try {
           const spot = blur(await readSpot(), precision());
           await send(ask.from, { ev: 'spot', ...me, spot, precision: precision() });
