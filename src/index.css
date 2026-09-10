@@ -3008,3 +3008,12 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .chat-loc-ask strong { color: #2f5a26; font-size: .86rem; }
 .chat-loc-ask small { color: #5c6b52; font-size: .72rem; line-height: 1.45; }
 .chat-loc-ask button { justify-self: start; margin-top: 4px; padding: 8px 14px; border: 0; border-radius: 999px; background: #4f7a45; color: #fff; font-weight: 850; font-size: .78rem; cursor: pointer; }
+
+/* Yes / No on a location request found in the chat. */
+.chat-loc-buttons { display: flex; gap: 7px; margin-top: 6px; }
+.chat-loc-buttons button { padding: 9px 15px; border: 0; border-radius: 999px; font-weight: 850; font-size: .78rem; cursor: pointer; }
+.chat-loc-buttons .yes { background: #4f7a45; color: #fff; }
+.chat-loc-buttons .no { background: #f0e6e2; color: #7a3a2a; }
+.chat-loc-buttons button:disabled { opacity: .6; cursor: default; }
+.chat-loc-done { margin-top: 4px; color: #2f5a26; font-style: normal; font-weight: 800; font-size: .78rem; }
+.chat-loc-sent { opacity: .85; font-style: italic; }

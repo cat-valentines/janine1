@@ -18,7 +18,9 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 const CHECK_DIR = 'scripts/game-checks';
-const OUT_DIR = 'node_modules/.game-checks';
+// A directory of its own per run: two runs at once used to share one, and the
+// first to finish deleted it out from under the second.
+const OUT_DIR = `node_modules/.game-checks-${process.pid}`;
 
 const files = (await readdir(CHECK_DIR)).filter((name) => name.endsWith('.check.ts')).sort();
 await build({

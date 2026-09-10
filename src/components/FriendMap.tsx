@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  askFriendForLocation, distanceWords, friendRule, kmBetween, leaveLocationRequestInChat, mapEmbedUrl, mapLinkUrl,
-  readSpot, setFriendRule, setSharingOn, sharingOn,
+  askFriendForLocation, friendRule, leaveLocationRequestInChat,
+  setFriendRule, setSharingOn, sharingOn,
   type FriendRule, type LocationReply, type Precision, type Spot,
 } from '../lib/friendLocation';
+import { onLocationReply } from '../lib/locationBus';
+import { SpotMap } from './SpotMap';
 
 /**
  * "Where are you?" — the map you get after a friend says yes.
@@ -28,38 +30,40 @@ export function FriendMap({ me, friend, onClose }: FriendMapProps) {
   const [stage, setStage] = useState<Stage>('idle');
   const [spot, setSpot] = useState<Spot | null>(null);
   const [how, setHow] = useState<Precision>('area');
-  const [mySpot, setMySpot] = useState<Spot | null>(null);
   const [why, setWhy] = useState('');
-  const stopAsk = useRef<(() => void) | null>(null);
   const timer = useRef<number | null>(null);
 
-  useEffect(() => () => { stopAsk.current?.(); if (timer.current) clearTimeout(timer.current); }, []);
+  // Answers arrive through the app-wide listener, so this map just watches for
+  // the ones from the friend it is showing.
+  useEffect(() => {
+    // Tell the app-wide listener a map is open, so it does not also pop a card
+    // for the same answer.
+    window.dispatchEvent(new Event('location-map-open'));
+    return () => { window.dispatchEvent(new Event('location-map-close')); };
+  }, []);
+
+  useEffect(() => {
+    const off = onLocationReply((reply: LocationReply) => {
+      if (reply.from !== friend.id) return;
+      if (timer.current) clearTimeout(timer.current);
+      if (reply.ev === 'spot') { setSpot(reply.spot); setHow(reply.precision); setStage('shown'); }
+      else if (reply.ev === 'no') setStage('refused');
+      else if (reply.ev === 'off') setStage('off');
+      else { setWhy(reply.why); setStage('trouble'); }
+    });
+    return () => { off(); if (timer.current) clearTimeout(timer.current); };
+  }, [friend.id]);
 
   const ask = () => {
-    stopAsk.current?.();
     if (timer.current) clearTimeout(timer.current);
     setStage('asking');
     setSpot(null);
     setWhy('');
     // Leave it in the chat as well, so a friend who is away still finds out.
     void leaveLocationRequestInChat(me.id, me.name, friend.id);
-    stopAsk.current = askFriendForLocation(me, friend, (reply: LocationReply) => {
-      if (timer.current) clearTimeout(timer.current);
-      if (reply.ev === 'spot') {
-        setSpot(reply.spot);
-        setHow(reply.precision);
-        setStage('shown');
-        // Your own position, only so the map can say how far away they are. It
-        // is never sent anywhere.
-        readSpot().then(setMySpot).catch(() => setMySpot(null));
-      } else if (reply.ev === 'no') setStage('refused');
-      else if (reply.ev === 'off') setStage('off');
-      else { setWhy(reply.why); setStage('trouble'); }
-    });
+    void askFriendForLocation(me, friend);
     timer.current = window.setTimeout(() => setStage('quiet'), WAIT_MS);
   };
-
-  const km = spot && mySpot ? kmBetween(mySpot, spot) : null;
 
   return (
     <div className="loc-map-backdrop" onClick={onClose}>
@@ -83,22 +87,7 @@ export function FriendMap({ me, friend, onClose }: FriendMapProps) {
         </div>}
 
         {stage === 'shown' && spot && <>
-          <iframe
-            className="loc-frame"
-            title={`Map showing ${friend.name}`}
-            src={mapEmbedUrl(spot, how)}
-            loading="lazy"
-          />
-          <div className="loc-facts">
-            <strong>{friend.name} is {km === null ? 'here' : distanceWords(km)}</strong>
-            <small>
-              {how === 'exact'
-                ? 'They shared their exact spot.'
-                : 'They shared their rough area, not their exact spot.'}
-              {' '}Updated just now — this is live, not saved.
-            </small>
-            <a href={mapLinkUrl(spot)} target="_blank" rel="noreferrer noopener">Open in maps ↗</a>
-          </div>
+          <SpotMap name={friend.name} spot={spot} how={how} />
           <button className="loc-again" onClick={ask}>↻ Ask again for their spot now</button>
         </>}
 

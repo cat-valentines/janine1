@@ -6,7 +6,7 @@ import { acceptFriend, addFriend, changeUsername, isTakenError, isUsernameFree, 
 import { inviteLink, inviteTargets, gameTargets, type InviteTarget } from '../game/inviteTargets';
 import { SelfieStudio } from './SelfieStudio';
 import { FriendMap } from './FriendMap';
-import { LOCATION_REQUEST_MARK } from '../lib/friendLocation';
+import { LOCATION_REQUEST_MARK, declineLocationNow, friendRule, setSharingOn, shareLocationNow, sharingOn } from '../lib/friendLocation';
 import { joinIslandPresence, whereIsFriend, type OnlinePlayer } from '../lib/islandPresence';
 import { supabase } from '../lib/supabase';
 
@@ -435,14 +435,19 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
                 const media = parseMedia(item.message);
                 const mine = item.sender_id === userId;
                 if (media) return <ChatMedia key={item.id} mine={mine} kind={media.kind} path={media.path} onSave={() => saveMedia(media.kind, media.path)} onResend={mine ? () => setResend({ kind: media.kind, path: media.path }) : undefined} />;
-                // A location request they missed: picked out of the chat, with
-                // the way to answer it right there.
+                // A location request they missed. Answer it right here — Yes
+                // shares with that friend then and there, No tells them no.
                 if (!mine && item.message.startsWith(LOCATION_REQUEST_MARK)) {
-                  return <div className="chat-loc-ask" key={item.id}>
-                    <strong>📍 {selected.name} asked where you are</strong>
-                    <small>They only see it if you say yes, and you can choose how much they see.</small>
-                    <button onClick={() => setMapOpen(true)}>Answer this</button>
-                  </div>;
+                  return <ChatLocationAsk
+                    key={item.id}
+                    me={{ id: userId, name: myName }}
+                    friend={selected}
+                    onDone={setNote}
+                  />;
+                }
+                // Your own request reads oddly played back at you, so say it plainly.
+                if (mine && item.message.startsWith(LOCATION_REQUEST_MARK)) {
+                  return <p className="chat-mine chat-loc-sent" key={item.id}>📍 You asked {selected.name} where they are.</p>;
                 }
                 return <p className={mine ? 'chat-mine' : ''} key={item.id}>{item.message}</p>;
               })}
@@ -583,6 +588,70 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
 }
 
 /** Renders a photo/video chat message by resolving its private storage path to a signed URL. */
+/**
+ * A location request found in the chat, with the answer right there.
+ *
+ * The live request it came from is long gone, so Yes reads your position now and
+ * sends it straight to that friend. The per-friend rule still decides how much
+ * they get, and a friend set to "Nothing" cannot be shared with by accident.
+ */
+function ChatLocationAsk({ me, friend, onDone }: {
+  me: { id: string; name: string };
+  friend: { id: string; name: string };
+  onDone: (note: string) => void;
+}) {
+  const [busy, setBusy] = useState<'' | 'yes' | 'no'>('');
+  const [answered, setAnswered] = useState('');
+  const rule = friendRule(friend.id);
+
+  const yes = async () => {
+    // Saying yes here IS the decision to share, so if sharing is switched off
+    // this offers to turn it on rather than sending them away to find a setting
+    // — with the same warning it always shows before the first time.
+    if (!sharingOn()) {
+      const sure = window.confirm(
+        'Are you sure you want to share your location with players?\n\n'
+        + 'Only friends can ask, and you get to say yes or no every single time. '
+        + 'Your location is never saved anywhere — it is sent straight to the friend who asked.\n\n'
+        + 'You can press Stop sharing whenever you like.',
+      );
+      if (!sure) { onDone('Nothing was shared.'); return; }
+      setSharingOn(true);
+    }
+    setBusy('yes');
+    const result = await shareLocationNow(me, friend.id);
+    setBusy('');
+    if (result === 'sent') { setAnswered(`📍 Shared with ${friend.name}.`); onDone(`📍 Shared your location with ${friend.name}.`); }
+    else if (result === 'off') onDone('Location sharing is switched off.');
+    else if (result === 'blocked') onDone(`You have set ${friend.name} to see nothing. Change that in 📍 Where are they?`);
+    else onDone(result.trouble);
+  };
+  const no = async () => {
+    setBusy('no');
+    await declineLocationNow(me, friend.id).catch(() => undefined);
+    setBusy('');
+    setAnswered(`You said no to ${friend.name}.`);
+    onDone(`You said no — nothing was shared with ${friend.name}.`);
+  };
+
+  return <div className="chat-loc-ask">
+    <strong>📍 {friend.name} asked where you are</strong>
+    <small>
+      {rule === 'never'
+        ? `You have set ${friend.name} to see nothing at all.`
+        : rule === 'exact'
+          ? `If you say yes they see your exact spot.`
+          : `If you say yes they see roughly what part of town you are in — not your doorstep.`}
+    </small>
+    {answered
+      ? <em className="chat-loc-done">{answered}</em>
+      : <div className="chat-loc-buttons">
+        <button className="yes" disabled={!!busy} onClick={yes}>{busy === 'yes' ? 'Sharing…' : '📍 Yes, share'}</button>
+        <button className="no" disabled={!!busy} onClick={no}>{busy === 'no' ? '…' : 'No'}</button>
+      </div>}
+  </div>;
+}
+
 function ChatMedia({ mine, kind, path, label, onResend, onSave, onDelete }: { mine: boolean; kind: MediaKind; path: string; label?: string; onResend?: () => void; onSave?: () => void; onDelete?: () => void }) {
   const [url, setUrl] = useState('');
   useEffect(() => { let live = true; mediaSignedUrl(path).then((u) => { if (live) setUrl(u); }); return () => { live = false; }; }, [path]);

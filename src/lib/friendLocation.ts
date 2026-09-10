@@ -231,26 +231,63 @@ export function listenForLocationAsks(
 }
 
 /** Ask a friend where they are, and wait for their answer. */
-export function askFriendForLocation(
+/**
+ * Ask a friend where they are. Their answer comes back through the app-wide
+ * reply listener, which passes it on — so the map does not need its own
+ * subscription to the same topic.
+ */
+export async function askFriendForLocation(self: { id: string; name: string }, friend: { id: string }) {
+  await sendTo(askTopic(friend.id), { from: self.id, name: self.name } satisfies LocationAsk);
+}
+
+/**
+ * Say yes to a request you found in the chat, rather than to a live one.
+ *
+ * A request left in a message may be minutes old, so there is no pending ask to
+ * answer — this reads your position now and sends it straight to that friend.
+ * The per-friend rule still decides how much they get, and a friend set to
+ * "Nothing" cannot be shared with even by accident.
+ */
+export async function shareLocationNow(
   self: { id: string; name: string },
-  friend: { id: string; name: string },
-  onReply: (reply: LocationReply) => void,
-): () => void {
-  let mine: RealtimeChannel | null = null;
+  friendId: string,
+): Promise<'sent' | 'blocked' | 'off' | { trouble: string }> {
+  if (!sharingOn()) return 'off';
+  const rule = friendRule(friendId);
+  if (rule === 'never') return 'blocked';
+  const me = { from: self.id, name: self.name };
+  try {
+    const spot = blur(await readSpot(), rule);
+    await sendTo(replyTopic(friendId), { ev: 'spot', ...me, spot, precision: rule } satisfies LocationReply);
+    return 'sent';
+  } catch (error) {
+    return { trouble: (error as Error).message };
+  }
+}
+
+/** Say no to a request you found in the chat. Nothing is read from the device. */
+export async function declineLocationNow(self: { id: string; name: string }, friendId: string) {
+  await sendTo(replyTopic(friendId), { ev: 'no', from: self.id, name: self.name });
+}
+
+/**
+ * Listen for answers coming back to you — mounted once, app-wide.
+ *
+ * One listener for the whole app rather than one per open map: two
+ * subscriptions to the same topic in a single client is exactly the sort of
+ * thing that quietly stops working.
+ */
+export function listenForLocationReplies(selfId: string, onReply: (reply: LocationReply) => void): () => void {
+  let channel: RealtimeChannel | null = null;
   let closed = false;
-
-  // Listen for the answer FIRST, and only ask once we are really listening —
-  // otherwise a quick "no" could arrive before we were ready to hear it.
-  void join(replyTopic(self.id), (payload) => {
+  void join(replyTopic(selfId), (payload) => {
     const reply = payload as LocationReply;
-    if (reply?.from === friend.id) onReply(reply);
+    if (reply?.ev && reply.from) onReply(reply);
   }).then((ready) => {
-    mine = ready;
-    if (closed) { supabase.removeChannel(ready); return; }
-    void sendTo(askTopic(friend.id), { from: self.id, name: self.name } satisfies LocationAsk);
+    channel = ready;
+    if (closed) supabase.removeChannel(ready);
   });
-
-  return () => { closed = true; if (mine) supabase.removeChannel(mine); };
+  return () => { closed = true; if (channel) supabase.removeChannel(channel); };
 }
 
 /** How a location request reads in the chat, so it can be spotted again later. */

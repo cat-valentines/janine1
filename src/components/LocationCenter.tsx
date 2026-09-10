@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { listenForLocationAsks, type LocationAsk, type Precision } from '../lib/friendLocation';
+import { listenForLocationAsks, listenForLocationReplies, type LocationAsk, type LocationReply, type Precision, type Spot } from '../lib/friendLocation';
+import { publishLocationReply } from '../lib/locationBus';
+import { SpotMap } from './SpotMap';
 import { flashTitle, notify, stopFlashTitle } from '../lib/appNotify';
 import { startRing, stopRing } from '../lib/sfx';
 import { loadMyFriends } from '../lib/players';
@@ -32,7 +34,11 @@ export function LocationCenter() {
   /** You tapped the notification, so now you get the choice. */
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
+  /** A friend shared with you when you had no map open — shown as its own card. */
+  const [shared, setShared] = useState<{ name: string; spot: Spot; how: Precision } | null>(null);
   const answer = useRef<((choice: 'yes' | 'no') => void) | null>(null);
+  /** True while a map is open and already showing answers itself. */
+  const mapWatching = useRef(false);
   const closeNotice = useRef<(() => void) | null>(null);
   const ringOff = useRef<number | null>(null);
   const expiry = useRef<number | null>(null);
@@ -100,10 +106,25 @@ export function LocationCenter() {
       });
     };
 
+    // One subscription to your reply channel for the whole app. It passes every
+    // answer along to any open map, and if no map is open — because the friend
+    // answered from their chat, minutes later — it shows the spot itself.
+    let stopReplies: (() => void) | null = null;
+    const listenReplies = (userId: string) => {
+      stopReplies?.();
+      stopReplies = listenForLocationReplies(userId, (reply: LocationReply) => {
+        publishLocationReply(reply);
+        if (mapWatching.current || reply.ev !== 'spot') return;
+        setShared({ name: reply.name, spot: reply.spot, how: reply.precision });
+        notify('📍 Location shared', `${reply.name} shared where they are.`, 'loc-shared');
+      });
+    };
+
     const start = () => supabase.auth.getUser().then(({ data }) => {
       const user = data.user;
       if (!user || dead) return;
       void listen({ id: user.id, name: (user.user_metadata.display_name as string | undefined) ?? 'a friend' });
+      listenReplies(user.id);
     });
     start();
 
@@ -113,10 +134,25 @@ export function LocationCenter() {
       if (dead) return;
       if (session?.user) {
         void listen({ id: session.user.id, name: (session.user.user_metadata.display_name as string | undefined) ?? 'a friend' });
-      } else { stop?.(); stop = null; }
+        listenReplies(session.user.id);
+      } else { stop?.(); stop = null; stopReplies?.(); stopReplies = null; }
     });
 
-    return () => { dead = true; stop?.(); sub.subscription.unsubscribe(); hush(); };
+    // A map being open means it is showing answers itself, so this stays quiet.
+    const mapOpened = () => { mapWatching.current = true; };
+    const mapClosed = () => { mapWatching.current = false; };
+    window.addEventListener('location-map-open', mapOpened);
+    window.addEventListener('location-map-close', mapClosed);
+
+    return () => {
+      dead = true;
+      stop?.();
+      stopReplies?.();
+      sub.subscription.unsubscribe();
+      window.removeEventListener('location-map-open', mapOpened);
+      window.removeEventListener('location-map-close', mapClosed);
+      hush();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -164,6 +200,17 @@ export function LocationCenter() {
           <button className="once" onClick={() => choose('yes')}>📍 Share my location</button>
           <button className="no" onClick={() => choose('no')}>No thanks</button>
         </div>
+      </div>
+    </div>}
+
+    {/* A friend answered when you had no map open — here is where they are. */}
+    {shared && <div className="loc-map-backdrop" onClick={() => setShared(null)}>
+      <div className="loc-map" onClick={(e) => e.stopPropagation()}>
+        <div className="loc-map-top">
+          <h3>📍 {shared.name} shared their location</h3>
+          <button className="loc-close" onClick={() => setShared(null)} aria-label="Close">×</button>
+        </div>
+        <SpotMap name={shared.name} spot={shared.spot} how={shared.how} />
       </div>
     </div>}
 

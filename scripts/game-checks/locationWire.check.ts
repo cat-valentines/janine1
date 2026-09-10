@@ -6,7 +6,7 @@
  * it — so requests vanished and no notification ever appeared. These checks
  * stand a fake Realtime in the way and prove the code waits properly.
  */
-import { LOCATION_REQUEST_MARK } from '../../src/lib/friendLocation';
+import { LOCATION_REQUEST_MARK, sharingOn } from '../../src/lib/friendLocation';
 
 let bad = 0;
 const check = (name: string, got: unknown, want: unknown) => {
@@ -104,5 +104,32 @@ const chatLine = `${LOCATION_REQUEST_MARK} — @Ana wants to know where you are.
 check('  ...and a real chat line starts with it', chatLine.startsWith(LOCATION_REQUEST_MARK), true);
 check('  ...while ordinary chat does not', 'hello there'.startsWith(LOCATION_REQUEST_MARK), false);
 check('  ...nor does a message merely mentioning a pin', '📍 look at this map'.startsWith(LOCATION_REQUEST_MARK), false);
+
+// ---- answering from the chat ------------------------------------------------
+// A request found in a message is minutes old, so there is no live ask to
+// answer. Yes has to read the position now and send it straight to that friend,
+// and the per-friend rule still has to decide how much they get.
+const { blur, friendRule, setFriendRule, setSharingOn } = await import('../../src/lib/friendLocation');
+const store = new Map<string, string>();
+(globalThis as { localStorage?: unknown }).localStorage = {
+  getItem: (k: string) => store.get(k) ?? null,
+  setItem: (k: string, v: string) => store.set(k, v),
+};
+
+const real = { lat: 51.503399, lng: -0.127321, accuracy: 6, at: 0 };
+setSharingOn(true);
+
+setFriendRule('close', 'exact');
+check('answering yes to a close friend sends the exact spot', blur(real, friendRule('close') as 'exact'), real);
+
+setFriendRule('other', 'area');
+const rough = blur(real, friendRule('other') as 'area');
+check('  ...and another friend still only gets the area', [rough.lat, rough.lng], [51.5, -0.13]);
+
+setFriendRule('blocked', 'never');
+check('a blocked friend cannot be answered yes at all', friendRule('blocked'), 'never');
+
+setSharingOn(false);
+check('and with sharing off, nothing can be sent', sharingOn(), false);
 
 process.exit(bad ? 1 : 0);
