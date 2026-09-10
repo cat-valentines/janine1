@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { listenForLocationAsks, type LocationAsk } from '../lib/friendLocation';
+import { listenForLocationAsks, type LocationAsk, type Precision } from '../lib/friendLocation';
 import { flashTitle, notify, stopFlashTitle } from '../lib/appNotify';
 import { startRing, stopRing } from '../lib/sfx';
 import { loadMyFriends } from '../lib/players';
@@ -27,6 +27,8 @@ const EXPIRE_MS = 90000;
 export function LocationCenter() {
   /** Somebody is asking, and you have not opened it yet. */
   const [pending, setPending] = useState<LocationAsk | null>(null);
+  /** What they would see if you say yes — set per friend. */
+  const [rule, setRule] = useState<Precision>('area');
   /** You tapped the notification, so now you get the choice. */
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
@@ -67,7 +69,7 @@ export function LocationCenter() {
       stop?.();
       await loadFriends();
       if (dead) return;
-      stop = listenForLocationAsks(user, ({ ask: incoming, reply }) => {
+      stop = listenForLocationAsks(user, ({ ask: incoming, rule: theirRule, reply }) => {
         void (async () => {
           // Friends only. A request from anyone not on your accepted friends
           // list is ignored outright and never even interrupts you. If we do
@@ -79,6 +81,7 @@ export function LocationCenter() {
           }
           answer.current = reply;
           setPending(incoming);
+          setRule(theirRule);
           setOpen(false);
 
           // Tell them it is there, in every way available — then wait for them
@@ -149,8 +152,13 @@ export function LocationCenter() {
         <span className="loc-ask-pin">📍</span>
         <h3>{pending.name} wants to know where you are</h3>
         <p>
-          If you press Share, <b>{pending.name}</b> sees your real location on a map. Only they see it, it is
-          not saved anywhere, and they have to ask again next time.
+          If you press Share, <b>{pending.name}</b> sees {rule === 'exact' ? <b>your exact spot</b> : <>roughly <b>what part of town you are in</b></>} on
+          a map. Only they see it, it is not saved anywhere, and they have to ask again next time.
+        </p>
+        <p className="loc-rule-hint">
+          {rule === 'exact'
+            ? '📌 You have set them to see your exact spot. You can change that in Where are they? → My location sharing.'
+            : '🏘️ They only get your rough area, not your doorstep.'}
         </p>
         <div className="loc-ask-buttons">
           <button className="once" onClick={() => choose('yes')}>📍 Share my location</button>

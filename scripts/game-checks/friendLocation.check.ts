@@ -1,6 +1,6 @@
 import {
-  blur, distanceWords, kmBetween, mapEmbedUrl, mapLinkUrl,
-  precision, setPrecision, setSharingOn, sharingOn, type Spot,
+  blur, distanceWords, friendRule, friendRules, kmBetween, mapEmbedUrl, mapLinkUrl,
+  setFriendRule, setSharingOn, sharingOn, type Spot,
 } from '../../src/lib/friendLocation';
 import { placeAtPath } from '../../src/game/gameRoutes';
 import { whereIsFriend, type OnlinePlayer } from '../../src/lib/islandPresence';
@@ -37,11 +37,34 @@ check('pressing Share twice changes nothing', sharingOn(), true);
 setSharingOn(false);
 check('and off stays off', sharingOn(), false);
 
-// ---- how exact ---------------------------------------------------------------
-check('it defaults to the rough area, not the doorstep', precision(), 'area');
-setPrecision('exact');
-check('you can choose exact', precision(), 'exact');
-setPrecision('area');
+// ---- what each friend may see, one friend at a time -------------------------
+// The default matters most: a friend you have never thought about must get the
+// cautious answer, never your doorstep.
+check('an unset friend gets the rough area', friendRule('best-friend'), 'area');
+check('nobody has a rule to begin with', friendRules(), {});
+
+setFriendRule('best-friend', 'exact');
+check('a close friend can be given your exact spot', friendRule('best-friend'), 'exact');
+check('  ...without changing anyone else', friendRule('someone-else'), 'area');
+
+setFriendRule('someone-else', 'never');
+check('another can be shown nothing at all', friendRule('someone-else'), 'never');
+check('  ...and the close friend still sees exactly', friendRule('best-friend'), 'exact');
+
+setFriendRule('best-friend', 'area');
+check('a rule can be turned back down', friendRule('best-friend'), 'area');
+check('  ...and the default leaves no clutter behind', Object.keys(friendRules()), ['someone-else']);
+setFriendRule('someone-else', 'never');
+check('setting the same rule twice is fine', friendRule('someone-else'), 'never');
+
+// Anything unexpected in storage falls back to the cautious answer rather than
+// the revealing one.
+setFriendRule('odd', 'nonsense' as 'exact');
+check('a nonsense rule falls back to the area', friendRule('odd'), 'area');
+
+// Three friends, three different answers — the whole point.
+setFriendRule('a', 'exact'); setFriendRule('b', 'area'); setFriendRule('c', 'never');
+check('three friends can be told three things', [friendRule('a'), friendRule('b'), friendRule('c')], ['exact', 'area', 'never']);
 
 // Rounding must genuinely lose the detail, not just look like it.
 const home = spot(51.503399, -0.127321, 6);

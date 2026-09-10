@@ -15,8 +15,10 @@
  *    answers, so nothing happens behind their back.
  *  - **You can take it back at any time.** One button stops it, and the setting
  *    lives on your own device, not on a server.
- *  - **How exact is your choice.** It defaults to roughly your neighbourhood,
- *    not your doorstep, and you can turn on the exact spot if you want to.
+ *  - **Each friend separately.** A best friend can see your exact spot, someone
+ *    else only roughly what part of town you are in, and a third nothing at all
+ *    — they are simply told no, and you are not even interrupted. It defaults to
+ *    the rough area, never the doorstep.
  *
  * It is real: the position comes from the device's own GPS, never invented.
  */
@@ -30,18 +32,39 @@ export interface Spot { lat: number; lng: number; accuracy: number; at: number }
 /** How exact a shared position is. */
 export type Precision = 'area' | 'exact';
 
+/**
+ * What one particular friend is allowed to see:
+ *  - `exact`  — your real spot, to the doorstep
+ *  - `area`   — roughly what part of town you are in (the default)
+ *  - `never`  — nothing at all; they are told no without you being asked
+ */
+export type FriendRule = Precision | 'never';
+
 const ON_KEY = 'loc-sharing-on';
-const PRECISION_KEY = 'loc-precision';
+const RULES_KEY = 'loc-friend-rules';
 
 // ---- your own settings (kept on your device only) --------------------------
 
 export const sharingOn = (): boolean => storage.get(ON_KEY) === '1';
 export const setSharingOn = (on: boolean) => storage.set(ON_KEY, on ? '1' : '0');
 
-export function precision(): Precision {
-  return storage.get(PRECISION_KEY) === 'exact' ? 'exact' : 'area';
+/** Everyone you have set a rule for. Friends not listed get `area`. */
+export function friendRules(): Record<string, FriendRule> {
+  try { return JSON.parse(storage.get(RULES_KEY) ?? '{}') as Record<string, FriendRule>; } catch { return {}; }
 }
-export const setPrecision = (value: Precision) => storage.set(PRECISION_KEY, value);
+
+/** What this friend may see. Unset friends get the cautious answer, not the exact one. */
+export function friendRule(friendId: string): FriendRule {
+  const rule = friendRules()[friendId];
+  return rule === 'exact' || rule === 'never' ? rule : 'area';
+}
+
+export function setFriendRule(friendId: string, rule: FriendRule) {
+  const rules = friendRules();
+  if (rule === 'area') delete rules[friendId];   // the default needs no entry
+  else rules[friendId] = rule;
+  storage.set(RULES_KEY, JSON.stringify(rules));
+}
 
 // ---- rounding off ----------------------------------------------------------
 
@@ -126,6 +149,8 @@ const channelFor = (userId: string) => `loc-${userId}`;
  */
 export interface IncomingAsk {
   ask: LocationAsk;
+  /** What this friend would see if you say yes — so the prompt can say so. */
+  rule: Precision;
   /** Answer it. Nothing is read or sent until this is called. */
   reply: (choice: 'yes' | 'no') => void;
 }
@@ -146,15 +171,21 @@ export function listenForLocationAsks(
     // Sharing switched off is a flat no, without troubling the player at all.
     if (!sharingOn()) { void send(ask.from, { ev: 'off', ...me }); return; }
 
+    // A friend you have set to "nothing at all" is turned away here, before it
+    // ever reaches you — that is the point of the setting.
+    const rule = friendRule(ask.from);
+    if (rule === 'never') { void send(ask.from, { ev: 'no', ...me }); return; }
+
     // Nothing is read or sent here — the decision is handed upward, so the
     // caller can check they really are a friend first, whatever the answer.
     onAsk({
       ask,
+      rule,
       reply: (choice) => void (async () => {
         if (choice === 'no') { await send(ask.from, { ev: 'no', ...me }); return; }
         try {
-          const spot = blur(await readSpot(), precision());
-          await send(ask.from, { ev: 'spot', ...me, spot, precision: precision() });
+          const spot = blur(await readSpot(), rule);
+          await send(ask.from, { ev: 'spot', ...me, spot, precision: rule });
         } catch (error) {
           await send(ask.from, { ev: 'trouble', ...me, why: (error as Error).message });
         }

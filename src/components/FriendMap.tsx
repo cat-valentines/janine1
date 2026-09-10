@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  askFriendForLocation, distanceWords, kmBetween, mapEmbedUrl, mapLinkUrl,
-  precision, readSpot, setPrecision, setSharingOn, sharingOn,
-  type LocationReply, type Precision, type Spot,
+  askFriendForLocation, distanceWords, friendRule, kmBetween, mapEmbedUrl, mapLinkUrl,
+  readSpot, setFriendRule, setSharingOn, sharingOn,
+  type FriendRule, type LocationReply, type Precision, type Spot,
 } from '../lib/friendLocation';
 
 /**
@@ -120,22 +120,23 @@ export function FriendMap({ me, friend, onClose }: FriendMapProps) {
           <button className="loc-again" onClick={ask}>Try again</button>
         </div>}
 
-        <MySharing />
+        <MySharing friendId={friend.id} friendName={friend.name} />
       </div>
     </div>
   );
 }
 
 /**
- * Your own sharing settings: two buttons, and how exact you are.
- *
- * Deliberately just Share and Stop sharing — one thing to understand, and one
- * tap to take it back. Every request still asks you, every time, so there is no
- * standing permission anywhere that could be forgotten about.
+ * Your own sharing settings: the master switch, then what this one friend may
+ * see. Different friends can be told different things — your closest can have
+ * your exact spot, someone else only the part of town, and someone else nothing
+ * at all. Nobody ever sees anything without asking first, whatever their rule.
  */
-function MySharing() {
+function MySharing({ friendId, friendName }: { friendId: string; friendName: string }) {
   const [on, setOn] = useState(sharingOn);
-  const [how, setHow] = useState<Precision>(precision);
+  const [rule, setRule] = useState<FriendRule>(() => friendRule(friendId));
+
+  const choose = (next: FriendRule) => { setFriendRule(friendId, next); setRule(next); };
 
   const start = () => {
     // The warning, before anything is ever shared.
@@ -161,16 +162,28 @@ function MySharing() {
         <button className={`loc-share ${on ? 'on' : ''}`} onClick={start} disabled={on}>📍 Share</button>
         <button className={`loc-stop ${!on ? 'on' : ''}`} onClick={stop} disabled={!on}>🛑 Stop sharing</button>
       </div>
-      {on && <div className="loc-precision">
-        <button className={how === 'area' ? 'on' : ''} onClick={() => { setPrecision('area'); setHow('area'); }}>
-          🏘️ My area
-          <small>About a kilometre — safer</small>
-        </button>
-        <button className={how === 'exact' ? 'on' : ''} onClick={() => { setPrecision('exact'); setHow('exact'); }}>
-          📌 My exact spot
-          <small>Pinpoint — only for people you trust</small>
-        </button>
-      </div>}
+      {on && <>
+        <p className="loc-who">What <b>{friendName}</b> can see when they ask:</p>
+        <div className="loc-precision three">
+          <button className={rule === 'exact' ? 'on' : ''} onClick={() => choose('exact')}>
+            📌 Exact spot
+            <small>Only for people you really trust</small>
+          </button>
+          <button className={rule === 'area' ? 'on' : ''} onClick={() => choose('area')}>
+            🏘️ Just my area
+            <small>About a kilometre — safer</small>
+          </button>
+          <button className={`never ${rule === 'never' ? 'on' : ''}`} onClick={() => choose('never')}>
+            🚫 Nothing
+            <small>They are told no, and you are not asked</small>
+          </button>
+        </div>
+        <p className="loc-who quiet">
+          {rule === 'never'
+            ? `${friendName} will simply be told no. You will not even be interrupted.`
+            : `${friendName} has to ask every time, and you can still say no.`}
+        </p>
+      </>}
     </details>
   );
 }
