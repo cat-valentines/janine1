@@ -2933,7 +2933,18 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .friend-where strong { color: #3a2c22; font-size: .88rem; }
 .friend-where small { color: var(--ink-soft); font-size: .72rem; }
 
-/* ---- the "may I?" prompt, wherever you are in the app ---- */
+/* ---- the notification: it tells you, and waits for you to tap it ---- */
+.loc-alert { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); z-index: 71; display: flex; align-items: center; gap: 11px; width: min(94vw, 420px); padding: 12px 14px; border: 3px solid #4f7a45; border-radius: 16px; background: #fffaf0; box-shadow: 0 10px 30px #0006; text-align: left; cursor: pointer; animation: locAlertIn .3s ease-out; }
+@keyframes locAlertIn { from { transform: translate(-50%, -18px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+.loc-alert-pin { font-size: 1.9rem; animation: locPin 1s ease-in-out infinite alternate; }
+@keyframes locPin { from { transform: scale(1); } to { transform: scale(1.16); } }
+.loc-alert-body { flex: 1; display: grid; gap: 2px; }
+.loc-alert-body strong { color: #3a2c22; font-size: .88rem; }
+.loc-alert-body small { color: var(--ink-soft); font-size: .74rem; }
+.loc-alert-go { padding: 8px 14px; border-radius: 999px; background: #4f7a45; color: #fff; font-weight: 850; font-size: .78rem; }
+@media (prefers-reduced-motion: reduce) { .loc-alert, .loc-alert-pin { animation: none; } }
+
+/* ---- the "may I?" prompt, once you have tapped the notification ---- */
 .loc-ask-backdrop { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 18px; background: #0008; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
 .loc-ask { display: grid; justify-items: center; gap: 9px; width: min(94vw, 420px); padding: 22px 20px; border: 4px solid #4f7a45; border-radius: 20px; background: #fffaf0; box-shadow: 0 14px 40px #0007; text-align: center; }
 .loc-ask-pin { font-size: 2.6rem; }

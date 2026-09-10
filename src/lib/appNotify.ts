@@ -37,13 +37,19 @@ export const pageHidden = () => typeof document !== 'undefined' && (document.hid
 /**
  * Pop a notification outside the page. Returns a closer, so a call that gets
  * answered can take its notification away again.
+ *
+ * `onClick` runs when the player taps it — which is how a notification becomes
+ * a way IN to something, rather than just a shout: tap it and the app opens
+ * whatever it was telling you about.
  */
-export function notify(title: string, body: string, tag: string): (() => void) | null {
+export function notify(title: string, body: string, tag: string, onClick?: () => void): (() => void) | null {
   if (!notifyAllowed()) return null;
   try {
     const shown = new Notification(title, { body, tag, icon: '/apple-touch-icon.png' });
-    // Clicking it should bring the player back to the game.
-    shown.onclick = () => { try { window.focus(); shown.close(); } catch { /* nothing to do */ } };
+    shown.onclick = () => {
+      try { window.focus(); shown.close(); } catch { /* nothing to do */ }
+      onClick?.();
+    };
     return () => { try { shown.close(); } catch { /* already gone */ } };
   } catch {
     return null;   // never let a notification break anything

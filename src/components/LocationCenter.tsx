@@ -8,21 +8,51 @@ import { loadMyFriends } from '../lib/players';
 /**
  * "Where are you?" — the request that lands on YOUR screen.
  *
- * Mounted once at the app root, so a friend's request reaches you wherever you
- * are: it rings, it flashes the tab title, it pops a notification outside the
- * page, and it puts a card in front of you with Share and No thanks. Nothing at
- * all is read from your device until you press Share.
+ * A request never seizes the screen. It arrives as a **notification**: a ring, a
+ * flashing tab title, a pop-up outside the page, and a card at the top of the
+ * app saying who is asking. Tap it and only then do you get the choice — Share,
+ * or No thanks. So an answer is always something you went to, never something
+ * you were startled into.
  *
- * It only ever answers for a real friend, and only if you have sharing switched
- * on — and it asks you every single time, because there is no such thing here as
- * a permission you granted once and forgot about.
+ * Nothing at all is read from your device until you press Share, and you are
+ * asked every single time. Mounted once at the app root, so it reaches you
+ * wherever you are.
  */
+
+/** Ring for a few seconds, not forever. */
+const RING_MS = 9000;
+/** An unanswered request fades away rather than sitting there all day. */
+const EXPIRE_MS = 90000;
+
 export function LocationCenter() {
-  const [ask, setAsk] = useState<LocationAsk | null>(null);
+  /** Somebody is asking, and you have not opened it yet. */
+  const [pending, setPending] = useState<LocationAsk | null>(null);
+  /** You tapped the notification, so now you get the choice. */
+  const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
   const answer = useRef<((choice: 'yes' | 'no') => void) | null>(null);
+  const closeNotice = useRef<(() => void) | null>(null);
+  const ringOff = useRef<number | null>(null);
+  const expiry = useRef<number | null>(null);
   /** Ids of your accepted friends — a request from anybody else is ignored. */
   const friendIds = useRef<Set<string>>(new Set());
+
+  /** Stop shouting: the ring, the tab title and the pop-up all go together. */
+  const hush = () => {
+    stopRing();
+    stopFlashTitle();
+    closeNotice.current?.();
+    closeNotice.current = null;
+    if (ringOff.current) { clearTimeout(ringOff.current); ringOff.current = null; }
+  };
+
+  const clearRequest = () => {
+    hush();
+    if (expiry.current) { clearTimeout(expiry.current); expiry.current = null; }
+    answer.current = null;
+    setPending(null);
+    setOpen(false);
+  };
 
   useEffect(() => {
     let stop: (() => void) | null = null;
@@ -41,18 +71,28 @@ export function LocationCenter() {
         void (async () => {
           // Friends only. A request from anyone not on your accepted friends
           // list is ignored outright and never even interrupts you. If we do
-          // not recognise them, check once more first — you may have just
-          // become friends since the app opened.
+          // not recognise them, check once more — you may have just become
+          // friends since the app opened.
           if (!friendIds.current.has(incoming.from)) {
             await loadFriends();
             if (!friendIds.current.has(incoming.from)) return;
           }
-          setAsk(incoming);
           answer.current = reply;
-          // Make it impossible to miss, wherever they happen to be looking.
+          setPending(incoming);
+          setOpen(false);
+
+          // Tell them it is there, in every way available — then wait for them
+          // to come to it.
           startRing();
+          ringOff.current = window.setTimeout(() => stopRing(), RING_MS);
           flashTitle(`📍 ${incoming.name} wants your location`);
-          notify('📍 Location request', `${incoming.name} is asking where you are. Tap to answer.`, 'loc-ask');
+          closeNotice.current = notify(
+            '📍 Location request',
+            `${incoming.name} is asking where you are. Tap to choose.`,
+            'loc-ask',
+            () => { stopRing(); stopFlashTitle(); setOpen(true); },   // tapping it opens the choice
+          );
+          expiry.current = window.setTimeout(() => clearRequest(), EXPIRE_MS);
         })();
       });
     };
@@ -64,7 +104,7 @@ export function LocationCenter() {
     });
     start();
 
-    // Sign in (or out) part-way through a session, and the listener follows —
+    // Sign in (or out) part-way through a session and the listener follows —
     // otherwise a request would land on a tab that had stopped listening.
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (dead) return;
@@ -73,7 +113,8 @@ export function LocationCenter() {
       } else { stop?.(); stop = null; }
     });
 
-    return () => { dead = true; stop?.(); sub.subscription.unsubscribe(); stopRing(); stopFlashTitle(); };
+    return () => { dead = true; stop?.(); sub.subscription.unsubscribe(); hush(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -83,29 +124,41 @@ export function LocationCenter() {
   }, [note]);
 
   const choose = (choice: 'yes' | 'no') => {
-    stopRing();
-    stopFlashTitle();
     answer.current?.(choice);
-    answer.current = null;
-    setAsk(null);
-    setNote(choice === 'no' ? 'You said no — nothing was shared.' : '📍 Shared your location with them.');
+    const who = pending?.name ?? 'them';
+    clearRequest();
+    setNote(choice === 'no' ? `You said no — nothing was shared with ${who}.` : `📍 Shared your location with ${who}.`);
   };
 
+  const openChoice = () => { hush(); setOpen(true); };
+
   return <>
-    {ask && <div className="loc-ask-backdrop">
+    {/* The notification: it tells you, and waits. */}
+    {pending && !open && <button className="loc-alert" onClick={openChoice}>
+      <span className="loc-alert-pin">📍</span>
+      <span className="loc-alert-body">
+        <strong>{pending.name} wants to know where you are</strong>
+        <small>Tap to choose — share, or don't.</small>
+      </span>
+      <span className="loc-alert-go">Open</span>
+    </button>}
+
+    {/* And only once you have tapped it, the choice. */}
+    {pending && open && <div className="loc-ask-backdrop">
       <div className="loc-ask">
         <span className="loc-ask-pin">📍</span>
-        <h3>{ask.name} wants to know where you are</h3>
+        <h3>{pending.name} wants to know where you are</h3>
         <p>
-          If you press Share, <b>{ask.name}</b> sees your real location on a map. Only they see it, it is not
-          saved anywhere, and they have to ask again next time.
+          If you press Share, <b>{pending.name}</b> sees your real location on a map. Only they see it, it is
+          not saved anywhere, and they have to ask again next time.
         </p>
         <div className="loc-ask-buttons">
-          <button className="once" onClick={() => choose('yes')}>📍 Share</button>
+          <button className="once" onClick={() => choose('yes')}>📍 Share my location</button>
           <button className="no" onClick={() => choose('no')}>No thanks</button>
         </div>
       </div>
     </div>}
+
     {note && <p className="loc-note">{note}</p>}
   </>;
 }

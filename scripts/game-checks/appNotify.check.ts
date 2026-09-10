@@ -57,15 +57,18 @@ check('and looking at it again counts', pageHidden(), false);
 // ---- with notifications available -------------------------------------------
 let shown: Array<{ title: string; body: string; tag: string }> = [];
 let closed = 0;
+let last: FakeNotification | null = null;
 class FakeNotification {
   static permission = 'granted';
   static requestPermission = async () => 'granted';
   onclick: (() => void) | null = null;
   constructor(title: string, opts: { body: string; tag: string }) {
     shown.push({ title, body: opts.body, tag: opts.tag });
+    last = this;
   }
   close() { closed += 1; }
 }
+(globalThis as { window?: unknown }).window = Object.assign(globalThis, { focus: () => undefined });
 (globalThis as { Notification?: unknown }).Notification = FakeNotification;
 
 check('notifications are available now', canNotify(), true);
@@ -75,6 +78,20 @@ check('a call notification is shown', shown[0], { title: '📞 Ana is calling', 
 check('  ...and hands back a way to close it', typeof close, 'function');
 close?.();
 check('  ...which really closes it', closed, 1);
+
+// Tapping a notification has to be a way IN: a location request tells you it is
+// there, and tapping it is what opens the share-or-not choice.
+let opened = 0;
+notify('📍 Location request', 'Ana is asking where you are.', 'loc-ask', () => { opened += 1; });
+check('nothing opens until it is tapped', opened, 0);
+last?.onclick?.();
+check('tapping it opens the choice', opened, 1);
+check('  ...and closes the notification', closed, 2);
+
+// One with no handler must still be safe to tap.
+notify('Just saying', 'hello', 'plain');
+last?.onclick?.();
+check('tapping a plain notification is harmless', opened, 1);
 
 // Refused means refused: no pop-up, and no nagging the player again.
 FakeNotification.permission = 'denied';
