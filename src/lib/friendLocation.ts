@@ -24,6 +24,7 @@
  */
 import { supabase } from './supabase';
 import { storage } from './storage';
+import { sendFriendMessage } from './friends';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 /** A position on the earth, as read from the device. */
@@ -141,7 +142,36 @@ export type LocationReply =
 
 export interface LocationAsk { from: string; name: string }
 
-const channelFor = (userId: string) => `loc-${userId}`;
+/**
+ * Two separate topics per player: one for requests coming in, one for replies
+ * coming back. They have to be separate, because one tab both listens for
+ * requests (anywhere in the app) and waits for a reply (on the map) — and two
+ * subscriptions to the same topic in one client is asking for trouble.
+ */
+const askTopic = (userId: string) => `loc-ask-${userId}`;
+const replyTopic = (userId: string) => `loc-reply-${userId}`;
+
+/**
+ * Join a topic and resolve only once it is genuinely ready to send on.
+ *
+ * This is the part that was broken: sending on a channel that has not finished
+ * subscribing does nothing at all, silently — so requests were vanishing and no
+ * notification ever appeared. Calls have always waited properly; now this does.
+ */
+function join(topic: string, onMessage?: (payload: unknown) => void): Promise<RealtimeChannel> {
+  return new Promise((resolve) => {
+    const channel = supabase.channel(topic, { config: { broadcast: { self: false } } });
+    if (onMessage) channel.on('broadcast', { event: 'loc' }, ({ payload }) => onMessage(payload));
+    channel.subscribe((status) => { if (status === 'SUBSCRIBED') resolve(channel); });
+  });
+}
+
+/** One-shot message to somebody's channel: join, send, then let it go. */
+async function sendTo(topic: string, payload: unknown) {
+  const channel = await join(topic);
+  await channel.send({ type: 'broadcast', event: 'loc', payload });
+  setTimeout(() => supabase.removeChannel(channel), 1500);
+}
 
 /**
  * Listen for friends asking where you are. Your own app answers, so nothing can
@@ -159,12 +189,12 @@ export function listenForLocationAsks(
   self: { id: string; name: string },
   onAsk: (incoming: IncomingAsk) => void,
 ): () => void {
-  const channel: RealtimeChannel = supabase.channel(channelFor(self.id), { config: { broadcast: { self: false } } });
+  let channel: RealtimeChannel | null = null;
+  let closed = false;
 
-  const send = (to: string, payload: LocationReply) =>
-    supabase.channel(channelFor(to)).send({ type: 'broadcast', event: 'reply', payload });
+  const send = (to: string, payload: LocationReply) => sendTo(replyTopic(to), payload);
 
-  channel.on('broadcast', { event: 'ask' }, ({ payload }) => {
+  const handle = (payload: unknown) => {
     const ask = payload as LocationAsk;
     if (!ask?.from) return;
     const me = { from: self.id, name: self.name };
@@ -191,9 +221,13 @@ export function listenForLocationAsks(
         }
       })(),
     });
+  };
+
+  void join(askTopic(self.id), handle).then((ready) => {
+    channel = ready;
+    if (closed) supabase.removeChannel(ready);
   });
-  channel.subscribe();
-  return () => { supabase.removeChannel(channel); };
+  return () => { closed = true; if (channel) supabase.removeChannel(channel); };
 }
 
 /** Ask a friend where they are, and wait for their answer. */
@@ -202,16 +236,36 @@ export function askFriendForLocation(
   friend: { id: string; name: string },
   onReply: (reply: LocationReply) => void,
 ): () => void {
-  const mine: RealtimeChannel = supabase.channel(channelFor(self.id), { config: { broadcast: { self: false } } });
-  mine.on('broadcast', { event: 'reply' }, ({ payload }) => {
+  let mine: RealtimeChannel | null = null;
+  let closed = false;
+
+  // Listen for the answer FIRST, and only ask once we are really listening —
+  // otherwise a quick "no" could arrive before we were ready to hear it.
+  void join(replyTopic(self.id), (payload) => {
     const reply = payload as LocationReply;
     if (reply?.from === friend.id) onReply(reply);
+  }).then((ready) => {
+    mine = ready;
+    if (closed) { supabase.removeChannel(ready); return; }
+    void sendTo(askTopic(friend.id), { from: self.id, name: self.name } satisfies LocationAsk);
   });
-  mine.subscribe((status) => {
-    if (status !== 'SUBSCRIBED') return;
-    supabase.channel(channelFor(friend.id)).send({
-      type: 'broadcast', event: 'ask', payload: { from: self.id, name: self.name } satisfies LocationAsk,
-    });
-  });
-  return () => { supabase.removeChannel(mine); };
+
+  return () => { closed = true; if (mine) supabase.removeChannel(mine); };
+}
+
+/** How a location request reads in the chat, so it can be spotted again later. */
+export const LOCATION_REQUEST_MARK = '📍 asked to see your location';
+
+/**
+ * Leave the request in the chat too.
+ *
+ * A live request only reaches somebody who has the app open. Putting it in the
+ * chat as well means a friend who was away still finds out that you asked, in
+ * the same place they read everything else — and can answer whenever they come
+ * back, exactly like a missed call.
+ */
+export async function leaveLocationRequestInChat(fromId: string, fromName: string, toId: string) {
+  try {
+    await sendFriendMessage(fromId, toId, `${LOCATION_REQUEST_MARK} — @${fromName} wants to know where you are. Open 👥 Friends → 📍 Where are they? to share or say no.`);
+  } catch { /* offline is fine — the live request may still have got through */ }
 }

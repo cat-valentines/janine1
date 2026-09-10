@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  askFriendForLocation, distanceWords, friendRule, kmBetween, mapEmbedUrl, mapLinkUrl,
+  askFriendForLocation, distanceWords, friendRule, kmBetween, leaveLocationRequestInChat, mapEmbedUrl, mapLinkUrl,
   readSpot, setFriendRule, setSharingOn, sharingOn,
   type FriendRule, type LocationReply, type Precision, type Spot,
 } from '../lib/friendLocation';
@@ -41,6 +41,8 @@ export function FriendMap({ me, friend, onClose }: FriendMapProps) {
     setStage('asking');
     setSpot(null);
     setWhy('');
+    // Leave it in the chat as well, so a friend who is away still finds out.
+    void leaveLocationRequestInChat(me.id, me.name, friend.id);
     stopAsk.current = askFriendForLocation(me, friend, (reply: LocationReply) => {
       if (timer.current) clearTimeout(timer.current);
       if (reply.ev === 'spot') {
@@ -112,6 +114,7 @@ export function FriendMap({ me, friend, onClose }: FriendMapProps) {
 
         {stage === 'quiet' && <div className="loc-stage">
           <p>💤 No answer — {friend.name} is probably not on Magical Islands right now.</p>
+          <small>Your request is waiting in your chat with them, so they will see it when they come back.</small>
           <button className="loc-again" onClick={ask}>Try again</button>
         </div>}
 

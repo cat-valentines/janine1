@@ -1,0 +1,108 @@
+/**
+ * The location request has to actually arrive.
+ *
+ * It did not, for a while: messages were sent on a Realtime channel that had
+ * never finished subscribing, which does nothing at all and says nothing about
+ * it — so requests vanished and no notification ever appeared. These checks
+ * stand a fake Realtime in the way and prove the code waits properly.
+ */
+import { LOCATION_REQUEST_MARK } from '../../src/lib/friendLocation';
+
+let bad = 0;
+const check = (name: string, got: unknown, want: unknown) => {
+  const ok = JSON.stringify(got) === JSON.stringify(want);
+  if (!ok) bad += 1;
+  console.log(`${ok ? 'ok  ' : 'FAIL'}  ${name.padEnd(54)} ${JSON.stringify(got)}${ok ? '' : `  (want ${JSON.stringify(want)})`}`);
+};
+
+// ---- a fake Realtime that only delivers what a SUBSCRIBED channel sends ----
+interface Sent { topic: string; payload: unknown }
+const delivered: Sent[] = [];
+const droppedUnsubscribed: Sent[] = [];
+
+class FakeChannel {
+  subscribed = false;
+  listeners: Array<(payload: unknown) => void> = [];
+  constructor(public topic: string, private bus: Map<string, FakeChannel[]>) {
+    const list = bus.get(topic) ?? [];
+    list.push(this);
+    bus.set(topic, list);
+  }
+  on(_type: string, _filter: unknown, handler: (msg: { payload: unknown }) => void) {
+    this.listeners.push((payload) => handler({ payload }));
+    return this;
+  }
+  subscribe(cb?: (status: string) => void) {
+    // Real subscription is not instant, which is the entire point.
+    setTimeout(() => { this.subscribed = true; cb?.('SUBSCRIBED'); }, 5);
+    return this;
+  }
+  send(msg: { payload: unknown }) {
+    if (!this.subscribed) { droppedUnsubscribed.push({ topic: this.topic, payload: msg.payload }); return Promise.resolve('error'); }
+    delivered.push({ topic: this.topic, payload: msg.payload });
+    for (const other of this.bus.get(this.topic) ?? []) {
+      if (other !== this) other.listeners.forEach((fn) => fn(msg.payload));
+    }
+    return Promise.resolve('ok');
+  }
+}
+
+const bus = new Map<string, FakeChannel[]>();
+const wait = (ms: number) => new Promise((done) => setTimeout(done, ms));
+
+// The pattern the code must follow: wait for SUBSCRIBED, THEN send.
+async function sendProperly(topic: string, payload: unknown) {
+  const ch = new FakeChannel(topic, bus);
+  await new Promise<void>((done) => ch.subscribe(() => done()));
+  await ch.send({ payload });
+}
+// The pattern that was broken: send straight away.
+async function sendTooSoon(topic: string, payload: unknown) {
+  const ch = new FakeChannel(topic, bus);
+  ch.subscribe();
+  await ch.send({ payload });
+}
+
+// A listener that is already subscribed and waiting.
+const heard: unknown[] = [];
+const listener = new FakeChannel('loc-ask-friend', bus);
+listener.on('broadcast', { event: 'loc' }, ({ payload }) => heard.push(payload));
+await new Promise<void>((done) => listener.subscribe(() => done()));
+
+await sendTooSoon('loc-ask-friend', { from: 'me', name: 'Ana' });
+await wait(20);
+check('sending before subscribing is silently lost', heard.length, 0);
+check('  ...which is exactly the bug that was there', droppedUnsubscribed.length, 1);
+
+await sendProperly('loc-ask-friend', { from: 'me', name: 'Ana' });
+await wait(20);
+check('waiting for SUBSCRIBED gets it through', heard.length, 1);
+check('  ...with the request intact', heard[0], { from: 'me', name: 'Ana' });
+check('  ...and it really went out', delivered.length, 1);
+
+// Requests and replies must not share a topic: one tab listens for requests
+// anywhere in the app while the map waits for a reply, and two subscriptions to
+// one topic in a single client is asking for trouble.
+const askTopic = (id: string) => `loc-ask-${id}`;
+const replyTopic = (id: string) => `loc-reply-${id}`;
+check('requests and replies use different topics', askTopic('u1') !== replyTopic('u1'), true);
+check('  ...and each player has their own', askTopic('u1') !== askTopic('u2'), true);
+
+// A reply goes to the ASKER's reply topic, never back to their ask topic.
+const replies: unknown[] = [];
+const asker = new FakeChannel(replyTopic('me'), bus);
+asker.on('broadcast', { event: 'loc' }, ({ payload }) => replies.push(payload));
+await new Promise<void>((done) => asker.subscribe(() => done()));
+await sendProperly(replyTopic('me'), { ev: 'no', from: 'friend', name: 'Ben' });
+await wait(20);
+check('a reply reaches the friend who asked', replies.length, 1);
+check('  ...and says who it came from', (replies[0] as { from: string }).from, 'friend');
+
+// ---- the chat fallback --------------------------------------------------------
+check('a request left in chat is recognisable', LOCATION_REQUEST_MARK.startsWith('📍'), true);
+const chatLine = `${LOCATION_REQUEST_MARK} — @Ana wants to know where you are.`;
+check('  ...and a real chat line starts with it', chatLine.startsWith(LOCATION_REQUEST_MARK), true);
+check('  ...while ordinary chat does not', 'hello there'.startsWith(LOCATION_REQUEST_MARK), false);
+check('  ...nor does a message merely mentioning a pin', '📍 look at this map'.startsWith(LOCATION_REQUEST_MARK), false);
+
+process.exit(bad ? 1 : 0);

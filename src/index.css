@@ -3002,3 +3002,9 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .loc-precision button.on { border-color: #4f7a45; background: #f2faf0; color: #2f5a26; }
 .loc-precision small { color: var(--ink-soft); font-size: .66rem; font-weight: 600; }
 
+
+/* A location request sitting in the chat, for a friend who missed the live one. */
+.chat-loc-ask { display: grid; gap: 4px; margin: 6px 0; padding: 11px 13px; border: 2px solid #4f7a45; border-radius: 12px; background: #f2faf0; }
+.chat-loc-ask strong { color: #2f5a26; font-size: .86rem; }
+.chat-loc-ask small { color: #5c6b52; font-size: .72rem; line-height: 1.45; }
+.chat-loc-ask button { justify-self: start; margin-top: 4px; padding: 8px 14px; border: 0; border-radius: 999px; background: #4f7a45; color: #fff; font-weight: 850; font-size: .78rem; cursor: pointer; }

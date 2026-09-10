@@ -6,6 +6,7 @@ import { acceptFriend, addFriend, changeUsername, isTakenError, isUsernameFree, 
 import { inviteLink, inviteTargets, gameTargets, type InviteTarget } from '../game/inviteTargets';
 import { SelfieStudio } from './SelfieStudio';
 import { FriendMap } from './FriendMap';
+import { LOCATION_REQUEST_MARK } from '../lib/friendLocation';
 import { joinIslandPresence, whereIsFriend, type OnlinePlayer } from '../lib/islandPresence';
 import { supabase } from '../lib/supabase';
 
@@ -434,6 +435,15 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
                 const media = parseMedia(item.message);
                 const mine = item.sender_id === userId;
                 if (media) return <ChatMedia key={item.id} mine={mine} kind={media.kind} path={media.path} onSave={() => saveMedia(media.kind, media.path)} onResend={mine ? () => setResend({ kind: media.kind, path: media.path }) : undefined} />;
+                // A location request they missed: picked out of the chat, with
+                // the way to answer it right there.
+                if (!mine && item.message.startsWith(LOCATION_REQUEST_MARK)) {
+                  return <div className="chat-loc-ask" key={item.id}>
+                    <strong>📍 {selected.name} asked where you are</strong>
+                    <small>They only see it if you say yes, and you can choose how much they see.</small>
+                    <button onClick={() => setMapOpen(true)}>Answer this</button>
+                  </div>;
+                }
                 return <p className={mine ? 'chat-mine' : ''} key={item.id}>{item.message}</p>;
               })}
               {!shown.length && <p className="friend-empty">Say hi! @{selected.name} gets a 🔔 when you text.</p>}
