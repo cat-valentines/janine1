@@ -11,6 +11,8 @@ import { AppAssistant } from './components/AppAssistant';
 import { CallCenter } from './components/CallCenter';
 import { GroupCallCenter } from './components/GroupCallCenter';
 import { ChessCallCenter } from './components/ChessCallCenter';
+import { LocationCenter } from './components/LocationCenter';
+import { PresenceCenter } from './components/PresenceCenter';
 
 export default function App() {
   const path = useRoute();
@@ -30,7 +32,7 @@ export default function App() {
     return <><InvitePage code={inviteCode} onJoined={() => {
       window.history.replaceState({}, '', window.location.pathname);
       setInviteCode(null);
-    }} /><AppAssistant /><CallCenter /><GroupCallCenter /><ChessCallCenter /></>;
+    }} /><AppAssistant /><CallCenter /><GroupCallCenter /><ChessCallCenter /><LocationCenter /><PresenceCenter /></>;
   }
 
   // Tower Royal has its own URL, so it can be linked to and the back button
@@ -44,7 +46,7 @@ export default function App() {
         <AuthErrorBanner />
         <GamePage selection={playing} onExit={() => { setSelection(null); navigate('/'); }} />
         <AppAssistant />
-        <CallCenter /><GroupCallCenter /><ChessCallCenter />
+        <CallCenter /><GroupCallCenter /><ChessCallCenter /><LocationCenter /><PresenceCenter />
       </>
     );
   }
@@ -54,7 +56,7 @@ export default function App() {
       <AuthErrorBanner />
       <SelectionPage onStart={(next) => { setSelection(next); navigate('/play/tower'); }} />
       <AppAssistant />
-      <CallCenter /><GroupCallCenter /><ChessCallCenter />
+      <CallCenter /><GroupCallCenter /><ChessCallCenter /><LocationCenter /><PresenceCenter />
     </>
   );
 }

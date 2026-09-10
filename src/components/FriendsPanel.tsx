@@ -5,6 +5,8 @@ import { createGroup, loadMyGroups, loadGroupMessages, loadGroupMemberIds, addGr
 import { acceptFriend, addFriend, changeUsername, isTakenError, isUsernameFree, loadAllPlayers, loadMyFriends, loadMyStats, removeFriend, searchPlayers, USERNAME_RULE, type FoundPlayer, type FriendRow } from '../lib/players';
 import { inviteLink, inviteTargets, gameTargets, type InviteTarget } from '../game/inviteTargets';
 import { SelfieStudio } from './SelfieStudio';
+import { FriendMap } from './FriendMap';
+import { joinIslandPresence, whereIsFriend, type OnlinePlayer } from '../lib/islandPresence';
 import { supabase } from '../lib/supabase';
 
 const icons: Record<string, string> = { cottontail: '🐰', momo: '🐧', toby: '🦊', ollie: '🦦', coral: '🐠', biscuit: '🐶', koala: '🐨', teddy: '🧸', panda: '🐼', tiger: '🐯', piggy: '🐷', parrot: '🦜', mila: '🐄', gabby: '🦒', amsaal: '🐥', misha: '🐄', joy: '🐾', melly: '🦭', martin: '🦔' };
@@ -31,6 +33,11 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
   const [note, setNote] = useState('');
   /** The Selfie camera studio, open for the selected friend. */
   const [selfieOpen, setSelfieOpen] = useState(false);
+  /** The map, once you've chosen to ask a friend where they are. */
+  const [mapOpen, setMapOpen] = useState(false);
+  /** Everyone on the island right now, so "what are they playing" is live. */
+  const [online, setOnline] = useState<OnlinePlayer[]>([]);
+  const [whereOpen, setWhereOpen] = useState(false);
   /** A media message you're forwarding to another friend (only your own media). */
   const [resend, setResend] = useState<{ kind: MediaKind; path: string } | null>(null);
   /** The "🔒 Just me" private selfie gallery. */
@@ -88,6 +95,14 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
     setOpenedInitial(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [friends, initialFriendId, openedInitial]);
+
+  // While the panel is open, join the island's presence channel — that is what
+  // makes "what are they playing?" a live answer from their own app.
+  useEffect(() => {
+    if (!userId) return;
+    const handle = joinIslandPresence({ id: userId, name: myName, character: '' }, setOnline);
+    return () => { handle.leave(); setOnline([]); };
+  }, [userId, myName]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -357,7 +372,21 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
             <button className={tray === 'now' ? 'on' : ''} onClick={() => openTray('now')}>🎮 Invite to play</button>
             <button className="call-btn" onClick={() => window.dispatchEvent(new CustomEvent('friend-call', { detail: { id: selected.id, name: selected.name, video: true } }))}>📞 Call</button>
             <button className="selfie-btn" onClick={() => setSelfieOpen(true)}>📸 Selfie</button>
+            <button className={`where-btn ${whereOpen ? 'on' : ''}`} onClick={() => setWhereOpen((o) => !o)}>🎮 What are they playing?</button>
+            <button className="location-btn" onClick={() => setMapOpen(true)}>📍 Where are they?</button>
           </div>
+
+          {/* Live, from their own app — never a stale row in a table. */}
+          {whereOpen && (() => {
+            const where = whereIsFriend(online, selected.id);
+            return <div className={`friend-where ${where.online ? 'on' : 'off'}`}>
+              <span>{where.icon}</span>
+              <div>
+                <strong>{where.text}</strong>
+                <small>{where.online ? 'Right now — this updates as they move about.' : 'They are not in the app at the moment.'}</small>
+              </div>
+            </div>;
+          })()}
 
           {tray === 'now' && <div className="invite-tray">
             <p className="invite-tray-title">Who's coming?</p>
@@ -413,6 +442,12 @@ export function FriendsPanel({ onClose, initialFriendId }: { onClose: () => void
           })()}
         </>}
       </>}{note && <p className="friend-note">{note}</p>}
+
+      {mapOpen && selected && <FriendMap
+        me={{ id: userId, name: myName }}
+        friend={{ id: selected.id, name: selected.name }}
+        onClose={() => setMapOpen(false)}
+      />}
 
       {selfieOpen && selected && <SelfieStudio me={userId} friend={selected} friends={friends}
         onSent={() => { if (selected) openChat(selected.id); }} onClose={() => setSelfieOpen(false)} />}

@@ -28,6 +28,18 @@ await build({
   platform: 'node',
   format: 'esm',
   logLevel: 'error',
+  // Vite fills `import.meta.env` in for the browser; Node has no such thing, so
+  // a check that touches any module importing the Supabase client would crash
+  // on load. Stand-in values let those modules be imported and their pure parts
+  // checked — nothing here ever reaches the network.
+  define: {
+    'import.meta.env': JSON.stringify({
+      VITE_SUPABASE_URL: 'http://localhost:54321',
+      VITE_SUPABASE_ANON_KEY: 'checks-only',
+      DEV: false,
+      MODE: 'test',
+    }),
+  },
 });
 
 // Each check file reports its own result with an exit code, so run each one in
