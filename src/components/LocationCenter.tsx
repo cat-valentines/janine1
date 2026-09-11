@@ -32,8 +32,6 @@ const EXPIRE_MS = 90000;
 export function LocationCenter() {
   /** Somebody is asking, and you have not opened it yet. */
   const [pending, setPending] = useState<LocationAsk | null>(null);
-  /** What they would see if you say yes — set per friend. */
-  const [rule, setRule] = useState<Precision>('area');
   /** You tapped the notification, so now you get the choice. */
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
@@ -88,7 +86,7 @@ export function LocationCenter() {
       stop?.();
       await loadFriends();
       if (dead) return;
-      stop = listenForLocationAsks(user, ({ ask: incoming, rule: theirRule, reply }) => {
+      stop = listenForLocationAsks(user, ({ ask: incoming, approvedAs, reply }) => {
         void (async () => {
           // Friends only. A request from anyone not on your accepted friends
           // list is ignored outright and never even interrupts you. If we do
@@ -98,9 +96,23 @@ export function LocationCenter() {
             await loadFriends();
             if (!friendIds.current.has(incoming.from)) return;
           }
+          // Already approved: they pressed the button and the answer is already
+          // yes, so it just goes — but you are told, and the Stop button appears.
+          if (approvedAs) {
+            liveRef.current?.stop();
+            const started = startLiveShare(
+              { id: meRef.current.id, name: meRef.current.name },
+              { id: incoming.from, name: incoming.name },
+              approvedAs,
+              (why) => { setNote(why); setLive(null); },
+            );
+            setLive(started);
+            setNote(`📍 ${incoming.name} looked — they can see ${approvedAs === 'exact' ? 'your exact spot' : 'your area'} because you approved them.`);
+            return;
+          }
+
           answer.current = reply;
           setPending(incoming);
-          setRule(theirRule);
           setOpen(false);
 
           // Tell them it is there, in every way available — then wait for them
@@ -192,9 +204,9 @@ export function LocationCenter() {
   };
 
   /**
-   * You pressed Share, then picked how much. That choice is also remembered for
-   * this friend, so next time it is already what you meant — and it stays
-   * separate for every friend.
+   * You pressed Share, then picked how much. That approves this friend from now
+   * on, so next time they can simply look — until you take it back, which puts
+   * them right back to having to ask.
    */
   const shareAs = (how: Precision) => {
     const friend = pending;
@@ -239,13 +251,12 @@ export function LocationCenter() {
         <span className="loc-ask-pin">📍</span>
         <h3>{pending.name} wants to know where you are</h3>
         <p>
-          If you press Share, <b>{pending.name}</b> sees {rule === 'exact' ? <b>your exact spot</b> : <>roughly <b>what part of town you are in</b></>} on
-          a map. Only they see it, it is not saved anywhere, and they have to ask again next time.
+          If you press Share, <b>{pending.name}</b> sees where you are on a map. Only they see it, and
+          it is never saved anywhere.
         </p>
         <p className="loc-rule-hint">
-          {rule === 'exact'
-            ? '📌 You have set them to see your exact spot. You can change that in Where are they? → My location sharing.'
-            : '🏘️ They only get your rough area, not your doorstep.'}
+          Saying yes lets <b>{pending.name}</b> look whenever they like, until you stop it.
+          You can take that back any time in <b>📍 Where are they? → My location sharing</b>.
         </p>
         {!choosing
           ? <div className="loc-ask-buttons">

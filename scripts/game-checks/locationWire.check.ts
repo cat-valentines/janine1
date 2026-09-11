@@ -137,12 +137,10 @@ check('and with sharing off, nothing can be sent', sharingOn(), false);
 // you pick is remembered for THAT friend, so it stays different per person.
 const { LIVE_MINUTES } = await import('../../src/lib/friendLocation');
 
-setFriendRule('ana', 'area');
-setFriendRule('ben', 'area');
 setFriendRule('ana', 'exact');          // picking "exact spot" for Ana only
-check('choosing exact is remembered for that friend', friendRule('ana'), 'exact');
-check('  ...and leaves the other friend alone', friendRule('ben'), 'area');
-setFriendRule('ana', 'area');           // and it can be taken back down
+check('choosing exact approves that friend', friendRule('ana'), 'exact');
+check('  ...and leaves a friend you have not decided about asking', friendRule('ben'), 'ask');
+setFriendRule('ana', 'area');           // and it can be turned down
 check('and it can be changed again later', friendRule('ana'), 'area');
 
 // A live share has to stop by itself — a share you forgot about is the danger.

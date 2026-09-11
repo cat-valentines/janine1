@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   askFriendForLocation, friendRule, leaveLocationRequestInChat,
-  setFriendRule, setSharingOn, sharingOn,
+  setFriendRule, setSharingOn, sharingOn, unapproveFriend,
   type FriendRule, type LocationReply, type Precision, type Spot,
 } from '../lib/friendLocation';
 import { onLocationReply } from '../lib/locationBus';
@@ -166,32 +166,41 @@ function MySharing({ friendId, friendName }: { friendId: string; friendName: str
     <details className="loc-settings" open>
       <summary>⚙️ My location sharing</summary>
       <p className={`loc-state ${on ? 'on' : 'off'}`}>
-        {on ? '📍 Friends can ask where you are. You still say yes or no each time.' : '🔕 Nobody can ask where you are.'}
+        {on ? '📍 Friends can ask where you are. Nobody sees anything until you approve them.' : '🔕 Nobody can ask where you are.'}
       </p>
       <div className="loc-buttons">
         <button className={`loc-share ${on ? 'on' : ''}`} onClick={start} disabled={on}>📍 Share</button>
         <button className={`loc-stop ${!on ? 'on' : ''}`} onClick={stop} disabled={!on}>🛑 Stop sharing</button>
       </div>
       {on && <>
-        <p className="loc-who">What <b>{friendName}</b> can see when they ask:</p>
+        <p className="loc-who">What <b>{friendName}</b> can see:</p>
         <div className="loc-precision three">
           <button className={rule === 'exact' ? 'on' : ''} onClick={() => choose('exact')}>
             📌 Exact spot
-            <small>Only for people you really trust</small>
+            <small>They can look whenever they like</small>
           </button>
           <button className={rule === 'area' ? 'on' : ''} onClick={() => choose('area')}>
             🏘️ Just my area
-            <small>About a kilometre — safer</small>
+            <small>They can look, but only roughly</small>
           </button>
           <button className={`never ${rule === 'never' ? 'on' : ''}`} onClick={() => choose('never')}>
             🚫 Nothing
-            <small>They are told no, and you are not asked</small>
+            <small>Told no, and you are not even asked</small>
           </button>
         </div>
+
+        {/* Taking approval back: they are straight back to having to ask. */}
+        {(rule === 'exact' || rule === 'area') && <button
+          className="loc-unapprove"
+          onClick={() => { unapproveFriend(friendId); setRule('ask'); }}
+        >🛑 Stop sharing with {friendName} — make them ask again</button>}
+
         <p className="loc-who quiet">
           {rule === 'never'
-            ? `${friendName} will simply be told no. You will not even be interrupted.`
-            : `${friendName} has to ask every time, and you can still say no.`}
+            ? `${friendName} is simply told no, and you are not interrupted.`
+            : rule === 'ask'
+              ? `${friendName} has to send you a request, and you decide then. They cannot see anything until you say yes.`
+              : `${friendName} can see ${rule === 'exact' ? 'your exact spot' : 'your area'} whenever they press the button — until you stop it.`}
         </p>
       </>}
     </details>

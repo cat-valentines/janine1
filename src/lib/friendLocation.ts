@@ -35,11 +35,16 @@ export type Precision = 'area' | 'exact';
 
 /**
  * What one particular friend is allowed to see:
- *  - `exact`  — your real spot, to the doorstep
- *  - `area`   — roughly what part of town you are in (the default)
+ *  - `ask`    — they must ask, and you decide each time (where everyone starts)
+ *  - `exact`  — approved: your real spot, whenever they look
+ *  - `area`   — approved: roughly what part of town you are in, whenever they look
  *  - `never`  — nothing at all; they are told no without you being asked
+ *
+ * Approving somebody lasts until you take it back, so a friend can just press
+ * the button and see you. Taking it back puts them on `ask` again, so they have
+ * to request from scratch — there is no half-state where they keep a way in.
  */
-export type FriendRule = Precision | 'never';
+export type FriendRule = Precision | 'never' | 'ask';
 
 const ON_KEY = 'loc-sharing-on';
 const RULES_KEY = 'loc-friend-rules';
@@ -54,18 +59,30 @@ export function friendRules(): Record<string, FriendRule> {
   try { return JSON.parse(storage.get(RULES_KEY) ?? '{}') as Record<string, FriendRule>; } catch { return {}; }
 }
 
-/** What this friend may see. Unset friends get the cautious answer, not the exact one. */
+/**
+ * What this friend may see. Anybody you have not decided about has to ask —
+ * an unrecognised value is never read as approval.
+ */
 export function friendRule(friendId: string): FriendRule {
   const rule = friendRules()[friendId];
-  return rule === 'exact' || rule === 'never' ? rule : 'area';
+  return rule === 'exact' || rule === 'area' || rule === 'never' ? rule : 'ask';
 }
+
+/** True when they can simply look, without asking you again. */
+export const friendApproved = (friendId: string) => {
+  const rule = friendRule(friendId);
+  return rule === 'exact' || rule === 'area';
+};
 
 export function setFriendRule(friendId: string, rule: FriendRule) {
   const rules = friendRules();
-  if (rule === 'area') delete rules[friendId];   // the default needs no entry
+  if (rule === 'ask') delete rules[friendId];   // the default needs no entry
   else rules[friendId] = rule;
   storage.set(RULES_KEY, JSON.stringify(rules));
 }
+
+/** Take approval back: they have to request all over again. */
+export const unapproveFriend = (friendId: string) => setFriendRule(friendId, 'ask');
 
 // ---- rounding off ----------------------------------------------------------
 
@@ -184,8 +201,12 @@ async function sendTo(topic: string, payload: unknown) {
  */
 export interface IncomingAsk {
   ask: LocationAsk;
-  /** What this friend would see if you say yes — so the prompt can say so. */
-  rule: Precision;
+  /**
+   * Set when this friend is already approved: they asked, and the answer is
+   * already yes at this precision. Nothing happens behind your back — the app
+   * still tells you it went, and the Stop button is right there.
+   */
+  approvedAs: Precision | null;
   /** Answer it. Nothing is read or sent until this is called. */
   reply: (choice: 'yes' | 'no') => void;
 }
@@ -213,14 +234,15 @@ export function listenForLocationAsks(
 
     // Nothing is read or sent here — the decision is handed upward, so the
     // caller can check they really are a friend first, whatever the answer.
+    const how: Precision = rule === 'exact' ? 'exact' : 'area';
     onAsk({
       ask,
-      rule,
+      approvedAs: rule === 'exact' || rule === 'area' ? rule : null,
       reply: (choice) => void (async () => {
         if (choice === 'no') { await send(ask.from, { ev: 'no', ...me }); return; }
         try {
-          const spot = blur(await readSpot(), rule);
-          await send(ask.from, { ev: 'spot', ...me, spot, precision: rule });
+          const spot = blur(await readSpot(), how);
+          await send(ask.from, { ev: 'spot', ...me, spot, precision: how });
         } catch (error) {
           await send(ask.from, { ev: 'trouble', ...me, why: (error as Error).message });
         }

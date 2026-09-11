@@ -3039,3 +3039,4 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 
 /* ---- Request location, right at the top where you look first ---- */
 .loc-request-top { width: 100%; padding: 13px 16px; border: 0; border-radius: 999px; background: #4f7a45; color: #fff; font-weight: 850; font-size: .9rem; cursor: pointer; }
+.loc-unapprove { width: 100%; margin-top: 9px; padding: 11px 14px; border: 2px solid #b0553f; border-radius: 999px; background: #fbf0ec; color: #8a3a24; font-weight: 850; font-size: .8rem; cursor: pointer; }

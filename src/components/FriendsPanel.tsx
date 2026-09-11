@@ -648,14 +648,14 @@ function ChatLocationAsk({ me, friend, onDone }: {
       ? <em className="chat-loc-done">{answered}</em>
       : !choosing
         ? <>
-          <small>They only see it if you say yes, and you choose how much.</small>
+          <small>They only see it if you say yes, and you choose how much. You can stop it again any time.</small>
           <div className="chat-loc-buttons">
             <button className="yes" onClick={share}>📍 Share</button>
             <button className="no" onClick={no}>Not share</button>
           </div>
         </>
         : <>
-          <small>How much should {friend.name} see?</small>
+          <small>How much should {friend.name} see from now on?</small>
           <div className="chat-loc-buttons">
             <button className="yes" onClick={() => shareAs('exact')}>📌 Exact spot</button>
             <button className="yes area" onClick={() => shareAs('area')}>🏘️ Just my area</button>

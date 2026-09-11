@@ -1,6 +1,6 @@
 import {
-  blur, distanceWords, friendRule, friendRules, kmBetween, mapEmbedUrl, mapLinkUrl,
-  setFriendRule, setSharingOn, sharingOn, type Spot,
+  blur, distanceWords, friendApproved, friendRule, friendRules, kmBetween, mapEmbedUrl, mapLinkUrl,
+  setFriendRule, setSharingOn, sharingOn, unapproveFriend, type Spot,
 } from '../../src/lib/friendLocation';
 import { placeAtPath } from '../../src/game/gameRoutes';
 import { whereIsFriend, type OnlinePlayer } from '../../src/lib/islandPresence';
@@ -40,31 +40,40 @@ check('and off stays off', sharingOn(), false);
 // ---- what each friend may see, one friend at a time -------------------------
 // The default matters most: a friend you have never thought about must get the
 // cautious answer, never your doorstep.
-check('an unset friend gets the rough area', friendRule('best-friend'), 'area');
+// Nobody is approved until you approve them — this is the one that matters.
+check('a friend you have not decided about must ask', friendRule('best-friend'), 'ask');
+check('  ...and is definitely not approved', friendApproved('best-friend'), false);
 check('nobody has a rule to begin with', friendRules(), {});
 
 setFriendRule('best-friend', 'exact');
-check('a close friend can be given your exact spot', friendRule('best-friend'), 'exact');
-check('  ...without changing anyone else', friendRule('someone-else'), 'area');
+check('approving a close friend for the exact spot', friendRule('best-friend'), 'exact');
+check('  ...means they can look whenever they like', friendApproved('best-friend'), true);
+check('  ...and changes nobody else', [friendRule('someone-else'), friendApproved('someone-else')], ['ask', false]);
 
 setFriendRule('someone-else', 'never');
 check('another can be shown nothing at all', friendRule('someone-else'), 'never');
-check('  ...and the close friend still sees exactly', friendRule('best-friend'), 'exact');
+check('  ...which is not approval either', friendApproved('someone-else'), false);
+check('  ...and the close friend is untouched', friendRule('best-friend'), 'exact');
 
 setFriendRule('best-friend', 'area');
-check('a rule can be turned back down', friendRule('best-friend'), 'area');
-check('  ...and the default leaves no clutter behind', Object.keys(friendRules()), ['someone-else']);
-setFriendRule('someone-else', 'never');
-check('setting the same rule twice is fine', friendRule('someone-else'), 'never');
+check('approval can be turned down to the area', friendRule('best-friend'), 'area');
+check('  ...and they can still look', friendApproved('best-friend'), true);
 
-// Anything unexpected in storage falls back to the cautious answer rather than
-// the revealing one.
+// Taking it back puts them all the way back to asking — no half-state.
+unapproveFriend('best-friend');
+check('stopping sharing makes them ask again', friendRule('best-friend'), 'ask');
+check('  ...and they can no longer just look', friendApproved('best-friend'), false);
+check('  ...leaving no clutter behind', Object.keys(friendRules()), ['someone-else']);
+
+// Anything unexpected in storage is never read as approval.
 setFriendRule('odd', 'nonsense' as 'exact');
-check('a nonsense rule falls back to the area', friendRule('odd'), 'area');
+check('a nonsense rule falls back to asking', friendRule('odd'), 'ask');
+check('  ...and is not approval', friendApproved('odd'), false);
 
-// Three friends, three different answers — the whole point.
-setFriendRule('a', 'exact'); setFriendRule('b', 'area'); setFriendRule('c', 'never');
-check('three friends can be told three things', [friendRule('a'), friendRule('b'), friendRule('c')], ['exact', 'area', 'never']);
+// Four friends, four different answers — the whole point.
+setFriendRule('a', 'exact'); setFriendRule('b', 'area'); setFriendRule('c', 'never'); unapproveFriend('d');
+check('every friend can be told something different',
+  [friendRule('a'), friendRule('b'), friendRule('c'), friendRule('d')], ['exact', 'area', 'never', 'ask']);
 
 // Rounding must genuinely lose the detail, not just look like it.
 const home = spot(51.503399, -0.127321, 6);
