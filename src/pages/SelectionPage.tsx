@@ -65,6 +65,7 @@ import { SongStudioPage } from './SongStudioPage';
 import { SingStarPage } from './SingStarPage';
 const ChessPage = lazy(() => import('./ChessPage').then((m) => ({ default: m.ChessPage })));
 const FishingFrenzyPage = lazy(() => import('./FishingFrenzyPage').then((m) => ({ default: m.FishingFrenzyPage })));
+const BookWriterPage = lazy(() => import('./BookWriterPage').then((m) => ({ default: m.BookWriterPage })));
 import type { GameId } from '../game/gameList';
 import { AccountSetupPage } from './AccountSetupPage';
 import { loadAccountState } from '../lib/players';
@@ -103,6 +104,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
   const singOpen = path === '/play/sing';
   const chessOpen = path === '/play/chess';
   const fishingOpen = path === '/play/fishing';
+  const booksOpen = path === '/books';
   const escapeRoomOpen = path === '/play/escaperoom';
   const medicineIsland = paramOf(path, '/play/medicine');
   const runnerIsland = paramOf(path, '/play/runner');
@@ -505,6 +507,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
     onOpenGarden={() => { home(); navigate('/house/build'); }}
     onOpenMarket={() => { home(); navigate('/house/market'); }}
     onInvite={createFriendChallenge} onClose={() => home()} />;
+  if (booksOpen) return <Suspense fallback={<main className="quest-pick book-page-shell"><p className="world-loading">Opening the bookshelf…</p></main>}><BookWriterPage character={character} signedIn={signedIn} onEarn={(coins) => award(coins)} onSignIn={() => setAuthMode('signup')} onBack={() => home()} /></Suspense>;
   if (instaOpen) return <InstaPage username={username} character={character} signedIn={signedIn} onNeedAccount={() => setAuthMode('signup')} onBack={() => home()} />;
   if (mapOpen) return <MapPage streak={streak} completedQuests={completedQuests} isMember={isMember} stars={getStars()} onBack={() => home()} onInvite={createFriendChallenge} onJoinMembership={() => { home(); navigate('/royal'); }} onPlay={() => onStart(selection)} onPlayGame={(gameId, islandName) => { home(); if (gameId === 'medicine') navigate('/play/medicine/' + encodeURIComponent(islandName)); else if (gameId === 'runner') navigate('/play/runner/' + encodeURIComponent(islandName)); }} />;
   if (streakOpen) return <StreakPage
@@ -565,7 +568,7 @@ export function SelectionPage({ onStart }: { onStart: (selection: GameSelection)
       <Leaderboard />
       <PlayersDirectory onOpenFriends={() => setFriendsOpen(true)} />
       <ChallengeRoom onChallenge={createFriendChallenge} inviteLink={inviteLink} message={challengeMessage} />
-      {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); navigate('/market'); }} onSellItems={() => { setMenuOpen(false); navigate('/market/sell'); }} onOpenHouse={() => { setMenuOpen(false); navigate('/house'); }} onOpenInsta={() => { setMenuOpen(false); navigate('/insta'); }} onOpenMap={() => { setMenuOpen(false); navigate('/map'); }} onInviteFriend={() => { setMenuOpen(false); setFriendsOpen(true); }} />}
+      {menuOpen && <ShopMenu coins={shopCoins} foodBalance={foodBalance} ownedItems={ownedItems} onBuy={buyItem} onClose={() => setMenuOpen(false)} collectibleAsset={collectible.asset} collectibleName={collectible.plural} onOpenMarket={() => { setMenuOpen(false); navigate('/market'); }} onSellItems={() => { setMenuOpen(false); navigate('/market/sell'); }} onOpenHouse={() => { setMenuOpen(false); navigate('/house'); }} onOpenInsta={() => { setMenuOpen(false); navigate('/insta'); }} onOpenBooks={() => { setMenuOpen(false); navigate('/books'); }} onOpenMap={() => { setMenuOpen(false); navigate('/map'); }} onInviteFriend={() => { setMenuOpen(false); setFriendsOpen(true); }} />}
       {notifOpen && <NotificationsPanel items={notifs} signedIn={signedIn} seenAt={notifSeen} onClose={() => setNotifOpen(false)} onOpenFriends={() => { setNotifOpen(false); setFriendsOpen(true); }} onOpenFriend={(fid) => { setNotifOpen(false); setPendingFriend(fid); setFriendsOpen(true); }} onOpenRewards={() => { setNotifOpen(false); navigate('/rewards'); }} onOpenInsta={() => { setNotifOpen(false); navigate('/insta'); }} onClearAll={() => { clearNotifications(); setNotifs([]); }} />}
       {friendsOpen && <FriendsPanel initialFriendId={pendingFriend} onClose={() => { setFriendsOpen(false); setPendingFriend(''); }} onShare={() => { createFriendChallenge(); setFriendsOpen(false); }} />}
       {authMode && <div className="auth-backdrop" onClick={() => setAuthMode(null)}><div className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="auth-close" onClick={() => setAuthMode(null)}>×</button><Auth key={authMode} initialMode={authMode} onClose={() => setAuthMode(null)} /></div></div>}

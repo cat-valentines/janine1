@@ -3040,3 +3040,129 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 /* ---- Request location, right at the top where you look first ---- */
 .loc-request-top { width: 100%; padding: 13px 16px; border: 0; border-radius: 999px; background: #4f7a45; color: #fff; font-weight: 850; font-size: .9rem; cursor: pointer; }
 .loc-unapprove { width: 100%; margin-top: 9px; padding: 11px 14px; border: 2px solid #b0553f; border-radius: 999px; background: #fbf0ec; color: #8a3a24; font-weight: 850; font-size: .8rem; cursor: pointer; }
+
+/* ===== Book Writer ========================================================
+   Writing, drawing, narrating and reading storybooks. A page looks the same
+   whether you are making it or reading it, so what you build is what everyone
+   else sees. */
+
+.books-menu-link { background: linear-gradient(120deg, #c08a4a, #8a5a2f) !important; color: #fff6e8 !important; }
+.book-page-shell { padding-bottom: 50px; }
+.book-header h1 { letter-spacing: .01em; }
+.book-new { display: block; width: min(100% - 28px, 420px); margin: 0 auto 16px; padding: 14px 22px; border: 0; border-radius: 999px; background: #8a5a2f; color: #fff6e8; font-weight: 850; font-size: .96rem; cursor: pointer; box-shadow: 0 5px 0 #5c3a1c; }
+.book-shelf-tabs { display: flex; gap: 8px; width: min(100% - 28px, 720px); margin: 0 auto 14px; }
+.book-shelf-tabs button { flex: 1; padding: 11px 8px; border: 0; border-radius: 12px; background: #e8dcc8; color: #6a5236; font-weight: 850; font-size: .84rem; cursor: pointer; }
+.book-shelf-tabs button.on { background: #8a5a2f; color: #fff6e8; }
+
+.book-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); width: min(100% - 28px, 1080px); margin: 0 auto 26px; }
+.book-card { display: grid; gap: 4px; padding: 11px; border: 3px solid #8a5a2f; border-radius: 14px; background: #fffaf0; box-shadow: 5px 6px 0 #5c3a1c55; }
+.book-card-cover { position: relative; aspect-ratio: 3 / 4; overflow: hidden; border-radius: 8px; }
+.book-card-cover .book-cover-page, .book-card-cover .book-page { position: absolute; inset: 0; width: 100%; height: 100%; }
+.book-card strong { color: #4a3520; font-size: .92rem; }
+.book-card small { color: var(--ink-soft); font-size: .7rem; }
+.book-by { display: flex; align-items: center; gap: 5px; }
+.book-by img { width: 20px; height: 20px; object-fit: contain; image-rendering: pixelated; }
+.book-earned { color: #7a5c19 !important; font-weight: 850; }
+.book-card-buttons { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+.book-card-buttons button { flex: 1; padding: 8px 6px; border: 0; border-radius: 999px; background: #8a5a2f; color: #fff6e8; font-weight: 850; font-size: .74rem; cursor: pointer; }
+.book-card-buttons .danger { flex: 0 0 auto; background: #b0553f; }
+.book-fine { width: min(100% - 28px, 720px); margin: 0 auto 30px; color: var(--ink-soft); font-size: .76rem; line-height: 1.55; text-align: center; }
+
+/* ---- a page ---- */
+.book-editor, .book-reader { min-height: 100vh; padding: 12px 12px 40px; }
+.book-editor .quest-top-row, .book-reader .quest-top-row { width: min(100% - 8px, 760px); margin: 0 auto 10px; }
+.book-title-input { display: block; width: min(100% - 8px, 760px); margin: 0 auto 12px; padding: 12px 16px; border: 3px solid #8a5a2f; border-radius: 12px; background: #fffaf0; color: #4a3520; font-size: 1.05rem; font-weight: 800; text-align: center; }
+.book-stage { width: min(100% - 8px, 760px); margin: 0 auto 12px; }
+.book-page { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border: 5px solid #8a5a2f; border-radius: 10px; background: #fffdf8 center / cover no-repeat; box-shadow: 6px 7px 0 #5c3a1c55; touch-action: none; }
+.book-page.plain { background: #fffdf8; }
+.book-page-picture { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); max-width: 74%; max-height: 74%; border: 4px solid #fffaf0; border-radius: 6px; box-shadow: 0 4px 12px #0004; }
+.book-actor { position: absolute; image-rendering: pixelated; user-select: none; }
+.book-actor.draggable { cursor: grab; }
+.book-actor.picked { filter: drop-shadow(0 0 0 #f2c94c) drop-shadow(0 0 6px #f2c94c); }
+.book-page-text { position: absolute; left: 3%; right: 3%; bottom: 3%; padding: 10px 14px; border-radius: 10px; background: #fffaf0ee; color: #3a2c1c; font-size: clamp(.82rem, 2.3vw, 1rem); line-height: 1.5; white-space: pre-wrap; }
+.book-cover-page { position: relative; }
+.book-cover-plate { position: absolute; left: 8%; right: 8%; top: 12%; padding: 14px; border: 4px solid #8a5a2f; border-radius: 12px; background: #fffaf0f2; text-align: center; }
+.book-cover-plate h2 { color: #4a3520; font-size: clamp(1rem, 3.4vw, 1.5rem); }
+.book-cover-plate p { margin-top: 4px; color: #6a5236; font-size: .8rem; }
+
+.book-pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 9px; }
+.book-pager button { width: 44px; height: 40px; border: 0; border-radius: 10px; background: #8a5a2f; color: #fff6e8; font-size: 1.3rem; font-weight: 900; cursor: pointer; }
+.book-pager button:disabled { background: #cfc3ae; cursor: default; }
+.book-pager span { color: #6a5236; font-size: .82rem; font-weight: 800; }
+.book-page-actions { display: flex; gap: 7px; justify-content: center; margin-top: 8px; }
+.book-page-actions button { padding: 8px 14px; border: 2px solid #8a5a2f; border-radius: 999px; background: #fffaf0; color: #6a4522; font-weight: 850; font-size: .78rem; cursor: pointer; }
+.book-page-actions .danger, .book-picture-tools .danger, .book-voice-tools .danger { border-color: #b0553f; color: #8a3a24; }
+
+.actor-controls { display: grid; gap: 6px; width: min(100% - 8px, 760px); margin: 0 auto 10px; padding: 10px 13px; border: 2px dashed #c9a06a; border-radius: 12px; background: #fffaf0; }
+.actor-controls strong { color: #6a4522; font-size: .8rem; }
+.actor-controls div { display: flex; gap: 6px; flex-wrap: wrap; }
+.actor-controls button { padding: 7px 12px; border: 2px solid #c9a06a; border-radius: 999px; background: #fff; color: #6a4522; font-weight: 800; font-size: .74rem; cursor: pointer; }
+
+/* ---- the tools ---- */
+.book-tabs { display: flex; gap: 5px; width: min(100% - 8px, 760px); margin: 0 auto 8px; overflow-x: auto; }
+.book-tabs button { flex: 1; min-width: 88px; padding: 10px 6px; border: 0; border-radius: 10px; background: #e8dcc8; color: #6a5236; font-weight: 850; font-size: .76rem; white-space: nowrap; cursor: pointer; }
+.book-tabs button.on { background: #8a5a2f; color: #fff6e8; }
+.book-tool { width: min(100% - 8px, 760px); margin: 0 auto 12px; padding: 13px; border: 3px solid #8a5a2f; border-radius: 14px; background: #fffaf0; }
+.book-text-input { width: 100%; min-height: 120px; padding: 11px; border: 2px solid #c9a06a; border-radius: 10px; background: #fffdf8; color: #3a2c1c; font: inherit; font-size: .92rem; line-height: 1.5; resize: vertical; }
+.book-scenes { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+.book-scenes button { display: grid; gap: 3px; padding: 5px; border: 3px solid #d8cbb8; border-radius: 10px; background: #fff; cursor: pointer; }
+.book-scenes button.on { border-color: #8a5a2f; background: #ffeed6; }
+.book-scenes img, .plain-swatch { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; }
+.plain-swatch { display: block; background: #fffdf8; border: 1px dashed #c9a06a; }
+.book-scenes small { color: #6a5236; font-size: .64rem; }
+.book-cast { display: grid; gap: 7px; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); }
+.book-cast button { padding: 5px; border: 2px solid #d8cbb8; border-radius: 10px; background: #fff; cursor: pointer; }
+.book-cast img { width: 100%; aspect-ratio: 1; object-fit: contain; image-rendering: pixelated; }
+.book-picture-tools, .book-voice-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.book-picture-tools button, .book-voice-tools button { padding: 10px 16px; border: 2px solid #8a5a2f; border-radius: 999px; background: #fffdf8; color: #6a4522; font-weight: 850; font-size: .82rem; cursor: pointer; }
+.book-recording { background: #b0553f !important; border-color: #8a3a24 !important; color: #fff !important; animation: bookRec .8s ease-in-out infinite alternate; }
+@keyframes bookRec { from { opacity: 1; } to { opacity: .6; } }
+.book-hint { flex: 1 1 100%; color: var(--ink-soft); font-size: .76rem; line-height: 1.5; }
+.book-busy, .book-note { width: min(100% - 8px, 760px); margin: 0 auto 10px; padding: 9px 13px; border-radius: 10px; background: #ffeed6; color: #6a4522; font-size: .82rem; font-weight: 700; text-align: center; }
+
+.book-together { width: min(100% - 8px, 760px); margin: 0 auto 12px; }
+.book-invite { width: 100%; padding: 11px; border: 2px dashed #8a5a2f; border-radius: 12px; background: #fffaf0; color: #6a4522; font-weight: 850; font-size: .84rem; cursor: pointer; }
+.book-friend-list { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.book-friend-list label { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border: 2px solid #d8cbb8; border-radius: 999px; background: #fff; color: #4a3520; font-size: .78rem; font-weight: 700; cursor: pointer; }
+.book-friend-list label.on { border-color: #8a5a2f; background: #ffeed6; }
+
+.book-finish { display: flex; gap: 8px; width: min(100% - 8px, 760px); margin: 0 auto 10px; }
+.book-finish button { flex: 1; padding: 13px; border: 0; border-radius: 999px; font-weight: 850; font-size: .88rem; cursor: pointer; }
+.book-read { background: #e8dcc8; color: #6a5236; }
+.book-publish { background: #4f7a45; color: #fff; }
+.book-publish:disabled { background: #cfc3ae; color: #8a8072; cursor: default; }
+
+/* ---- reading ---- */
+.book-reactions { display: flex; gap: 10px; width: min(100% - 8px, 760px); margin: 12px auto; }
+.book-reactions button { flex: 1; display: grid; gap: 1px; padding: 12px; border: 3px solid #8a5a2f; border-radius: 14px; background: #fffaf0; color: #4a3520; font-weight: 850; font-size: .9rem; cursor: pointer; }
+.book-reactions button.on { background: #ffeed6; border-color: #c9a02f; }
+.book-reactions .heart.on { background: #ffe9ef; border-color: #c94f78; }
+.book-reactions b { font-size: 1.1rem; }
+.book-reactions small { color: var(--ink-soft); font-size: .66rem; font-weight: 700; }
+.book-comments { width: min(100% - 8px, 760px); margin: 0 auto 30px; padding: 14px; border: 3px solid #8a5a2f; border-radius: 14px; background: #fffaf0; }
+.book-comments h3 { margin-bottom: 9px; color: #4a3520; font-size: .95rem; }
+.book-comment { display: flex; gap: 9px; margin-bottom: 8px; padding: 9px 11px; border-radius: 10px; background: #fffdf8; }
+.book-comment img { width: 30px; height: 30px; object-fit: contain; image-rendering: pixelated; }
+.book-comment strong { color: #6a4522; font-size: .8rem; }
+.book-comment p { color: #4a3c2c; font-size: .82rem; line-height: 1.45; }
+.book-say { display: flex; gap: 7px; margin-top: 9px; }
+.book-say input { flex: 1; padding: 10px 12px; border: 2px solid #c9a06a; border-radius: 999px; background: #fffdf8; }
+.book-say button { padding: 10px 18px; border: 0; border-radius: 999px; background: #8a5a2f; color: #fff6e8; font-weight: 850; cursor: pointer; }
+.book-say button:disabled { background: #cfc3ae; cursor: default; }
+
+/* ---- the drawing pad ---- */
+.draw-backdrop { position: fixed; inset: 0; z-index: 72; display: grid; place-items: center; padding: 14px; background: #0009; }
+.draw-pad { display: grid; gap: 9px; width: min(96vw, 760px); max-height: 94vh; overflow-y: auto; padding: 14px; border: 4px solid #8a5a2f; border-radius: 16px; background: #fffaf0; }
+.draw-top { display: flex; align-items: center; justify-content: space-between; }
+.draw-top h3 { color: #4a3520; font-size: 1rem; }
+.draw-canvas { width: 100%; aspect-ratio: 720 / 460; border: 3px solid #8a5a2f; border-radius: 8px; background: #fffdf8; touch-action: none; cursor: crosshair; }
+.draw-colours { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.draw-swatch { width: 34px; height: 34px; border: 3px solid #d8cbb8; border-radius: 50%; cursor: pointer; }
+.draw-swatch.on { border-color: #4a3520; transform: scale(1.12); }
+.draw-rubber { width: 40px; height: 34px; border: 3px solid #d8cbb8; border-radius: 10px; background: #fff; font-size: 1rem; cursor: pointer; }
+.draw-rubber.on { border-color: #4a3520; background: #ffeed6; }
+.draw-sizes { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+.draw-sizes button { display: grid; place-items: center; min-width: 40px; height: 34px; padding: 0 10px; border: 2px solid #d8cbb8; border-radius: 10px; background: #fff; color: #6a4522; font-weight: 800; font-size: .74rem; cursor: pointer; }
+.draw-sizes button.on { border-color: #4a3520; background: #ffeed6; }
+.draw-sizes i { display: block; border-radius: 50%; background: #2b241d; }
+.draw-keep { padding: 13px; border: 0; border-radius: 999px; background: #4f7a45; color: #fff; font-weight: 850; font-size: .9rem; cursor: pointer; }
