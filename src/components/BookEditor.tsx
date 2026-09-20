@@ -4,8 +4,8 @@ import { DrawingPad } from './DrawingPad';
 import { characterAssets } from '../game/characters';
 import { compressImage } from '../lib/insta';
 import {
-  SCENES, blankPage, canPublish, saveDraft, uploadBookMedia, whatIsMissing,
-  type Book, type BookPage, type PageActor,
+  SCENES, STICKER_GROUPS, blankPage, canPublish, saveDraft, uploadBookMedia, whatIsMissing,
+  type Book, type BookPage, type PageActor, type Sticker,
 } from '../lib/books';
 import type { CharacterId } from '../game/types';
 
@@ -40,7 +40,8 @@ export function BookEditor({ book, signedIn, friends, onChange, onPublish, onRea
   const [at, setAt] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
   const [drawing, setDrawing] = useState(false);
-  const [tab, setTab] = useState<'words' | 'scene' | 'cast' | 'picture' | 'voice'>('words');
+  const [tab, setTab] = useState<'words' | 'scene' | 'cast' | 'stickers' | 'picture' | 'voice'>('words');
+  const [stickerGroup, setStickerGroup] = useState(STICKER_GROUPS[0].id);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState('');
   const [inviting, setInviting] = useState(false);
@@ -74,6 +75,16 @@ export function BookEditor({ book, signedIn, friends, onChange, onPublish, onRea
 
   const addActor = (character: CharacterId) => {
     const actor: PageActor = { id: actorId(), character, x: 30 + Math.random() * 40, y: 82, size: 16, flip: false };
+    setPage({ actors: [...page.actors, actor] });
+    setPicked(actor.id);
+  };
+
+  const addSticker = (sticker: Sticker) => {
+    const actor: PageActor = {
+      id: actorId(), character: '', art: sticker.art, emoji: sticker.emoji,
+      x: 30 + Math.random() * 40, y: 70 + Math.random() * 18,
+      size: sticker.emoji ? 10 : 12, flip: false,
+    };
     setPage({ actors: [...page.actors, actor] });
     setPicked(actor.id);
   };
@@ -205,6 +216,7 @@ export function BookEditor({ book, signedIn, friends, onChange, onPublish, onRea
         <button className={tab === 'words' ? 'on' : ''} onClick={() => setTab('words')}>✏️ Words</button>
         <button className={tab === 'scene' ? 'on' : ''} onClick={() => setTab('scene')}>🌄 Scene</button>
         <button className={tab === 'cast' ? 'on' : ''} onClick={() => setTab('cast')}>🐰 Characters</button>
+        <button className={tab === 'stickers' ? 'on' : ''} onClick={() => setTab('stickers')}>🍎 Stickers</button>
         <button className={tab === 'picture' ? 'on' : ''} onClick={() => setTab('picture')}>🖼️ Picture</button>
         <button className={tab === 'voice' ? 'on' : ''} onClick={() => setTab('voice')}>🎙️ Narrate</button>
       </div>
@@ -235,6 +247,26 @@ export function BookEditor({ book, signedIn, friends, onChange, onPublish, onRea
             {CAST.map((id) => <button key={id} onClick={() => addActor(id)}>
               <img src={characterAssets[id]} alt="" />
             </button>)}
+          </div>
+        </>}
+
+        {tab === 'stickers' && <>
+          <div className="sticker-groups">
+            {STICKER_GROUPS.map((group) => <button
+              key={group.id}
+              className={stickerGroup === group.id ? 'on' : ''}
+              onClick={() => setStickerGroup(group.id)}
+            >{group.icon} {group.name}</button>)}
+          </div>
+          <p className="book-hint">Tap one to put it on the page, then drag it about and make it bigger or smaller.</p>
+          <div className="book-stickers">
+            {(STICKER_GROUPS.find((g) => g.id === stickerGroup) ?? STICKER_GROUPS[0]).stickers.map((sticker) => (
+              <button key={sticker.id} title={sticker.label} onClick={() => addSticker(sticker)}>
+                {sticker.art
+                  ? <img src={sticker.art} alt={sticker.label} />
+                  : <span>{sticker.emoji}</span>}
+              </button>
+            ))}
           </div>
         </>}
 
@@ -288,10 +320,24 @@ export function BookEditor({ book, signedIn, friends, onChange, onPublish, onRea
       {busy && <p className="book-busy">{busy}</p>}
       {note && <p className="book-note">{note}</p>}
 
+      <div className="book-visibility">
+        <p>Who can read this book?</p>
+        <div>
+          <button
+            className={book.visibility === 'private' ? 'on' : ''}
+            onClick={() => update({ ...book, visibility: 'private' })}
+          >🔒 Private<small>Only you</small></button>
+          <button
+            className={book.visibility === 'public' ? 'on' : ''}
+            onClick={() => update({ ...book, visibility: 'public' })}
+          >🌍 Public<small>Anyone can read it</small></button>
+        </div>
+      </div>
+
       <div className="book-finish">
         <button className="book-read" onClick={() => onRead(book)}>📖 Read it through</button>
         <button className="book-publish" disabled={!canPublish(book)} onClick={() => onPublish(book)}>
-          📚 Put it on the shelf
+          {book.visibility === 'public' ? '📚 Put it on the shelf' : '💾 Save it'}
         </button>
       </div>
       {missing.length > 0 && <p className="book-hint">Before it can go on the shelf: {missing.join(' · ')}</p>}

@@ -43,22 +43,33 @@ export function BookPageView({ page, onMoveActor, selectedActor, onPickActor }: 
     >
       {page.picture && <img className="book-page-picture" src={mediaUrl(page.picture)} alt="" />}
 
-      {page.actors.map((actor) => (
-        <img
+      {page.actors.map((actor) => {
+        const classes = `book-actor ${editing ? 'draggable' : ''} ${selectedActor === actor.id ? 'picked' : ''}`;
+        const place = {
+          left: `${actor.x}%`,
+          top: `${actor.y}%`,
+          transform: `translate(-50%, -100%) scaleX(${actor.flip ? -1 : 1})`,
+        };
+        // A sticker drawn as a symbol sizes by font, a picture by width — both
+        // measured against the page, so a book looks the same at any size.
+        if (actor.emoji) {
+          return <span
+            key={actor.id}
+            className={`${classes} emoji`}
+            style={{ ...place, fontSize: `${actor.size}cqw`, lineHeight: 1 }}
+            onPointerDown={editing ? drag(actor.id) : undefined}
+          >{actor.emoji}</span>;
+        }
+        return <img
           key={actor.id}
-          className={`book-actor ${editing ? 'draggable' : ''} ${selectedActor === actor.id ? 'picked' : ''}`}
-          src={characterAssets[actor.character as CharacterId] ?? characterAssets.cottontail}
+          className={classes}
+          src={actor.art ?? characterAssets[actor.character as CharacterId] ?? characterAssets.cottontail}
           alt=""
           draggable={false}
-          style={{
-            left: `${actor.x}%`,
-            top: `${actor.y}%`,
-            width: `${actor.size}%`,
-            transform: `translate(-50%, -100%) scaleX(${actor.flip ? -1 : 1})`,
-          }}
+          style={{ ...place, width: `${actor.size}%` }}
           onPointerDown={editing ? drag(actor.id) : undefined}
-        />
-      ))}
+        />;
+      })}
 
       {page.text.trim() && <p className="book-page-text">{page.text}</p>}
     </div>

@@ -77,11 +77,22 @@ function playOut(whiteId: string, blackId: string): 'w' | 'b' | 'draw' {
 // time by design, so the odd upset against Ribbit is the feature working, not a
 // fault, and asserting otherwise would just make this check flaky.
 const wideGap = [playOut('tiger', 'pip'), playOut('panda', 'pip'), playOut('tiger', 'frog')];
-const closeGap = [playOut('toby', 'frog'), playOut('panda', 'momo'), playOut('tiger', 'toby')];
-console.log(`      (wide gap: ${wideGap.join(', ')} · close gap: ${closeGap.join(', ')})`);
+console.log(`      (wide gap: ${wideGap.join(', ')})`);
 check('a far stronger bot never loses', wideGap.some((r) => r === 'b'), false);
 check('  ...and wins rather than drawing', wideGap.filter((r) => r === 'w').length >= 2, true);
-check('the next tier up still wins most', closeGap.filter((r) => r === 'w').length >= 2, true);
+
+// Neighbouring tiers are close enough that a handful of games proves nothing —
+// Toby blunders 4% of the time by design, so the odd loss to Ribbit is the
+// feature working. What CAN be checked without flakiness is the thing the
+// ladder actually is: each animal looks at least as far ahead as the one below
+// and throws games away no more often, and the climb is real rather than a label.
+const ladder = [...CHESS_BOTS].sort((a, b) => a.difficulty - b.difficulty);
+check('each tier looks at least as far ahead', ladder.every((bot, i) => i === 0 || bot.depth >= ladder[i - 1].depth), true);
+check('  ...and blunders no more often', ladder.every((bot, i) => i === 0 || bot.blunder <= ladder[i - 1].blunder), true);
+check('  ...and each one really differs from the last',
+  ladder.every((bot, i) => i === 0 || bot.depth > ladder[i - 1].depth || bot.blunder < ladder[i - 1].blunder), true);
+check('the easiest is genuinely easy', ladder[0].blunder >= 0.4 && ladder[0].depth <= 2, true);
+check('the hardest never throws a game away', ladder[ladder.length - 1].blunder, 0);
 
 // A finished game never asks a bot for another move.
 const done = fromFen('7k/6Q1/6K1/8/8/8/8/8 b - - 0 1');

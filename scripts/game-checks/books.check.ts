@@ -1,7 +1,7 @@
 import {
-  HEART_COINS, LIKE_COINS, SCENES, blankBook, blankPage, bookSize, canPublish, collectEarnings,
-  deleteDraft, earnedBy, hasNarration, hasReacted, loadDrafts, needsDatabaseUpdate, sceneArt,
-  saveDraft, whatIsMissing, type Book,
+  ALL_STICKERS, HEART_COINS, LIKE_COINS, SCENES, STICKER_GROUPS, blankBook, blankPage, bookSize,
+  canPublish, collectEarnings, deleteDraft, earnedBy, hasNarration, hasReacted, loadDrafts,
+  needsDatabaseUpdate, sceneArt, saveDraft, whatIsMissing, type Book,
 } from '../../src/lib/books';
 import { existsSync } from 'node:fs';
 
@@ -23,6 +23,13 @@ const author = { id: 'u1', name: 'Ana', character: 'cottontail' };
 // ---- a new book -------------------------------------------------------------
 const fresh = blankBook(author);
 check('a new book starts with one page', fresh.pages.length, 1);
+// White paper first: the scene is something you choose, not something you
+// have to undo before you can start.
+check('  ...on white paper', fresh.pages[0].background, 'plain');
+check('  ...with no picture behind it', sceneArt(fresh.pages[0].background), '');
+check('a brand-new page is white too', blankPage().background, 'plain');
+// And it is private until the writer says otherwise.
+check('  ...and the book is private to begin with', fresh.visibility, 'private');
 check('  ...which is empty', [fresh.pages[0].text, fresh.pages[0].actors.length], ['', 0]);
 check('  ...and is not published', fresh.published, false);
 check('  ...and has earned nothing', earnedBy(fresh), 0);
@@ -116,5 +123,41 @@ check('there is more than one scene to choose', SCENES.length > 5, true);
 check('a missing table is spotted', needsDatabaseUpdate(new Error('relation "public.story_books" does not exist')), true);
 check('  ...and the schema-cache wording too', needsDatabaseUpdate(new Error('Could not find the table in the schema cache')), true);
 check('an ordinary failure is not blamed on the database', needsDatabaseUpdate(new Error('Network request failed')), false);
+
+// ---- private and public --------------------------------------------------
+store.clear();
+const priv: Book = { ...written, id: 'p1', visibility: 'private' };
+saveDraft(priv);
+check('a private book is kept private', loadDrafts()[0].visibility, 'private');
+saveDraft({ ...priv, visibility: 'public' });
+check('and can be made public', loadDrafts()[0].visibility, 'public');
+saveDraft({ ...priv, visibility: 'private' });
+check('and private again', loadDrafts()[0].visibility, 'private');
+
+// A book saved before books had a setting must be read as private — assuming
+// the quiet option is the only safe way round.
+store.set('story-drafts', JSON.stringify([{ ...written, id: 'old', visibility: undefined }]));
+check('an old book with no setting is private', loadDrafts()[0].visibility, 'private');
+store.set('story-drafts', JSON.stringify([{ ...written, id: 'odd', visibility: 'nonsense' }]));
+check('and so is one with a nonsense setting', loadDrafts()[0].visibility, 'private');
+
+// ---- stickers ---------------------------------------------------------------
+check('there are several groups to choose from', STICKER_GROUPS.length >= 4, true);
+check('  ...including food', STICKER_GROUPS.some((g) => g.id === 'food'), true);
+check('  ...and furniture', STICKER_GROUPS.some((g) => g.id === 'furniture'), true);
+check('  ...and home things', STICKER_GROUPS.some((g) => g.id === 'home'), true);
+check('every group has stickers in it', STICKER_GROUPS.every((g) => g.stickers.length > 5), true);
+check('every sticker is a picture or a symbol', ALL_STICKERS.every((s) => !!s.art || !!s.emoji), true);
+check('  ...and never both at once', ALL_STICKERS.every((s) => !(s.art && s.emoji)), true);
+check('every sticker has a name', ALL_STICKERS.every((s) => s.label.length > 1), true);
+check('no two stickers share an id', new Set(ALL_STICKERS.map((s) => s.id)).size, ALL_STICKERS.length);
+
+// A sticker that points at a picture must actually have one on disk.
+for (const sticker of ALL_STICKERS) {
+  if (!sticker.art) continue;
+  if (!existsSync(`public${sticker.art}`)) { bad += 1; console.log(`FAIL  the "${sticker.label}" sticker is missing: public${sticker.art}`); }
+}
+check('every picture sticker exists on disk', true, true);
+check('there are plenty to choose from', ALL_STICKERS.length > 50, true);
 
 process.exit(bad ? 1 : 0);

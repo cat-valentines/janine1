@@ -3074,12 +3074,16 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .book-editor .quest-top-row, .book-reader .quest-top-row { width: min(100% - 8px, 760px); margin: 0 auto 10px; }
 .book-title-input { display: block; width: min(100% - 8px, 760px); margin: 0 auto 12px; padding: 12px 16px; border: 3px solid #8a5a2f; border-radius: 12px; background: #fffaf0; color: #4a3520; font-size: 1.05rem; font-weight: 800; text-align: center; }
 .book-stage { width: min(100% - 8px, 760px); margin: 0 auto 12px; }
-.book-page { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border: 5px solid #8a5a2f; border-radius: 10px; background: #fffdf8 center / cover no-repeat; box-shadow: 6px 7px 0 #5c3a1c55; touch-action: none; }
+.book-page { container-type: inline-size; position: relative; aspect-ratio: 4 / 3; overflow: hidden; border: 5px solid #8a5a2f; border-radius: 10px; background: #fffdf8 center / cover no-repeat; box-shadow: 6px 7px 0 #5c3a1c55; touch-action: none; }
 .book-page.plain { background: #fffdf8; }
 .book-page-picture { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); max-width: 74%; max-height: 74%; border: 4px solid #fffaf0; border-radius: 6px; box-shadow: 0 4px 12px #0004; }
 .book-actor { position: absolute; image-rendering: pixelated; user-select: none; }
 .book-actor.draggable { cursor: grab; }
 .book-actor.picked { filter: drop-shadow(0 0 0 #f2c94c) drop-shadow(0 0 6px #f2c94c); }
+.book-actor.emoji { user-select: none; }
+/* Without container units an emoji sticker would ignore the page size, so it
+   falls back to something sensible rather than something enormous. */
+@supports not (font-size: 1cqw) { .book-actor.emoji { font-size: 2rem !important; } }
 .book-page-text { position: absolute; left: 3%; right: 3%; bottom: 3%; padding: 10px 14px; border-radius: 10px; background: #fffaf0ee; color: #3a2c1c; font-size: clamp(.82rem, 2.3vw, 1rem); line-height: 1.5; white-space: pre-wrap; }
 .book-cover-page { position: relative; }
 .book-cover-plate { position: absolute; left: 8%; right: 8%; top: 12%; padding: 14px; border: 4px solid #8a5a2f; border-radius: 12px; background: #fffaf0f2; text-align: center; }
@@ -3113,6 +3117,13 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .book-scenes small { color: #6a5236; font-size: .64rem; }
 .book-cast { display: grid; gap: 7px; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); }
 .book-cast button { padding: 5px; border: 2px solid #d8cbb8; border-radius: 10px; background: #fff; cursor: pointer; }
+.sticker-groups { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+.sticker-groups button { padding: 7px 12px; border: 2px solid #d8cbb8; border-radius: 999px; background: #fff; color: #6a5236; font-weight: 800; font-size: .74rem; cursor: pointer; }
+.sticker-groups button.on { border-color: #8a5a2f; background: #ffeed6; color: #6a4522; }
+.book-stickers { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); max-height: 210px; overflow-y: auto; }
+.book-stickers button { display: grid; place-items: center; aspect-ratio: 1; padding: 4px; border: 2px solid #d8cbb8; border-radius: 10px; background: #fff; font-size: 1.6rem; cursor: pointer; }
+.book-stickers button:hover { border-color: #8a5a2f; background: #ffeed6; }
+.book-stickers img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
 .book-cast img { width: 100%; aspect-ratio: 1; object-fit: contain; image-rendering: pixelated; }
 .book-picture-tools, .book-voice-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .book-picture-tools button, .book-voice-tools button { padding: 10px 16px; border: 2px solid #8a5a2f; border-radius: 999px; background: #fffdf8; color: #6a4522; font-weight: 850; font-size: .82rem; cursor: pointer; }
@@ -3126,6 +3137,16 @@ header p, .game-tip { color: #69635b; line-height: 1.5; }
 .book-friend-list { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .book-friend-list label { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border: 2px solid #d8cbb8; border-radius: 999px; background: #fff; color: #4a3520; font-size: .78rem; font-weight: 700; cursor: pointer; }
 .book-friend-list label.on { border-color: #8a5a2f; background: #ffeed6; }
+
+/* Who can read it — said in words, next to the button that acts on it. */
+.book-visibility { width: min(100% - 8px, 760px); margin: 0 auto 10px; padding: 12px 13px; border: 3px solid #8a5a2f; border-radius: 14px; background: #fffaf0; }
+.book-visibility p { margin-bottom: 8px; color: #6a4522; font-size: .82rem; font-weight: 800; }
+.book-visibility div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.book-visibility button { display: grid; gap: 2px; padding: 11px; border: 2px solid #d8cbb8; border-radius: 12px; background: #fff; color: #4a3520; font-weight: 850; font-size: .84rem; cursor: pointer; }
+.book-visibility button.on { border-color: #8a5a2f; background: #ffeed6; }
+.book-visibility small { color: var(--ink-soft); font-size: .68rem; font-weight: 600; }
+.book-private { color: #7a6a52 !important; font-weight: 800; }
+.book-public { color: #2f5a26 !important; font-weight: 800; }
 
 .book-finish { display: flex; gap: 8px; width: min(100% - 8px, 760px); margin: 0 auto 10px; }
 .book-finish button { flex: 1; padding: 13px; border: 0; border-radius: 999px; font-weight: 850; font-size: .88rem; cursor: pointer; }

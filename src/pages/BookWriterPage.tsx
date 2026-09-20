@@ -86,6 +86,18 @@ export function BookWriterPage({ character, signedIn, onEarn, onSignIn, onBack }
   };
 
   const publish = async (book: Book) => {
+    // A private book simply stays here. Saving it is the whole action, and
+    // nothing leaves the device.
+    if (book.visibility === 'private') {
+      saveDraft(book);
+      setDrafts(loadDrafts());
+      // If it used to be public, take it off the shelf — choosing private has
+      // to actually remove it, not just stop updating it.
+      unpublishBook(book.id).catch(() => undefined);
+      setNote('🔒 Saved as a private book. Only you can read it.');
+      setView('shelf');
+      return;
+    }
     if (!signedIn) { setNote('Make a free account to put your book on the shelf for everyone.'); onSignIn(); return; }
     try {
       await publishBook({ ...book, authorId: me.id, authorName: me.name, authorCharacter: character });
@@ -158,6 +170,9 @@ export function BookWriterPage({ character, signedIn, onEarn, onSignIn, onBack }
       {drafts.map((book) => <article className="book-card" key={book.id}>
         <div className="book-card-cover"><BookCover book={book} /></div>
         <strong>{book.title || 'Untitled'}</strong>
+        <small className={book.visibility === 'public' ? 'book-public' : 'book-private'}>
+          {book.visibility === 'public' ? '🌍 Public' : '🔒 Private — only you'}
+        </small>
         <small>{bookSize(book)}{hasNarration(book) ? ' · 🎙️ narrated' : ''}</small>
         <div className="book-card-buttons">
           <button onClick={() => { setEditing(book); setView('writing'); }}>✍️ Write</button>
@@ -188,8 +203,9 @@ export function BookWriterPage({ character, signedIn, onEarn, onSignIn, onBack }
     </section>}
 
     <p className="book-fine">
-      Every 👍 like earns the author 10 coins and every ❤️ heart earns 20 — once per reader, so a book earns
-      by being read by lots of people. Be kind in the comments: the author is a real person.
+      Books start <b>🔒 private</b> — only you can read them. Make one <b>🌍 public</b> when you are ready and it
+      goes on the shelf for everyone. Every 👍 like earns the author 10 coins and every ❤️ heart earns 20, once
+      per reader. Be kind in the comments: the author is a real person.
     </p>
   </main>;
 }

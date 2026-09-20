@@ -15,11 +15,18 @@ import { storage } from './storage';
 
 // ---- what a book is --------------------------------------------------------
 
-/** A character standing on a page, where you put them. */
+/**
+ * Something standing on a page, where you put it: one of the island's
+ * characters, a piece of its pixel art, or a sticker.
+ */
 export interface PageActor {
   id: string;
-  /** A character id from the island's own cast. */
+  /** A character id from the island's own cast, when it is a character. */
   character: string;
+  /** A sticker instead: a picture from the island's art. */
+  art?: string;
+  /** Or a sticker drawn as a symbol — food, furniture, weather and so on. */
+  emoji?: string;
   /** Position as a percentage of the page, so it scales on any screen. */
   x: number;
   y: number;
@@ -40,9 +47,14 @@ export interface BookPage {
   voice?: string;
 }
 
+/** Who can read a book. */
+export type Visibility = 'private' | 'public';
+
 export interface Book {
   id: string;
   title: string;
+  /** Private books stay on this device; public ones go on the shared shelf. */
+  visibility: Visibility;
   /** The scene shown on the cover. */
   cover: string;
   pages: BookPage[];
@@ -65,6 +77,7 @@ export const HEART_COINS = 20;
 
 /** The scenes a page can be set in. */
 export const SCENES: Array<{ id: string; name: string; art: string }> = [
+  { id: 'plain', name: 'White paper', art: '' },
   { id: 'forest', name: 'Magical forest', art: '/assets/pixel-magical-forest.png' },
   { id: 'woods', name: 'Enchanted woods', art: '/assets/pixel-village-woods.png' },
   { id: 'country', name: 'Countryside', art: '/assets/pixel-countryside.png' },
@@ -74,16 +87,93 @@ export const SCENES: Array<{ id: string; name: string; art: string }> = [
   { id: 'kitchen', name: 'A kitchen', art: '/assets/pixel-kitchen.png' },
   { id: 'dining', name: 'A dining room', art: '/assets/pixel-dining.png' },
   { id: 'spooky', name: 'Somewhere spooky', art: '/assets/pixel-haunted-exterior.png' },
-  { id: 'plain', name: 'Plain paper', art: '' },
 ];
+
+// ---- stickers ---------------------------------------------------------------
+
+export interface Sticker { id: string; label: string; art?: string; emoji?: string }
+export interface StickerGroup { id: string; name: string; icon: string; stickers: Sticker[] }
+
+const art = (id: string, label: string, file: string): Sticker => ({ id, label, art: `/assets/${file}` });
+const emo = (id: string, label: string, emoji: string): Sticker => ({ id, label, emoji });
+
+/**
+ * Everything you can put on a page besides the characters. The island's own
+ * pixel art is used wherever it exists, and symbols fill in the rest — there is
+ * no drawn furniture, and a chair you can actually use beats a chair that does
+ * not exist.
+ */
+export const STICKER_GROUPS: StickerGroup[] = [
+  {
+    id: 'food', name: 'Food', icon: '🍎',
+    stickers: [
+      art('apple', 'Apple', 'pixel-apple.png'),
+      art('carrot', 'Carrot', 'pixel-carrot.png'),
+      art('fish', 'Fish', 'pixel-fish.png'),
+      art('honey', 'Honey', 'pixel-honey.png'),
+      art('bone', 'Bone', 'pixel-bone.png'),
+      art('bamboo', 'Bamboo', 'pixel-bamboo.png'),
+      emo('cake', 'Cake', '🍰'), emo('cupcake', 'Cupcake', '🧁'), emo('cookie', 'Cookie', '🍪'),
+      emo('donut', 'Doughnut', '🍩'), emo('icecream', 'Ice cream', '🍦'), emo('pizza', 'Pizza', '🍕'),
+      emo('burger', 'Burger', '🍔'), emo('sandwich', 'Sandwich', '🥪'), emo('corn', 'Corn', '🌽'),
+      emo('strawberry', 'Strawberry', '🍓'), emo('banana', 'Banana', '🍌'), emo('grapes', 'Grapes', '🍇'),
+      emo('watermelon', 'Watermelon', '🍉'), emo('milk', 'Milk', '🥛'), emo('juice', 'Juice', '🧃'),
+      emo('sweets', 'Sweets', '🍬'), emo('chocolate', 'Chocolate', '🍫'), emo('pancakes', 'Pancakes', '🥞'),
+    ],
+  },
+  {
+    id: 'furniture', name: 'Furniture', icon: '🪑',
+    stickers: [
+      emo('chair', 'Chair', '🪑'), emo('bed', 'Bed', '🛏️'), emo('sofa', 'Sofa', '🛋️'),
+      emo('door', 'Door', '🚪'), emo('window', 'Window', '🪟'), emo('mirror', 'Mirror', '🪞'),
+      emo('lamp', 'Lamp', '💡'), emo('candle', 'Candle', '🕯️'), emo('clock', 'Clock', '🕰️'),
+      emo('picture', 'Picture', '🖼️'), emo('tv', 'Television', '📺'), emo('bath', 'Bath', '🛁'),
+      emo('shower', 'Shower', '🚿'), emo('basket', 'Basket', '🧺'), emo('cupboard', 'Cupboard', '🗄️'),
+      emo('broom', 'Broom', '🧹'), emo('teddy', 'Teddy', '🧸'), emo('books', 'Books', '📚'),
+    ],
+  },
+  {
+    id: 'home', name: 'Home & outside', icon: '🏡',
+    stickers: [
+      emo('house', 'House', '🏡'), emo('cottage', 'Cottage', '🏠'), emo('castle', 'Castle', '🏰'),
+      emo('tent', 'Tent', '⛺'), emo('tree', 'Tree', '🌳'), emo('pine', 'Pine tree', '🌲'),
+      emo('flower', 'Flower', '🌸'), emo('sunflower', 'Sunflower', '🌻'), emo('mushroom', 'Mushroom', '🍄'),
+      emo('mountain', 'Mountain', '⛰️'), emo('sun', 'Sun', '☀️'), emo('moon', 'Moon', '🌙'),
+      emo('star', 'Star', '⭐'), emo('cloud', 'Cloud', '☁️'), emo('rain', 'Rain', '🌧️'),
+      emo('snow', 'Snow', '❄️'), emo('rainbow', 'Rainbow', '🌈'), emo('fire', 'Campfire', '🔥'),
+      emo('car', 'Car', '🚗'), emo('bike', 'Bicycle', '🚲'), emo('boat', 'Boat', '⛵'),
+    ],
+  },
+  {
+    id: 'fun', name: 'Fun things', icon: '✨',
+    stickers: [
+      art('butterfly', 'Butterfly', 'pixel-butterfly.png'),
+      art('coin', 'Coin', 'pixel-coin.png'),
+      art('clover', 'Clover', 'pixel-clover.png'),
+      art('daisy', 'Daisy', 'pixel-daisy.png'),
+      art('maple', 'Maple leaf', 'pixel-maple.png'),
+      art('leaf', 'Leaf', 'pixel-leaf.png'),
+      art('bubbles', 'Bubbles', 'pixel-bubbles.png'),
+      art('cauldron', 'Cauldron', 'pixel-cauldron.png'),
+      emo('balloon', 'Balloon', '🎈'), emo('present', 'Present', '🎁'), emo('bow', 'Bow', '🎀'),
+      emo('party', 'Party', '🎉'), emo('sparkles', 'Sparkles', '✨'), emo('heart', 'Heart', '💖'),
+      emo('music', 'Music', '🎵'), emo('trophy', 'Trophy', '🏆'), emo('crystal', 'Crystal ball', '🔮'),
+      emo('pencil', 'Pencil', '✏️'),
+    ],
+  },
+];
+
+/** Every sticker, flat — for looking one up by id. */
+export const ALL_STICKERS = STICKER_GROUPS.flatMap((group) => group.stickers);
 
 export const sceneArt = (id: string) => SCENES.find((s) => s.id === id)?.art ?? '';
 
 let counter = 0;
 const newId = () => `${Date.now().toString(36)}${(counter += 1).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
+/** A new page is plain white paper — the scene is something you choose. */
 export function blankPage(): BookPage {
-  return { id: newId(), text: '', background: 'forest', actors: [] };
+  return { id: newId(), text: '', background: 'plain', actors: [] };
 }
 
 export function blankBook(author: { id: string; name: string; character: string }): Book {
@@ -91,7 +181,8 @@ export function blankBook(author: { id: string; name: string; character: string 
   return {
     id: newId(),
     title: '',
-    cover: 'forest',
+    visibility: 'private',
+    cover: 'plain',
     pages: [blankPage()],
     authorId: author.id,
     authorName: author.name,
@@ -113,7 +204,12 @@ const DRAFTS_KEY = 'story-drafts';
 export function loadDrafts(): Book[] {
   try {
     const list = JSON.parse(storage.get(DRAFTS_KEY) ?? '[]') as Book[];
-    return Array.isArray(list) ? list.filter((b) => b && typeof b.id === 'string') : [];
+    if (!Array.isArray(list)) return [];
+    // A book saved before books had a public/private setting is read as
+    // private: the quiet option is the one to assume, never the loud one.
+    return list
+      .filter((b) => b && typeof b.id === 'string')
+      .map((b) => ({ ...b, visibility: b.visibility === 'public' ? 'public' : 'private' }));
   } catch { return []; }
 }
 
@@ -216,7 +312,8 @@ export interface ShelfBook extends Book { comments: number }
 const rowToBook = (row: Record<string, unknown>): ShelfBook => ({
   id: String(row.id),
   title: String(row.title ?? ''),
-  cover: String(row.cover ?? 'forest'),
+  visibility: 'public',   // it is on the shared shelf, so it is public
+  cover: String(row.cover ?? 'plain'),
   pages: (row.pages as BookPage[]) ?? [],
   authorId: String(row.author_id ?? ''),
   authorName: String(row.author_name ?? 'someone'),
