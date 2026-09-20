@@ -4,7 +4,7 @@ import {
   setFriendRule, setSharingOn, sharingOn, unapproveFriend,
   type FriendRule, type LocationReply, type Precision, type Spot,
 } from '../lib/friendLocation';
-import { onLocationReply } from '../lib/locationBus';
+import { lastSpotFrom, onLocationReply } from '../lib/locationBus';
 import { SpotMap } from './SpotMap';
 
 /**
@@ -37,12 +37,17 @@ export function FriendMap({ me, friend, onClose }: FriendMapProps) {
 
   // Answers arrive through the app-wide listener, so this map just watches for
   // the ones from the friend it is showing.
+  // If this friend is already sharing live, show it the moment you open the
+  // map rather than making you wait for their next position — you pressed the
+  // button, so this is the answer to it.
   useEffect(() => {
-    // Tell the app-wide listener a map is open, so it does not also pop a card
-    // for the same answer.
-    window.dispatchEvent(new Event('location-map-open'));
-    return () => { window.dispatchEvent(new Event('location-map-close')); };
-  }, []);
+    const recent = lastSpotFrom(friend.id);
+    if (!recent) return;
+    setSpot(recent.spot);
+    setHow(recent.how);
+    setLiveUntil(recent.live ? Date.now() + 8000 : 0);
+    setStage('shown');
+  }, [friend.id]);
 
   useEffect(() => {
     const off = onLocationReply((reply: LocationReply) => {

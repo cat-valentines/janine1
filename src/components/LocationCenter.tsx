@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import {
   LIVE_MINUTES, listenForLocationAsks, listenForLocationReplies, setFriendRule, startLiveShare,
-  type LiveShare, type LocationAsk, type LocationReply, type Precision, type Spot,
+  type LiveShare, type LocationAsk, type LocationReply, type Precision,
 } from '../lib/friendLocation';
-import { publishLocationReply } from '../lib/locationBus';
-import { SpotMap } from './SpotMap';
+import { publishLocationReply, rememberSpot } from '../lib/locationBus';
 import { flashTitle, notify, stopFlashTitle } from '../lib/appNotify';
 import { startRing, stopRing } from '../lib/sfx';
 import { loadMyFriends } from '../lib/players';
@@ -35,8 +34,8 @@ export function LocationCenter() {
   /** You tapped the notification, so now you get the choice. */
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
-  /** A friend shared with you when you had no map open — shown as its own card. */
-  const [shared, setShared] = useState<{ name: string; spot: Spot; how: Precision } | null>(null);
+  /** Friends already mentioned this session, so a live share says so ONCE. */
+  const noted = useRef<Set<string>>(new Set());
   /** After pressing Share: which of the two are you sending? */
   const [choosing, setChoosing] = useState(false);
   /** A live share you have running, so there is always a way to stop it. */
@@ -44,8 +43,7 @@ export function LocationCenter() {
   const liveRef = useRef<LiveShare | null>(null);
   liveRef.current = live;
   const answer = useRef<((choice: 'yes' | 'no') => void) | null>(null);
-  /** True while a map is open and already showing answers itself. */
-  const mapWatching = useRef(false);
+
   const closeNotice = useRef<(() => void) | null>(null);
   const ringOff = useRef<number | null>(null);
   const expiry = useRef<number | null>(null);
@@ -139,16 +137,23 @@ export function LocationCenter() {
     };
 
     // One subscription to your reply channel for the whole app. It passes every
-    // answer along to any open map, and if no map is open — because the friend
-    // answered from their chat, minutes later — it shows the spot itself.
+    // answer to any open map, and keeps the latest quietly to hand.
+    //
+    // A live share sends a fresh position every few seconds, so NOTHING is
+    // popped up here — a map that keeps appearing by itself is unusable. You
+    // see somebody's location when you go to Friends and press "Where are
+    // they?", and not a moment before. The only thing said out loud is a
+    // one-line note the first time each friend starts sharing, so you know the
+    // answer arrived and where to go and look.
     let stopReplies: (() => void) | null = null;
     const listenReplies = (userId: string) => {
       stopReplies?.();
       stopReplies = listenForLocationReplies(userId, (reply: LocationReply) => {
+        rememberSpot(reply);
         publishLocationReply(reply);
-        if (mapWatching.current || reply.ev !== 'spot') return;
-        setShared({ name: reply.name, spot: reply.spot, how: reply.precision });
-        notify('📍 Location shared', `${reply.name} shared where they are.`, 'loc-shared');
+        if (reply.ev !== 'spot' || noted.current.has(reply.from)) return;
+        noted.current.add(reply.from);
+        setNote(`📍 ${reply.name} shared their location — open 👥 Friends → 📍 Where are they? to see it.`);
       });
     };
 
@@ -170,20 +175,12 @@ export function LocationCenter() {
       } else { stop?.(); stop = null; stopReplies?.(); stopReplies = null; }
     });
 
-    // A map being open means it is showing answers itself, so this stays quiet.
-    const mapOpened = () => { mapWatching.current = true; };
-    const mapClosed = () => { mapWatching.current = false; };
-    window.addEventListener('location-map-open', mapOpened);
-    window.addEventListener('location-map-close', mapClosed);
-
     return () => {
       dead = true;
       liveRef.current?.stop();
       stop?.();
       stopReplies?.();
       sub.subscription.unsubscribe();
-      window.removeEventListener('location-map-open', mapOpened);
-      window.removeEventListener('location-map-close', mapClosed);
       hush();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -271,17 +268,6 @@ export function LocationCenter() {
             </div>
             <button className="loc-back" onClick={() => setChoosing(false)}>← Back</button>
           </>}
-      </div>
-    </div>}
-
-    {/* A friend answered when you had no map open — here is where they are. */}
-    {shared && <div className="loc-map-backdrop" onClick={() => setShared(null)}>
-      <div className="loc-map" onClick={(e) => e.stopPropagation()}>
-        <div className="loc-map-top">
-          <h3>📍 {shared.name} shared their location</h3>
-          <button className="loc-close" onClick={() => setShared(null)} aria-label="Close">×</button>
-        </div>
-        <SpotMap name={shared.name} spot={shared.spot} how={shared.how} />
       </div>
     </div>}
 
